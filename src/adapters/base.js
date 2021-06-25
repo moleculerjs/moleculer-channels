@@ -52,6 +52,21 @@ class BaseAdapter {
 		}
 	}
 
+	/**
+	 * Connect to the adapter.
+	 */
+	async connect() {
+		/* istanbul ignore next */
+		throw new Error("This method is not implemented.");
+	}
+
+	/**
+	 * Disconnect from adapter
+	 */
+	async disconnect() {
+		/* istanbul ignore next */
+		throw new Error("This method is not implemented.");
+	}
 }
 
 module.exports = BaseAdapter;

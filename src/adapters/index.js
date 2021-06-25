@@ -34,6 +34,8 @@ function resolve(opt) {
 		const AdapterClass = getByName(opt);
 		if (AdapterClass) {
 			return new AdapterClass();
+		} else if (opt.startsWith("redis://") || opt.startsWith("rediss://")) {
+			return new Adapters.Redis(opt);
 		} else {
 			throw new ServiceSchemaError(`Invalid Adapter type '${opt}'.`, { type: opt });
 		}

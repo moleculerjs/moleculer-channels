@@ -19,6 +19,59 @@ npm i @moleculer/channels
 
 ## Usage
 
+**Register middleware**
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels");
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
+};
+```
+
+### Consuming messages in Moleculer services
+```js
+module.exports = {
+    name: "payments",
+    
+    actions: { /*...*/ },
+
+    channels: {
+        // Shorthand format
+        // In this case the consumer group is the service full name
+        async "order.created"(msg) {
+            // Do something with the payload `msg.params`
+            // You should throw error if you want to NACK the message processing.
+        },
+
+        "payment.processed": {
+            // Using custom consumer-group
+            group: "other",
+            async handler(msg) {
+                // Do something with the payload `msg.params`
+                // You should throw error if you want to NACK the message processing.
+            }
+        }
+    },
+
+    methods: { /*...*/ }
+}
+```
+
+### Producing messages
+```js
+broker.putChan("order.created", {
+    id: 1234,
+    items: [/*...*/]
+});
+```
+
 <!-- ## Documentation
 You can find [here the documentation](docs/README.md).
 
