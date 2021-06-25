@@ -11,9 +11,7 @@ const _ = require("lodash");
 const pkg = require("../package.json");
 
 module.exports = function DatabaseMixin(mixinOpts) {
-	mixinOpts = _.defaultsDeep(mixinOpts, {
-
-	});
+	mixinOpts = _.defaultsDeep(mixinOpts, {});
 
 	const schema = {
 		// Must overwrite it
@@ -37,28 +35,24 @@ module.exports = function DatabaseMixin(mixinOpts) {
 		/**
 		 * Default settings
 		 */
-		settings: {
-		},
+		settings: {},
 
 		/**
 		 * Actions
 		 */
-		actions: {
-
-		},
+		actions: {},
 
 		/**
 		 * Methods
 		 */
-		methods: {
-
-		},
+		methods: {},
 
 		/**
 		 * Create lifecycle hook of service
 		 */
 		created(broker) {
 			// TODO: Populate broker with new methods
+			broker.logger.info("Hello");
 		},
 
 		/**
