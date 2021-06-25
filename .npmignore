@@ -1,0 +1,14 @@
+.vscode/
+.github/
+benchmark/
+coverage/
+dev/
+docs/
+example/
+examples/
+typings/
+test/
+*.db
+.editorconfig
+.eslintrc.js
+prettier.config.js

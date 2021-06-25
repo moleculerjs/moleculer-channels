@@ -1,0 +1,69 @@
+{
+  "name": "@moleculer/channels",
+  "version": "0.0.0",
+  "description": "Reliable messages for Moleculer services",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon examples/index.js",
+    "ci:unit": "jest --testMatch \"**/unit/**/*.spec.js\" --watch",
+    "ci:integration": "jest --testMatch \"**/integration/**/*.spec.js\" --runInBand --watch",
+    "test:unit": "jest --testMatch \"**/unit/**/*.spec.js\"",
+    "test:integration": "jest --testMatch \"**/integration/**/*.spec.js\" --runInBand --coverage",
+    "test": "jest --testMatch \"**/*.spec.js\" --runInBand --coverage",
+    "lint": "eslint --ext=.js src examples test",
+    "bench": "node benchmark/index.js",
+    "bench:watch": "nodemon benchmark/index.js",
+    "deps": "npm-check -u",
+    "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
+  },
+  "keywords": [
+    "moleculer",
+    "microservice"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/moleculerjs/channels.git"
+  },
+  "author": "MoleculerJS",
+  "license": "MIT",
+  "peerDependencies": {
+    "moleculer": "^0.14.12"
+  },
+  "devDependencies": {
+    "coveralls": "^3.1.0",
+    "eslint": "^7.26.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-security": "^1.4.0",
+    "ioredis": "^4.27.6",
+    "jest": "^27.0.5",
+    "jest-cli": "^27.0.5",
+    "kleur": "^4.1.4",
+    "moleculer": "^0.14.13",
+    "moleculer-repl": "^0.6.4",
+    "nodemon": "^2.0.7",
+    "npm-check": "^5.9.2",
+    "prettier": "^2.2.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "rootDir": "./src",
+    "roots": [
+      "../test"
+    ],
+    "coverageDirectory": "../coverage",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/test/services/"
+    ]
+  },
+  "engines": {
+    "node": ">= 12.x.x"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "semver": "^7.3.5"
+  }
+}
