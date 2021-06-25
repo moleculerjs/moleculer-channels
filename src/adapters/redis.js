@@ -12,6 +12,18 @@ const { ServiceSchemaError } = require("moleculer").Errors;
 
 let Redis;
 
+/**
+ * Type defs to add some IntelliSense
+ * @typedef {import("ioredis").Cluster} Cluster
+ * @typedef {import("ioredis").Redis} Redis
+ */
+
+/**
+ * Redis Streams adapter
+ *
+ * @class RedisAdapter
+ * @extends {BaseAdapter}
+ */
 class RedisAdapter extends BaseAdapter {
 	/**
 	 * Constructor of adapter.
@@ -88,6 +100,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @memberof RedisTransporter
 	 */
 	getRedisClient(opts) {
+		/** @type {Cluster|Redis} */
 		let client;
 		if (opts && opts.cluster) {
 			if (!opts.cluster.nodes || opts.cluster.nodes.length === 0) {
