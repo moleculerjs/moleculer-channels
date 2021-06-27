@@ -69,13 +69,11 @@ class BaseAdapter {
 	}
 
 	/**
-	 * Subscribe to a channel with a handler.
+	 * Subscribe to a channel.
 	 *
-	 * @param {String} channelName
-	 * @param {Function} handler
-	 * @param {Object?} opts
+	 * @param {Channel} chan
 	 */
-	async subscribe(channelName, handler, opts) {
+	async subscribe(chan) {
 		/* istanbul ignore next */
 		throw new Error("This method is not implemented.");
 	}
@@ -83,10 +81,9 @@ class BaseAdapter {
 	/**
 	 * Unsubscribe from a channel.
 	 *
-	 * @param {String} channelName
-	 * @param {Object?} opts
+	 * @param {Channel} chan
 	 */
-	async unsubscribe(channelName, opts) {
+	async unsubscribe(chan) {
 		/* istanbul ignore next */
 		throw new Error("This method is not implemented.");
 	}

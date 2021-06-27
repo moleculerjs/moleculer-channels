@@ -123,22 +123,31 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Subscribe to a channel with a handler.
 	 *
-	 * @param {String} channelName
-	 * @param {Function} handler
-	 * @param {Object?} opts
+	 * @param {Channel} chan
 	 */
-	async subscribe(channelName, handler, opts) {
+	async subscribe(chan) {
 		// TODO
+		this.logger.info("TODO: subscribe", chan);
+
+		/* If a new message received
+		try {
+			await chan.handler(msg.payload);
+			await msg.ack();
+		} catch(err) {
+			this.logger.error(`Channel '${chan.name}' handler error`, err);
+			await msg.nack();
+		}
+		*/
 	}
 
 	/**
 	 * Unsubscribe from a channel.
 	 *
-	 * @param {String} channelName
-	 * @param {Object?} opts
+	 * @param {Channel} chan
 	 */
-	async unsubscribe(channelName, opts) {
+	async unsubscribe(chan) {
 		// TODO
+		this.logger.info("TODO: unsubscribe", chan);
 	}
 
 	/**
