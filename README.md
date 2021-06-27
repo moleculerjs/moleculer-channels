@@ -11,6 +11,11 @@ Reliable messages for Moleculer services.
 **This project is in work-in-progress. Don't use it in production.**
 
 ## Features
+- reliable messages with acknowledgement
+- multiple adapters
+- pluggable adapters
+- max-in-flight option
+- 
 
 ## Install
 <!-- ```
@@ -72,10 +77,60 @@ broker.putChan("order.created", {
 });
 ```
 
-<!-- ## Documentation
-You can find [here the documentation](docs/README.md).
+### Adapters
 
-## Benchmark
+#### Redis Streams
+[Redis Streams](https://redis.io/topics/streams-intro) is supported since Redis 5.0.
+
+**Example**
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels");
+
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
+};
+```
+
+**Example with options**
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels");
+
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {
+                    redis: {
+                        // ioredis constructor options: https://github.com/luin/ioredis#connect-to-redis
+                        host: "127.0.0.1",
+                        port: 6379,
+                        db: 3,
+                        password: "pass1234"
+                    }
+                }
+            }
+        })
+    ]
+};
+```
+
+#### Kafka
+Coming soon.
+
+#### RabbitMQ
+Coming soon.
+
+#### NATS JetStream
+Coming soon.
+
+<!-- ## Benchmark
 There is some benchmark with all adapters. [You can find the results here.](benchmark/results/common/README.md) -->
 
 ## License
