@@ -41,10 +41,11 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Initialize the adapter.
 	 *
-	 * @param {Service} service
+	 * @param {ServiceBroker} broker
+	 * @param {Logger} logger
 	 */
-	init(service) {
-		super.init(service);
+	init(broker, logger) {
+		super.init(broker, logger);
 
 		try {
 			Redis = require("ioredis");
@@ -65,20 +66,26 @@ class RedisAdapter extends BaseAdapter {
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		this.client = this.getRedisClient(this.opts.redis);
+		return new Promise((resolve, reject) => {
+			let isConnected = false;
+			this.client = this.getRedisClient(this.opts.redis);
 
-		this.client.on("connect", () => {
-			this.logger.info("Redis adapter is connected.");
-		});
+			this.client.on("connect", () => {
+				this.logger.info("Redis adapter is connected.");
+				isConnected = true;
+				resolve();
+			});
 
-		/* istanbul ignore next */
-		this.client.on("error", err => {
-			this.logger.error("Redis adapter error", err.message);
-			this.logger.debug(err);
-		});
+			/* istanbul ignore next */
+			this.client.on("error", err => {
+				this.logger.error("Redis adapter error", err.message);
+				this.logger.debug(err);
+				if (!isConnected) reject(err);
+			});
 
-		this.client.on("close", () => {
-			this.logger.warn("Redis adapter is disconnected.");
+			this.client.on("close", () => {
+				this.logger.warn("Redis adapter is disconnected.");
+			});
 		});
 	}
 

@@ -6,4 +6,7 @@
 
 "use strict";
 
-module.exports = require("./src");
+module.exports = {
+	Middleware: require("./src"),
+	Adapters: require("./src/adapters")
+};

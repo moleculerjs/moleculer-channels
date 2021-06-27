@@ -1,11 +1,15 @@
 "use strict";
 
 const { ServiceBroker } = require("moleculer");
-const ChannelsMiddleware = require("../../");
+const ChannelsMiddleware = require("../../").Middleware;
 
 // Create broker
 const broker = new ServiceBroker({
-	middlewares: [ChannelsMiddleware()]
+	middlewares: [
+		ChannelsMiddleware({
+			adapter: "redis://localhost:6379"
+		})
+	]
 });
 
 broker.createService({
@@ -19,7 +23,6 @@ broker.createService({
 		"my.second.topic": {
 			group: "other",
 			// maxInFlight: 1,
-			// adapter: "kafka://kafka:9092",
 			async handler(msg) {
 				this.logger.info("Channel Two msg received", msg);
 			}
@@ -27,6 +30,12 @@ broker.createService({
 	}
 });
 
-broker.start().then(async () => {
-	broker.repl();
-});
+broker
+	.start()
+	.then(async () => {
+		broker.repl();
+	})
+	.catch(err => {
+		broker.logger.error(err);
+		broker.stop();
+	});

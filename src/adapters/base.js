@@ -20,13 +20,13 @@ class BaseAdapter {
 	/**
 	 * Initialize the adapter.
 	 *
-	 * @param {Service} service
+	 * @param {ServiceBroker} broker
+	 * @param {Logger} logger
 	 */
-	init(service) {
-		this.service = service;
-		this.logger = service.logger;
-		this.broker = service.broker;
-		this.Promise = this.broker.Promise;
+	init(broker, logger) {
+		this.broker = broker;
+		this.logger = logger;
+		this.Promise = broker.Promise;
 	}
 
 	/**

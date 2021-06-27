@@ -27,7 +27,7 @@ npm i @moleculer/channels
 **Register middleware**
 ```js
 // moleculer.config.js
-const ChannelsMiddleware = require("@moleculer/channels");
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
     logger: true,
@@ -85,7 +85,7 @@ broker.putChan("order.created", {
 **Example**
 ```js
 // moleculer.config.js
-const ChannelsMiddleware = require("@moleculer/channels");
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
     middlewares: [
@@ -99,7 +99,7 @@ module.exports = {
 **Example with options**
 ```js
 // moleculer.config.js
-const ChannelsMiddleware = require("@moleculer/channels");
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
     middlewares: [
