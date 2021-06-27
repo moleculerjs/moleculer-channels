@@ -67,6 +67,40 @@ class BaseAdapter {
 		/* istanbul ignore next */
 		throw new Error("This method is not implemented.");
 	}
+
+	/**
+	 * Subscribe to a channel with a handler.
+	 *
+	 * @param {String} channelName
+	 * @param {Function} handler
+	 * @param {Object?} opts
+	 */
+	async subscribe(channelName, handler, opts) {
+		/* istanbul ignore next */
+		throw new Error("This method is not implemented.");
+	}
+
+	/**
+	 * Unsubscribe from a channel.
+	 *
+	 * @param {String} channelName
+	 * @param {Object?} opts
+	 */
+	async unsubscribe(channelName, opts) {
+		/* istanbul ignore next */
+		throw new Error("This method is not implemented.");
+	}
+
+	/**
+	 * Publish a payload to a channel.
+	 * @param {String} channelName
+	 * @param {any} payload
+	 * @param {Object?} opts
+	 */
+	async publish(channelName, payload, opts) {
+		/* istanbul ignore next */
+		throw new Error("This method is not implemented.");
+	}
 }
 
 module.exports = BaseAdapter;

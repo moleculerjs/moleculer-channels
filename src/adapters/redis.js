@@ -112,6 +112,37 @@ class RedisAdapter extends BaseAdapter {
 		}
 		return client;
 	}
+
+	/**
+	 * Subscribe to a channel with a handler.
+	 *
+	 * @param {String} channelName
+	 * @param {Function} handler
+	 * @param {Object?} opts
+	 */
+	async subscribe(channelName, handler, opts) {
+		// TODO
+	}
+
+	/**
+	 * Unsubscribe from a channel.
+	 *
+	 * @param {String} channelName
+	 * @param {Object?} opts
+	 */
+	async unsubscribe(channelName, opts) {
+		// TODO
+	}
+
+	/**
+	 * Publish a payload to a channel.
+	 * @param {String} channelName
+	 * @param {any} payload
+	 * @param {Object?} opts
+	 */
+	async publish(channelName, payload, opts) {
+		// TODO
+	}
 }
 
 module.exports = RedisAdapter;
