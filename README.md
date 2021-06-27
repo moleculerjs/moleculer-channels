@@ -50,16 +50,16 @@ module.exports = {
     channels: {
         // Shorthand format
         // In this case the consumer group is the service full name
-        async "order.created"(msg) {
-            // Do something with the payload `msg.params`
+        async "order.created"(payload) {
+            // Do something with the payload
             // You should throw error if you want to NACK the message processing.
         },
 
         "payment.processed": {
             // Using custom consumer-group
             group: "other",
-            async handler(msg) {
-                // Do something with the payload `msg.params`
+            async handler(payload) {
+                // Do something with the payload
                 // You should throw error if you want to NACK the message processing.
             }
         }
@@ -77,9 +77,9 @@ broker.putChan("order.created", {
 });
 ```
 
-### Adapters
+## Adapters
 
-#### Redis Streams
+### Redis Streams
 [Redis Streams](https://redis.io/topics/streams-intro) is supported since Redis 5.0.
 
 **Example**
@@ -121,13 +121,13 @@ module.exports = {
 };
 ```
 
-#### Kafka
+### Kafka
 Coming soon.
 
-#### RabbitMQ
+### RabbitMQ
 Coming soon.
 
-#### NATS JetStream
+### NATS JetStream
 Coming soon.
 
 <!-- ## Benchmark
