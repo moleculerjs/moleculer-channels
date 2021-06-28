@@ -22,6 +22,19 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 	let broker;
 	let logger;
 	let adapter;
+	let started = false;
+	let channelRegistry = [];
+
+	function registerChannel(svc, chan) {
+		unregisterChannel(svc, chan);
+		channelRegistry.push({ svc, name: chan.name, chan });
+	}
+
+	function unregisterChannel(svc, chan) {
+		channelRegistry = channelRegistry.filter(
+			item => !(item.svc.fullName == svc.fullName && (chan == null || chan.name == item.name))
+		);
+	}
 
 	return {
 		name: "Channels",
@@ -55,14 +68,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 */
 		async serviceCreated(svc) {
 			if (_.isPlainObject(svc.schema.channels)) {
-				logger.debug(
-					`Subscribe to channels of '${svc.fullName}' service...`,
-					svc.schema.channels
-				);
-
-				svc.$channels = {};
+				//svc.$channels = {};
 				// Process `channels` in the schema
-				await Promise.mapSeries(
+				await broker.Promise.mapSeries(
 					Object.entries(svc.schema.channels),
 					async ([name, def]) => {
 						let chan;
@@ -89,12 +97,17 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						if (!chan.group) chan.group = svc.fullName;
 
 						// Wrap the original handler
-						let handler = chan.handler;
+						const handler = chan.handler;
 						chan.handler = broker.Promise.method(handler).bind(svc);
 
-						svc.$channels[name] = chan;
+						//svc.$channels[name] = chan;
+						logger.debug(`Register channel in '${svc.fullName}' service...`, chan);
+						registerChannel(svc, chan);
 
-						await adapter.subscribe(chan);
+						if (started) {
+							// If middleware has already started, we should subscribe to the channel right now.
+							await adapter.subscribe(chan);
+						}
 					}
 				);
 			}
@@ -107,17 +120,14 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * @param {Service} svc
 		 */
 		async serviceStopping(svc) {
-			if (svc.$channels) {
-				logger.debug(
-					`Unsubscribe from channels of '${svc.fullName}' service...`,
-					svc.schema.channels
-				);
-
-				// Unsubscribe from `channels`
-				await Promise.mapSeries(Object.values(svc.$channels), async chan => {
-					await adapter.unsubscribe(chan);
-				});
-			}
+			await Promise.all(
+				channelRegistry
+					.filter(item => item.svc.fullName == svc.fullName)
+					.map(async ({ chan }) => {
+						await adapter.unsubscribe(chan);
+					})
+			);
+			unregisterChannel(svc);
 		},
 
 		/**
@@ -127,6 +137,15 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			logger.info("Connecting channel adapter...");
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
+
+			logger.info("Subscribing to channels...", channelRegistry.length);
+			await Promise.all(
+				channelRegistry.map(async ({ chan }) => {
+					await adapter.subscribe(chan);
+				})
+			);
+
+			started = true;
 		},
 
 		/**
@@ -136,6 +155,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			logger.info("Disconnecting channel adapter...");
 			await adapter.disconnect();
 			logger.debug("Channel adapter disconnected.");
+
+			started = false;
 		}
 	};
 };

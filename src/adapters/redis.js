@@ -156,8 +156,9 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {any} payload
 	 * @param {Object?} opts
 	 */
-	async publish(channelName, payload, opts) {
+	async publish(channelName, payload, opts = {}) {
 		// TODO
+		this.logger.info(`TODO: publish a '${channelName}' message...`, payload, opts);
 	}
 }
 
