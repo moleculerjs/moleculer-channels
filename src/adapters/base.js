@@ -27,6 +27,8 @@ class BaseAdapter {
 		this.broker = broker;
 		this.logger = logger;
 		this.Promise = broker.Promise;
+
+		if (!this.opts.consumerName) this.opts.consumerName = this.broker.nodeID;
 	}
 
 	/**
