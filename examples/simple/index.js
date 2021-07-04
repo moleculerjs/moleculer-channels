@@ -53,15 +53,13 @@ broker
 	.then(async () => {
 		broker.repl();
 
-		setInterval(async () => {
-			// await Promise.delay(500);
-			console.log("Publish 'my.first.topic' message...");
-			await broker.sendToChannel("my.first.topic", { id: 1, name: "John Doe", status: true });
+		await Promise.delay(1000);
+		console.log("Publish 'my.first.topic' message...");
+		await broker.sendToChannel("my.first.topic", { id: 1, name: "John Doe", status: true });
 
-			await Promise.delay(1500);
-			console.log("Publish 'my.second.topic' message...");
-			await broker.sendToChannel("my.second.topic", { id: 2, name: "Jane Doe", status: true });
-		}, 10000);
+		await Promise.delay(5000);
+		console.log("Publish 'my.second.topic' message...");
+		await broker.sendToChannel("my.second.topic", { id: 2, name: "Jane Doe", status: true });
 	})
 	.catch(err => {
 		broker.logger.error(err);
