@@ -126,18 +126,77 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async subscribe(chan) {
+		// https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
+		// https://github.com/NodeRedis/node-redis/issues/1394
+		// https://github.com/luin/ioredis/issues/747
+
 		// TODO
 		this.logger.info("TODO: subscribe", chan);
 
-		/* If a new message received
+		// 1. Create stream and consumer group
+		// XGROUP CREATE newstream mygroup $ MKSTREAM
 		try {
-			await chan.handler(msg.payload);
-			await msg.ack();
-		} catch(err) {
-			this.logger.error(`Channel '${chan.name}' handler error`, err);
-			await msg.nack();
+			await this.client.xgroup(
+				"CREATE",
+				`${chan.name}`, // Stream name
+				`${chan.group}`, // Consumer group
+				`$`, // only the latest data
+				`MKSTREAM` // Create stream if doesn't exist
+			);
+		} catch (error) {
+			// Silently ignore the error. Channel or Consumer Group already exists
+			// this.logger.error(error)
 		}
+
+		chan.xreadgroup = async () => {
+			// console.log(`${consumerName} is armed`)
+			const message = await this.client.xreadgroup(
+				`GROUP`,
+				`${chan.group}`, // Group name
+				`${Math.round(Math.random() * 1000)}`, // Consumer name. Auto-generated
+				`BLOCK`,
+				`0`, // Never timeout while waiting the message
+				`COUNT`,
+				`1`, // Max number of messages to receive in single read
+				`STREAMS`,
+				`${chan.name}`, // Channel name
+				`>` //  Read messages never delivered to other consumers so far
+			);
+
+			const result = this.parseMessage(message);
+
+			await chan.handler(result);
+
+			setTimeout(() => chan.xreadgroup(), 0);
+		};
+
+		// Init the subscription loop
+		chan.xreadgroup();
+		
+
+		/* If a new message received
+			try {
+				await chan.handler(msg.payload);
+				await msg.ack();
+			} catch(err) {
+				this.logger.error(`Channel '${chan.name}' handler error`, err);
+				await msg.nack();
+			}
 		*/
+	}
+
+	/**
+	 * Parse the message(s)
+	 * @param {Array} messages 
+	 * @returns {Array}
+	 */
+	parseMessage(messages) {
+		// ToDo: Improve parsing
+		let result = messages[0][1].map(entry => {
+			return { id: entry[0], message: JSON.parse(entry[1][1]) };
+		});
+
+		return result;
 	}
 
 	/**
@@ -148,6 +207,10 @@ class RedisAdapter extends BaseAdapter {
 	async unsubscribe(chan) {
 		// TODO
 		this.logger.info("TODO: unsubscribe", chan);
+
+		// 1. Delete consumer from the consumer group
+		// 2. Do NOT destroy the consumer group
+		// XGROUP DELCONSUMER mystream consumer-group-name myconsumer123
 	}
 
 	/**
@@ -159,6 +222,19 @@ class RedisAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// TODO
 		this.logger.info(`TODO: publish a '${channelName}' message...`, payload, opts);
+
+		try {
+			// https://redis.io/commands/XADD
+			const id = await this.client.xadd(
+				channelName, // Stream name
+				"*", // Auto ID
+				"payload", // Entry
+				JSON.stringify(payload) // Actual payload
+			);
+			this.logger.debug(`Message ${id} was published at ${channelName}`);
+		} catch (error) {
+			this.logger.error(`Cannot publish to '${channelName}'`, error);
+		}
 	}
 }
 
