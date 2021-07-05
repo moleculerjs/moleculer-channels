@@ -95,6 +95,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 						if (!chan.name) chan.name = name;
 						if (!chan.group) chan.group = svc.fullName;
+						
+						// Consumer ID
+						chan.id = `${broker.nodeID}|${svc.fullName}|${chan.name}`
 
 						// Wrap the original handler
 						const handler = chan.handler;

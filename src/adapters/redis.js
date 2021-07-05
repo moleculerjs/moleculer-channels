@@ -9,6 +9,7 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
+const { Serializers } = require("moleculer")
 
 let Redis;
 
@@ -36,6 +37,10 @@ class RedisAdapter extends BaseAdapter {
 		if (_.isString(opts)) opts = { redis: opts };
 
 		super(opts);
+
+		this.opts = _.defaultsDeep(this.opts, {
+			serializer: "JSON"
+		});
 
 		this.clientSub = null;
 		this.clientPub = null;
@@ -68,6 +73,10 @@ class RedisAdapter extends BaseAdapter {
 		}
 
 		this.checkClientLibVersion("ioredis", "^4.27.6");
+
+		// create an instance of serializer (default to JSON)
+		this.serializer = Serializers.resolve(this.opts.serializer);
+		this.serializer.init(this.broker);
 	}
 
 	/**
@@ -186,8 +195,8 @@ class RedisAdapter extends BaseAdapter {
 			// https://redis.io/commands/XGROUP
 			await this.clientSub.xgroup(
 				"CREATE",
-				`${chan.name}`, // Stream name
-				`${chan.group}`, // Consumer group
+				chan.name, // Stream name
+				chan.group, // Consumer group
 				`$`, // Only the latest data
 				`MKSTREAM` // Create stream if doesn't exist
 			);
@@ -196,41 +205,51 @@ class RedisAdapter extends BaseAdapter {
 			// this.logger.error(error)
 		}
 
-		// Consumer ID.
-		chan.id = this.broker.generateUid();
-
 		// Inspired on https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
 		chan.xreadgroup = async () => {
 			// Adapter is stopping. Reading no longer is allowed
 			if (this.stopping) return;
 
 			try {
+				this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
 				// https://redis.io/commands/xreadgroup
 				const message = await this.clientSub.xreadgroup(
 					`GROUP`,
-					`${chan.group}`, // Group name
-					`${chan.id}`, // Consumer name
-					`BLOCK`, `0`, // Never timeout while waiting for messages
-					`COUNT`, `1`, // Max number of messages to receive in a single read
+					chan.group, // Group name
+					chan.id, // Consumer name
+					`BLOCK`,
+					0, // Never timeout while waiting for messages
+					`COUNT`,
+					`${chan.maxInFlight || 1}`, // Max number of messages to receive in a single read
 					`STREAMS`,
-					`${chan.name}`, // Channel name
+					chan.name, // Channel name
 					`>` //  Read messages never delivered to other consumers so far
 				);
 
-				const { ids, parsedMessages } = this.parseMessage(message);
+				if (message) {
+					const { ids, parsedMessages } = this.parseMessage(message);
 
-				this.addActiveMessages(ids);
+					this.addActiveMessages(ids);
 
-				// User defined handler
-				await chan.handler(parsedMessages);
+					const promises = parsedMessages.map(entry => {
+						// Call the actual user defined handler
+						return chan.handler(entry);
+					});
 
-				// Send ACK message
-				// https://redis.io/commands/xack
-				await this.clientSub.xack(`${chan.name}`, `${chan.group}`, ids);
+					const promiseResults = await Promise.allSettled(promises);
 
-				this.removeActiveMessages(ids);
+					for (const result of promiseResults) {
+						console.log(result)
+						if (result.status == "fulfilled") {
+							// Send ACK message
+							// https://redis.io/commands/xack
+							await this.clientPub.xack(`${chan.name}`, `${chan.group}`, ids);
+							this.logger.debug(`Message(s) ${ids} is ACKed`);
+						}
 
-				this.logger.debug(`Message(s) ${ids} is ACKed`);
+						this.removeActiveMessages(ids);
+					}
+				}
 			} catch (error) {
 				this.logger.error(error);
 			}
@@ -276,8 +295,8 @@ class RedisAdapter extends BaseAdapter {
 		let parsedMessages = [];
 
 		messages[0][1].forEach(entry => {
-			ids.push(entry[0]),
-				parsedMessages.push({ id: entry[0], message: JSON.parse(entry[1][1]) });
+			ids.push(entry[0]);
+			parsedMessages.push(this.serializer.deserialize(entry[1][1]));
 		});
 
 		return { ids, parsedMessages };
@@ -297,9 +316,9 @@ class RedisAdapter extends BaseAdapter {
 		// https://redis.io/commands/XGROUP
 		await this.clientSub.xgroup(
 			"DELCONSUMER",
-			`${chan.name}`, // Stream Name
-			`${chan.group}`, // Consumer Group
-			`${chan.id}` // Consumer ID
+			chan.name, // Stream Name
+			chan.group, // Consumer Group
+			chan.id // Consumer ID
 		);
 	}
 
@@ -319,7 +338,7 @@ class RedisAdapter extends BaseAdapter {
 				channelName, // Stream name
 				"*", // Auto ID
 				"payload", // Entry
-				JSON.stringify(payload) // Actual payload
+				this.serializer.serialize(payload) // Actual payload
 			);
 			this.logger.debug(`Message ${id} was published at ${channelName}`);
 		} catch (error) {
