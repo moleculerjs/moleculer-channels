@@ -16,6 +16,8 @@ let Redis;
  * Type defs to add some IntelliSense
  * @typedef {import("ioredis").Cluster} Cluster
  * @typedef {import("ioredis").Redis} Redis
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker
+ * @typedef {import("moleculer").LoggerInstance} Logger
  */
 
 /**
@@ -180,13 +182,13 @@ class RedisAdapter extends BaseAdapter {
 		this.logger.info("TODO: subscribe", chan);
 
 		// 1. Create stream and consumer group
-		// XGROUP CREATE newstream mygroup $ MKSTREAM
 		try {
+			// https://redis.io/commands/XGROUP
 			await this.clientSub.xgroup(
 				"CREATE",
 				`${chan.name}`, // Stream name
 				`${chan.group}`, // Consumer group
-				`$`, // only the latest data
+				`$`, // Only the latest data
 				`MKSTREAM` // Create stream if doesn't exist
 			);
 		} catch (error) {
@@ -203,15 +205,13 @@ class RedisAdapter extends BaseAdapter {
 			if (this.stopping) return;
 
 			try {
-				// console.log(`${consumerName} is armed`)
+				// https://redis.io/commands/xreadgroup
 				const message = await this.clientSub.xreadgroup(
 					`GROUP`,
 					`${chan.group}`, // Group name
 					`${chan.id}`, // Consumer name
-					`BLOCK`,
-					`0`, // Never timeout while waiting for messages
-					`COUNT`,
-					`1`, // Max number of messages to receive in a single read
+					`BLOCK`, `0`, // Never timeout while waiting for messages
+					`COUNT`, `1`, // Max number of messages to receive in a single read
 					`STREAMS`,
 					`${chan.name}`, // Channel name
 					`>` //  Read messages never delivered to other consumers so far
@@ -225,6 +225,7 @@ class RedisAdapter extends BaseAdapter {
 				await chan.handler(parsedMessages);
 
 				// Send ACK message
+				// https://redis.io/commands/xack
 				await this.clientSub.xack(`${chan.name}`, `${chan.group}`, ids);
 
 				this.removeActiveMessages(ids);
@@ -239,16 +240,6 @@ class RedisAdapter extends BaseAdapter {
 
 		// Init the subscription loop
 		chan.xreadgroup();
-
-		/* If a new message received
-			try {
-				await chan.handler(msg.payload);
-				await msg.ack();
-			} catch(err) {
-				this.logger.error(`Channel '${chan.name}' handler error`, err);
-				await msg.nack();
-			}
-		*/
 	}
 
 	/**
@@ -303,7 +294,7 @@ class RedisAdapter extends BaseAdapter {
 
 		// 1. Delete consumer from the consumer group
 		// 2. Do NOT destroy the consumer group
-		// XGROUP DELCONSUMER mystream consumer-group-name myconsumer123
+		// https://redis.io/commands/XGROUP
 		await this.clientSub.xgroup(
 			"DELCONSUMER",
 			`${chan.name}`, // Stream Name
