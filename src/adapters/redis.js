@@ -9,7 +9,7 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
-const { Serializers } = require("moleculer")
+const { Serializers } = require("moleculer");
 
 let Redis;
 
@@ -193,7 +193,7 @@ class RedisAdapter extends BaseAdapter {
 		// 1. Create stream and consumer group
 		try {
 			// https://redis.io/commands/XGROUP
-			await this.clientSub.xgroup(
+			await this.clientPub.xgroup(
 				"CREATE",
 				chan.name, // Stream name
 				chan.group, // Consumer group
@@ -211,7 +211,7 @@ class RedisAdapter extends BaseAdapter {
 			if (this.stopping) return;
 
 			try {
-				this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
+				// this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
 				// https://redis.io/commands/xreadgroup
 				const message = await this.clientSub.xreadgroup(
 					`GROUP`,
@@ -239,11 +239,10 @@ class RedisAdapter extends BaseAdapter {
 					const promiseResults = await Promise.allSettled(promises);
 
 					for (const result of promiseResults) {
-						console.log(result)
 						if (result.status == "fulfilled") {
 							// Send ACK message
 							// https://redis.io/commands/xack
-							await this.clientPub.xack(`${chan.name}`, `${chan.group}`, ids);
+							await this.clientPub.xack(chan.name, chan.group, ids);
 							this.logger.debug(`Message(s) ${ids} is ACKed`);
 						}
 
@@ -314,7 +313,7 @@ class RedisAdapter extends BaseAdapter {
 		// 1. Delete consumer from the consumer group
 		// 2. Do NOT destroy the consumer group
 		// https://redis.io/commands/XGROUP
-		await this.clientSub.xgroup(
+		await this.clientPub.xgroup(
 			"DELCONSUMER",
 			chan.name, // Stream Name
 			chan.group, // Consumer Group
