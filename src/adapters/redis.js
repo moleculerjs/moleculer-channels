@@ -209,7 +209,7 @@ class RedisAdapter extends BaseAdapter {
 					`BLOCK`,
 					0, // Never timeout while waiting for messages
 					`COUNT`,
-					`${chan.maxInFlight || 1}`, // Max number of messages to receive in a single read
+					chan.maxInFlight || 1, // Max number of messages to receive in a single read
 					`STREAMS`,
 					chan.name, // Channel name
 					`>` //  Read messages never delivered to other consumers so far
