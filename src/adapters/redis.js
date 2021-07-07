@@ -83,44 +83,8 @@ class RedisAdapter extends BaseAdapter {
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		return new Promise((resolve, reject) => {
-			let isConnected = false;
-			this.clientSub = this.getRedisClient(this.opts.redis);
-
-			this.clientSub.on("connect", () => {
-				this.logger.info("Redis-Channel-Sub adapter is connected.");
-
-				this.clientPub = this.getRedisClient(this.opts.redis);
-
-				this.clientPub.on("connect", () => {
-					this.logger.info("Redis-Channel-Pub adapter is connected.");
-					isConnected = true;
-					resolve();
-
-					/* istanbul ignore next */
-					this.clientPub.on("error", err => {
-						this.logger.error("Redis-Channel-Sub adapter error", err.message);
-						this.logger.debug(err);
-						if (!isConnected) reject(err);
-					});
-
-					this.clientPub.on("close", () => {
-						this.logger.warn("Redis-Channel-Sub adapter is disconnected.");
-					});
-				});
-			});
-
-			/* istanbul ignore next */
-			this.clientSub.on("error", err => {
-				this.logger.error("Redis-Channel-Sub adapter error", err.message);
-				this.logger.debug(err);
-				if (!isConnected) reject(err);
-			});
-
-			this.clientSub.on("close", () => {
-				this.logger.warn("Redis-Channel-Sub adapter is disconnected.");
-			});
-		});
+		this.clientSub = await this.createRedisClient("Sub", this.opts.redis);
+		this.clientPub = await this.createRedisClient("Pub", this.opts.redis);
 	}
 
 	/**
@@ -148,7 +112,8 @@ class RedisAdapter extends BaseAdapter {
 							this.clientPub = null;
 
 							resolve();
-						});
+						})
+						.catch(err => reject(err));
 				} else {
 					this.logger.warn(`Processing ${this.activeMessages.length} message(s)...`);
 
@@ -161,24 +126,45 @@ class RedisAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Return redis or redis.cluster client
+	 * Return redis or redis.cluster client instance
 	 *
+	 * @param {string} name Client name
 	 * @param {any} opts
 	 *
 	 * @memberof RedisTransporter
+	 * @returns {Promise<Cluster|Redis>)}
 	 */
-	getRedisClient(opts) {
-		/** @type {Cluster|Redis} */
-		let client;
-		if (opts && opts.cluster) {
-			if (!opts.cluster.nodes || opts.cluster.nodes.length === 0) {
-				throw new ServiceSchemaError("No nodes defined for cluster");
+	createRedisClient(name, opts) {
+		return new Promise((resolve, reject) => {
+			/** @type {Cluster|Redis} */
+			let client;
+			if (opts && opts.cluster) {
+				if (!opts.cluster.nodes || opts.cluster.nodes.length === 0) {
+					throw new ServiceSchemaError("No nodes defined for cluster");
+				}
+				client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
+			} else {
+				client = new Redis(opts);
 			}
-			client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
-		} else {
-			client = new Redis(opts);
-		}
-		return client;
+
+			let isConnected = false;
+			client.on("connect", () => {
+				this.logger.info(`Redis-Channel-Client-${name} adapter is connected.`);
+				isConnected = true;
+				resolve(client);
+			});
+
+			/* istanbul ignore next */
+			client.on("error", err => {
+				this.logger.error(`Redis-Channel-Client-${name} adapter error`, err.message);
+				this.logger.debug(err);
+				if (!isConnected) reject(err);
+			});
+
+			client.on("close", () => {
+				this.logger.warn(`Redis-Channel-Client-${name} adapter is disconnected.`);
+			});
+		});
 	}
 
 	/**
@@ -202,7 +188,10 @@ class RedisAdapter extends BaseAdapter {
 			);
 		} catch (error) {
 			// Silently ignore the error. Channel or Consumer Group already exists
-			// this.logger.error(error)
+			this.logger.debug(
+				`Unable to create the '${chan.name}' stream or consumer group '${chan.group}', maybe it's already exist.`,
+				error
+			);
 		}
 
 		// Inspired on https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
@@ -289,16 +278,18 @@ class RedisAdapter extends BaseAdapter {
 	 * @returns {Array}
 	 */
 	parseMessage(messages) {
-		// ToDo: Improve parsing
-		let ids = []; // for XACK
-		let parsedMessages = [];
+		return messages[0][1].reduce(
+			(accumulator, currentVal) => {
+				accumulator.ids.push(currentVal[0]);
+				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
-		messages[0][1].forEach(entry => {
-			ids.push(entry[0]);
-			parsedMessages.push(this.serializer.deserialize(entry[1][1]));
-		});
-
-		return { ids, parsedMessages };
+				return accumulator;
+			},
+			{
+				ids: [], // for XACK
+				parsedMessages: []
+			}
+		);
 	}
 
 	/**
