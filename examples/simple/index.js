@@ -5,7 +5,10 @@ const ChannelsMiddleware = require("../../").Middleware;
 
 // Create broker
 const broker = new ServiceBroker({
-	logLevel: "debug",
+	logLevel: {
+		CHANNELS: "debug",
+		"*": "info"
+	},
 	middlewares: [
 		ChannelsMiddleware({
 			adapter: "redis://localhost:6379"

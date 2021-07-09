@@ -104,7 +104,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						chan.handler = broker.Promise.method(handler).bind(svc);
 
 						//svc.$channels[name] = chan;
-						logger.debug(`Register channel in '${svc.fullName}' service...`, chan);
+						logger.debug(
+							`Registering '${chan.name}' channel in '${svc.fullName}' service with group '${chan.group}'...`
+						);
 						registerChannel(svc, chan);
 
 						if (started) {
@@ -137,7 +139,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * Start lifecycle hook of service
 		 */
 		async started() {
-			logger.info("Connecting channel adapter...");
+			logger.info("Channel adapter is connecting...");
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
 
@@ -155,7 +157,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * Stop lifecycle hook of service
 		 */
 		async stopped() {
-			logger.info("Disconnecting channel adapter...");
+			logger.info("Channel adapter is disconnecting...");
 			await adapter.disconnect();
 			logger.debug("Channel adapter disconnected.");
 

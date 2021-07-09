@@ -77,6 +77,7 @@ class RedisAdapter extends BaseAdapter {
 		// create an instance of serializer (default to JSON)
 		this.serializer = Serializers.resolve(this.opts.serializer);
 		this.serializer.init(this.broker);
+		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
 	}
 
 	/**
@@ -173,8 +174,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async subscribe(chan) {
-		// TODO
-		this.logger.info("TODO: subscribe", chan);
+		this.logger.debug(`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`);
 
 		// 1. Create stream and consumer group
 		try {
@@ -186,12 +186,16 @@ class RedisAdapter extends BaseAdapter {
 				`$`, // Only the latest data
 				`MKSTREAM` // Create stream if doesn't exist
 			);
-		} catch (error) {
-			// Silently ignore the error. Channel or Consumer Group already exists
-			this.logger.debug(
-				`Unable to create the '${chan.name}' stream or consumer group '${chan.group}', maybe it's already exist.`,
-				error
-			);
+		} catch (err) {
+			if (err.message.includes("BUSYGROUP")) {
+				// Silently ignore the error. Channel or Consumer Group already exists
+				this.logger.debug(`Consumer group '${chan.group}' is exist.`);
+			} else {
+				this.logger.error(
+					`Unable to create the '${chan.name}' stream or consumer group '${chan.group}'.`,
+					err
+				);
+			}
 		}
 
 		// Inspired on https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
@@ -298,8 +302,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
-		// TODO
-		this.logger.info("TODO: unsubscribe", chan);
+		this.logger.debug(`Unsubscribing to '${chan.name}' chan with '${chan.group}' group...'`);
 
 		// 1. Delete consumer from the consumer group
 		// 2. Do NOT destroy the consumer group
@@ -319,8 +322,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Object?} opts
 	 */
 	async publish(channelName, payload, opts = {}) {
-		// TODO
-		this.logger.info(`TODO: publish a '${channelName}' message...`, payload, opts);
+		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
 
 		try {
 			// https://redis.io/commands/XADD
