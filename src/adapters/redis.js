@@ -174,7 +174,10 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async subscribe(chan) {
-		this.logger.debug(`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`);
+		this.logger.debug(
+			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
+			chan.id
+		);
 
 		// 1. Create stream and consumer group
 		try {
@@ -202,6 +205,8 @@ class RedisAdapter extends BaseAdapter {
 		chan.xreadgroup = async () => {
 			// Adapter is stopping. Reading no longer is allowed
 			if (this.stopping) return;
+
+			this.logger.debug(`Next xreadgroup...`, chan.id);
 
 			try {
 				// this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
@@ -236,7 +241,13 @@ class RedisAdapter extends BaseAdapter {
 							// Send ACK message
 							// https://redis.io/commands/xack
 							await this.clientPub.xack(chan.name, chan.group, ids);
-							this.logger.debug(`Message(s) ${ids} is ACKed`);
+							this.logger.debug(`Messages is ACKed.`, {
+								id: ids,
+								name: chan.name,
+								group: chan.group
+							});
+						} else {
+							// Rejected
 						}
 
 						this.removeActiveMessages(ids);
@@ -302,7 +313,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
-		this.logger.debug(`Unsubscribing to '${chan.name}' chan with '${chan.group}' group...'`);
+		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
 		// 1. Delete consumer from the consumer group
 		// 2. Do NOT destroy the consumer group
@@ -332,7 +343,7 @@ class RedisAdapter extends BaseAdapter {
 				"payload", // Entry
 				this.serializer.serialize(payload) // Actual payload
 			);
-			this.logger.debug(`Message ${id} was published at ${channelName}`);
+			this.logger.debug(`Message ${id} was published at '${channelName}'`);
 		} catch (error) {
 			this.logger.error(`Cannot publish to '${channelName}'`, error);
 		}

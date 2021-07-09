@@ -143,11 +143,10 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
 
-			logger.info("Subscribing to channels...", channelRegistry.length);
-			await Promise.all(
-				channelRegistry.map(async ({ chan }) => {
-					await adapter.subscribe(chan);
-				})
+			logger.info(`Subscribing to ${channelRegistry.length} channels...`);
+			await broker.Promise.mapSeries(
+				channelRegistry,
+				async ({ chan }) => await adapter.subscribe(chan)
 			);
 
 			started = true;
