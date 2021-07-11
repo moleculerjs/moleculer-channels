@@ -42,8 +42,11 @@ class RedisAdapter extends BaseAdapter {
 			serializer: "JSON"
 		});
 
-		this.clientSub = null;
-		this.clientPub = null;
+		/**
+		 * @type {Map<string,Cluster|Redis>}
+		 */
+		this.clients = new Map();
+		this.pubName = "Pub"; // Static name of the Publish client
 
 		// Tracks the messages that are still being processed
 		this.activeMessages = [];
@@ -84,8 +87,7 @@ class RedisAdapter extends BaseAdapter {
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		this.clientSub = await this.createRedisClient("Sub", this.opts.redis);
-		this.clientPub = await this.createRedisClient("Pub", this.opts.redis);
+		this.clients.set(this.pubName, await this.createRedisClient(this.pubName, this.opts.redis));
 	}
 
 	/**
@@ -97,23 +99,12 @@ class RedisAdapter extends BaseAdapter {
 		return new Promise((resolve, reject) => {
 			const checkPendingMessages = () => {
 				if (this.activeMessages.length === 0) {
-					return Promise.resolve()
-						.then(() => {
-							if (this.clientSub) {
-								return this.clientSub.disconnect();
-							}
-						})
-						.then(() => {
-							if (this.clientPub) {
-								return this.clientPub.disconnect();
-							}
-						})
-						.then(() => {
-							this.clientSub = null;
-							this.clientPub = null;
+					const promises = Array.from(this.clients.values()).map(client => {
+						return client.disconnect();
+					});
 
-							resolve();
-						})
+					return Promise.all(promises)
+						.then(() => resolve())
 						.catch(err => reject(err));
 				} else {
 					this.logger.warn(`Processing ${this.activeMessages.length} message(s)...`);
@@ -179,10 +170,19 @@ class RedisAdapter extends BaseAdapter {
 			chan.id
 		);
 
+		// Create a connection for current subscription
+		let chanSub;
+		if (this.clients.has(chan.id)) {
+			chanSub = this.clients.get(chan.id);
+		} else {
+			chanSub = await this.createRedisClient(chan.id, this.opts.redis);
+			this.clients.set(chan.id, chanSub);
+		}
+
 		// 1. Create stream and consumer group
 		try {
 			// https://redis.io/commands/XGROUP
-			await this.clientPub.xgroup(
+			await chanSub.xgroup(
 				"CREATE",
 				chan.name, // Stream name
 				chan.group, // Consumer group
@@ -211,18 +211,27 @@ class RedisAdapter extends BaseAdapter {
 			try {
 				// this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
 				// https://redis.io/commands/xreadgroup
-				const message = await this.clientSub.xreadgroup(
-					`GROUP`,
-					chan.group, // Group name
-					chan.id, // Consumer name
-					`BLOCK`,
-					0, // Never timeout while waiting for messages
-					`COUNT`,
-					chan.maxInFlight || 1, // Max number of messages to receive in a single read
-					`STREAMS`,
-					chan.name, // Channel name
-					`>` //  Read messages never delivered to other consumers so far
-				);
+				let message;
+				try {
+					message = await chanSub.xreadgroup(
+						`GROUP`,
+						chan.group, // Group name
+						chan.id, // Consumer name
+						`BLOCK`,
+						0, // Never timeout while waiting for messages
+						`COUNT`,
+						chan.maxInFlight || 1, // Max number of messages to receive in a single read
+						`STREAMS`,
+						chan.name, // Channel name
+						`>` //  Read messages never delivered to other consumers so far
+					);
+				} catch (error) {
+					if (chan.unsubscribing) {
+						return; // Exit the loop.
+					} else {
+						this.logger.error(error);
+					}
+				}
 
 				if (message) {
 					const { ids, parsedMessages } = this.parseMessage(message);
@@ -240,7 +249,7 @@ class RedisAdapter extends BaseAdapter {
 						if (result.status == "fulfilled") {
 							// Send ACK message
 							// https://redis.io/commands/xack
-							await this.clientPub.xack(chan.name, chan.group, ids);
+							await chanSub.xack(chan.name, chan.group, ids);
 							this.logger.debug(`Messages is ACKed.`, {
 								id: ids,
 								name: chan.name,
@@ -274,7 +283,7 @@ class RedisAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Remove IDs of the messages that are were already processed
+	 * Remove IDs of the messages that were already processed
 	 *
 	 * @param {Array} ids List of IDs
 	 */
@@ -315,15 +324,23 @@ class RedisAdapter extends BaseAdapter {
 	async unsubscribe(chan) {
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
+		const chanSub = this.clients.get(this.pubName);
+
 		// 1. Delete consumer from the consumer group
 		// 2. Do NOT destroy the consumer group
 		// https://redis.io/commands/XGROUP
-		await this.clientPub.xgroup(
+		await chanSub.xgroup(
 			"DELCONSUMER",
 			chan.name, // Stream Name
 			chan.group, // Consumer Group
 			chan.id // Consumer ID
 		);
+
+		// "Break" the xreadgroup() by disconnecting
+		chan.unsubscribing = true;
+		await this.clients.get(chan.id).disconnect();
+
+		this.clients.delete(chan.id);
 	}
 
 	/**
@@ -335,9 +352,11 @@ class RedisAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
 
+		const clientPub = this.clients.get(this.pubName);
+
 		try {
 			// https://redis.io/commands/XADD
-			const id = await this.clientPub.xadd(
+			const id = await clientPub.xadd(
 				channelName, // Stream name
 				"*", // Auto ID
 				"payload", // Entry

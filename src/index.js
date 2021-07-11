@@ -98,6 +98,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 						// Consumer ID
 						chan.id = `${broker.nodeID}|${svc.fullName}|${chan.name}`;
+						chan.unsubscribing = false;
 
 						// Wrap the original handler
 						const handler = chan.handler;
