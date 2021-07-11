@@ -3,6 +3,8 @@
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../../").Middleware;
 
+let c = 1;
+
 // Create broker
 const broker = new ServiceBroker({
 	logLevel: {
@@ -25,6 +27,21 @@ const broker = new ServiceBroker({
 					id: 2,
 					name: "Jane Doe",
 					status: false,
+					count: ++c,
+					pid: process.pid
+				});
+			}
+		},
+		{
+			command: "publish2",
+			alias: ["p2"],
+			async action(broker, args) {
+				const { options } = args;
+				//console.log(options);
+				await broker.sendToChannel("my.second.topic", {
+					id: 2,
+					name: "Jane Doe",
+					status: true,
 					pid: process.pid
 				});
 			}
@@ -71,7 +88,6 @@ broker.createService({
 	}
 });
 
-let c = 1;
 broker
 	.start()
 	.then(async () => {

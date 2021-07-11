@@ -60,9 +60,11 @@ class AmqpAdapter extends BaseAdapter {
 		this.connection = null;
 		this.channel = null;
 
+		this.subscriptions = new Map();
 		this.connected = false;
 		this.stopping = false;
 		this.connectAttempt = 0;
+		this.connectionCount = 0; // To detect reconnections
 	}
 
 	/**
@@ -94,11 +96,30 @@ class AmqpAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Connect to the adapter.
+	 * Connect to the adapter with reconnecting logic
 	 */
-	async connect() {
-		this.logger.info("Creating AMQP connection...");
+	connect() {
+		return new Promise(resolve => {
+			const doConnect = () => {
+				this.tryConnect()
+					.then(resolve)
+					.catch(err => {
+						this.logger.error("Unable to connect AMQP server.", err);
+						setTimeout(() => {
+							this.logger.info("Reconnecting...");
+							doConnect();
+						}, 2000);
+					});
+			};
 
+			doConnect();
+		});
+	}
+
+	/**
+	 * Trying connect to the adapter.
+	 */
+	async tryConnect() {
 		let uri = this.opts.amqp.url;
 		if (Array.isArray(uri)) {
 			this.connectAttempt = (this.connectAttempt || 0) + 1;
@@ -120,6 +141,10 @@ class AmqpAdapter extends BaseAdapter {
 				this.connected = false;
 				if (!this.stopping) {
 					this.logger.error("AMQP connection is closed.", err);
+					setTimeout(() => {
+						this.logger.info("Reconnecting...");
+						this.connect();
+					}, 2000);
 				} else {
 					this.logger.info("AMQP connection is closed gracefully.");
 				}
@@ -132,7 +157,7 @@ class AmqpAdapter extends BaseAdapter {
 			});
 		this.logger.info("AMQP is connected.");
 
-		this.logger.info(`Creating AMQP channel...`);
+		this.logger.debug(`Creating AMQP channel...`);
 		this.channel = await this.connection.createChannel();
 		this.channel
 			.on("close", () => {
@@ -150,6 +175,14 @@ class AmqpAdapter extends BaseAdapter {
 
 		if (this.opts.amqp.prefetch != null) {
 			this.channel.prefetch(this.opts.amqp.prefetch);
+		}
+
+		this.logger.info("AMQP channel created.");
+		this.connectionCount++;
+
+		const isReconnect = this.connectionCount > 1;
+		if (isReconnect) {
+			await this.resubscribeAllChannels();
 		}
 	}
 
@@ -186,27 +219,53 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
+		// --- CREATE EXCHANGE ---
+		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
+		const exchangeOptions = _.defaultsDeep(
+			{},
+			chan.amqp ? chan.amqp.exchangeOptions : {},
+			this.opts.amqp.exchangeOptions
+		);
+		this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
+		this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
+
+		// --- CREATE QUEUE ---
+		let queueName = `${chan.group}.${chan.name}`;
+		if (this.opts.prefix) queueName = `${this.opts.prefix}.${queueName}`;
+
 		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
 		const queueOptions = _.defaultsDeep(
 			{},
 			chan.amqp ? chan.amqp.queueOptions : {},
 			this.opts.amqp.queueOptions
 		);
-		await this.channel.assertQueue(chan.name, queueOptions);
+		this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
+		await this.channel.assertQueue(queueName, queueOptions);
+
+		// --- BIND QUEUE TO EXCHANGE ---
+		this.logger.debug(`Binding '${chan.name}' -> '${queueName}'...`);
+		this.channel.bindQueue(queueName, chan.name, "");
 
 		// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
 		const consumeOptions = _.defaultsDeep(
 			{},
 			chan.amqp ? chan.amqp.consumeOptions : {},
-			this.opts.amqp.consumeOptions,
-			{ consumerTag: chan.id }
+			this.opts.amqp.consumeOptions
 		);
 
-		await this.channel.consume(chan.name, this.createConsumerHandler(chan), consumeOptions);
+		this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
+		const consumerTag = await this.channel.consume(
+			queueName,
+			this.createConsumerHandler(chan),
+			consumeOptions
+		);
+
+		this.subscriptions.set(chan.id, { chan, consumerTag });
 	}
 
 	/**
 	 * Create a handler for the consumer.
+	 *
 	 * @param {Channel} chan
 	 * @returns {Function}
 	 */
@@ -215,7 +274,7 @@ class AmqpAdapter extends BaseAdapter {
 			try {
 				this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
 				const content = this.serializer.deserialize(msg.content);
-				this.logger.debug("Content:", content);
+				//this.logger.debug("Content:", content);
 
 				await chan.handler(content);
 				this.channel.ack(msg);
@@ -234,7 +293,19 @@ class AmqpAdapter extends BaseAdapter {
 	async unsubscribe(chan) {
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
-		await this.channel.cancel(chan.id);
+		const { consumerTag } = this.subscriptions.get(chan.id);
+		await this.channel.cancel(consumerTag);
+	}
+
+	/**
+	 * Resubscribe to all channels.
+	 * @returns {Promise<void>
+	 */
+	async resubscribeAllChannels() {
+		this.logger.info("Resubscribing to all channels...");
+		for (const { chan } of Array.from(this.subscriptions.values())) {
+			await this.subscribe(chan);
+		}
 	}
 
 	/**
@@ -252,7 +323,7 @@ class AmqpAdapter extends BaseAdapter {
 		);
 
 		const data = this.serializer.serialize(payload);
-		const res = this.channel.sendToQueue(channelName, data, messageOptions);
+		const res = this.channel.publish(channelName, "", data, messageOptions);
 		if (res === false) throw MoleculerError("AMQP publish error. Write buffer is full.");
 	}
 }

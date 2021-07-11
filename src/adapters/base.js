@@ -6,6 +6,7 @@
 
 "use strict";
 
+const _ = require("lodash");
 const semver = require("semver");
 
 /**
@@ -20,7 +21,7 @@ class BaseAdapter {
 	 * @param  {Object?} opts
 	 */
 	constructor(opts) {
-		this.opts = opts || {};
+		this.opts = _.defaultsDeep({ prefix: null }, opts);
 	}
 
 	/**
@@ -35,6 +36,7 @@ class BaseAdapter {
 		this.Promise = broker.Promise;
 
 		if (!this.opts.consumerName) this.opts.consumerName = this.broker.nodeID;
+		if (this.opts.prefix == null) this.opts.prefix = broker.namespace;
 	}
 
 	/**
