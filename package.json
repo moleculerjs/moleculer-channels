@@ -14,7 +14,8 @@
     "bench": "node benchmark/index.js",
     "bench:watch": "nodemon benchmark/index.js",
     "deps": "npm-check -u",
-    "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js"
+    "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+    "test:up": "docker-compose -f test/docker-compose.yml up -d",
   },
   "keywords": [
     "moleculer",
