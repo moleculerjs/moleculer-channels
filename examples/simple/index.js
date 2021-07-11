@@ -5,11 +5,30 @@ const ChannelsMiddleware = require("../../").Middleware;
 
 // Create broker
 const broker = new ServiceBroker({
-	logLevel: "debug",
+	logLevel: {
+		CHANNELS: "debug",
+		"**": "info"
+	},
 	middlewares: [
 		ChannelsMiddleware({
-			adapter: "redis://localhost:6379"
+			adapter: "amqp://localhost:5672"
 		})
+	],
+	replCommands: [
+		{
+			command: "publish",
+			alias: ["p"],
+			async action(broker, args) {
+				const { options } = args;
+				//console.log(options);
+				await broker.sendToChannel("my.first.topic", {
+					id: 2,
+					name: "Jane Doe",
+					status: false,
+					pid: process.pid
+				});
+			}
+		}
 	]
 });
 
@@ -19,6 +38,10 @@ broker.createService({
 	channels: {
 		async "my.first.topic"(msg) {
 			this.logger.info("[POSTS] Channel One msg received", msg);
+			/*if (Math.random() > 0.7) {
+				this.logger.warn("Throwing some error...");
+				throw new Error("Something happened");
+			}*/
 		},
 
 		"my.second.topic": {
@@ -48,18 +71,37 @@ broker.createService({
 	}
 });
 
+let c = 1;
 broker
 	.start()
 	.then(async () => {
 		broker.repl();
 
-		await Promise.delay(2000);
+		await Promise.delay(1000);
 		console.log("Publish 'my.first.topic' message...");
-		await broker.sendToChannel("my.first.topic", { id: 1, name: "John Doe", status: true });
+		await broker.sendToChannel("my.first.topic", {
+			id: 1,
+			name: "John Doe",
+			status: true,
+			count: c,
+			pid: process.pid
+		});
 
-		await Promise.delay(2000);
+		await Promise.delay(5000);
 		console.log("Publish 'my.second.topic' message...");
 		await broker.sendToChannel("my.second.topic", { id: 2, name: "Jane Doe", status: true });
+
+		/*setInterval(() => {
+			c++;
+			console.log("Publish 'my.first.topic' message...", c);
+			broker.sendToChannel("my.first.topic", {
+				id: 1,
+				name: "John Doe",
+				status: true,
+				count: c,
+				pid: process.pid
+			});
+		}, 2000);*/
 	})
 	.catch(err => {
 		broker.logger.error(err);
