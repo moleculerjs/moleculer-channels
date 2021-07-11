@@ -8,6 +8,12 @@
 
 const semver = require("semver");
 
+/**
+ * Type defs to add some IntelliSense
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker
+ * @typedef {import("moleculer").LoggerInstance} Logger
+ */
+
 class BaseAdapter {
 	/**
 	 * Constructor of adapter

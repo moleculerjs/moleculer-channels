@@ -96,12 +96,17 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						if (!chan.name) chan.name = name;
 						if (!chan.group) chan.group = svc.fullName;
 
+						// Consumer ID
+						chan.id = `${broker.nodeID}|${svc.fullName}|${chan.name}`;
+
 						// Wrap the original handler
 						const handler = chan.handler;
 						chan.handler = broker.Promise.method(handler).bind(svc);
 
 						//svc.$channels[name] = chan;
-						logger.debug(`Register channel in '${svc.fullName}' service...`, chan);
+						logger.debug(
+							`Registering '${chan.name}' channel in '${svc.fullName}' service with group '${chan.group}'...`
+						);
 						registerChannel(svc, chan);
 
 						if (started) {
@@ -134,15 +139,14 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * Start lifecycle hook of service
 		 */
 		async started() {
-			logger.info("Connecting channel adapter...");
+			logger.info("Channel adapter is connecting...");
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
 
-			logger.info("Subscribing to channels...", channelRegistry.length);
-			await Promise.all(
-				channelRegistry.map(async ({ chan }) => {
-					await adapter.subscribe(chan);
-				})
+			logger.info(`Subscribing to ${channelRegistry.length} channels...`);
+			await broker.Promise.mapSeries(
+				channelRegistry,
+				async ({ chan }) => await adapter.subscribe(chan)
 			);
 
 			started = true;
@@ -152,7 +156,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * Stop lifecycle hook of service
 		 */
 		async stopped() {
-			logger.info("Disconnecting channel adapter...");
+			logger.info("Channel adapter is disconnecting...");
 			await adapter.disconnect();
 			logger.debug("Channel adapter disconnected.");
 
