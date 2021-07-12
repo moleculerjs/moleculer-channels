@@ -99,11 +99,17 @@ class RedisAdapter extends BaseAdapter {
 		return new Promise((resolve, reject) => {
 			const checkPendingMessages = () => {
 				if (this.activeMessages.length === 0) {
+					// Stop the publisher client
+					// The subscriber clients are stopped in unsubscribe() method, which is called in serviceStopping()
 					const promises = Array.from(this.clients.values()).map(client => {
 						return client.disconnect();
 					});
 
 					return Promise.all(promises)
+						.then(() => {
+							// Release the pointers
+							this.clients = new Map();
+						})
 						.then(() => resolve())
 						.catch(err => reject(err));
 				} else {
@@ -227,6 +233,7 @@ class RedisAdapter extends BaseAdapter {
 					);
 				} catch (error) {
 					if (chan.unsubscribing) {
+						// Caused by unsubscribe()
 						return; // Exit the loop.
 					} else {
 						this.logger.error(error);
@@ -336,10 +343,12 @@ class RedisAdapter extends BaseAdapter {
 			chan.id // Consumer ID
 		);
 
-		// "Break" the xreadgroup() by disconnecting
+		// "Break" the xreadgroup() by disconnecting the client
+		// Will trigger an error that has to be handled
 		chan.unsubscribing = true;
 		await this.clients.get(chan.id).disconnect();
 
+		// Unsubscribed. Delete the client and release the memory
 		this.clients.delete(chan.id);
 	}
 
@@ -350,6 +359,9 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Object?} opts
 	 */
 	async publish(channelName, payload, opts = {}) {
+		// Adapter is stopping. Publishing no longer is allowed
+		if (this.stopping) return;
+
 		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
 
 		const clientPub = this.clients.get(this.pubName);
