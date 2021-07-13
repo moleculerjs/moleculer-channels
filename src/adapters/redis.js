@@ -198,7 +198,7 @@ class RedisAdapter extends BaseAdapter {
 		} catch (err) {
 			if (err.message.includes("BUSYGROUP")) {
 				// Silently ignore the error. Channel or Consumer Group already exists
-				this.logger.debug(`Consumer group '${chan.group}' is exist.`);
+				this.logger.debug(`Consumer group '${chan.group}' already exists.`);
 			} else {
 				this.logger.error(
 					`Unable to create the '${chan.name}' stream or consumer group '${chan.group}'.`,
