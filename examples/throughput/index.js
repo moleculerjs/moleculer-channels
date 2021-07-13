@@ -20,19 +20,25 @@ let count = 0;
 broker.createService({
 	name: "posts",
 	channels: {
-		"my.topic"() {
-			count++;
-			if (count == MAX) {
-				const diff = process.hrtime(startTime);
-				console.log(`${count} messages processed in ${diff[0]}s ${diff[1] / 1000000}ms`);
-				const ms = diff[0] / 1000 + diff[1] / 1000000;
-				const thr = MAX / ms;
-				console.log(
-					`Throughput: ${thr.toLocaleString("hu-HU", {
-						maximumFractionDigits: 0
-					})} msg/sec`
-				);
-				broker.stop();
+		"my.topic": {
+			maxInFlight: 10,
+			handler(msg) {
+				count++;
+				if (count == MAX) {
+					const diff = process.hrtime(startTime);
+					console.log(
+						`${count} messages processed in ${diff[0]}s ${diff[1] / 1000000}ms`
+					);
+					const sec = diff[0] + diff[1] / 1e9;
+					const thr = MAX / sec;
+					console.log(
+						`Throughput: ${thr.toLocaleString("hu-HU", {
+							maximumFractionDigits: 0
+						})} msg/sec`
+					);
+					console.log("Stop broker");
+					broker.stop();
+				}
 			}
 		}
 	}
