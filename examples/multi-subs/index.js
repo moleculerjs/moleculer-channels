@@ -1,7 +1,7 @@
 "use strict";
 
 const { ServiceBroker } = require("moleculer");
-const ChannelsMiddleware = require("../../").Middleware;
+const ChannelsMiddleware = require("../..").Middleware;
 
 function createBrokerService(numbBrokers, numChannels) {
 	let brokerList = [];
