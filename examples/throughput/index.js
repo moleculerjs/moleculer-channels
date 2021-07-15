@@ -52,7 +52,10 @@ broker
 
 			console.log(`Start publish ${MAX} messages...`);
 			for (let i = 0; i < MAX; i++) {
-				broker.sendToChannel("my.topic", { count: i });
+				broker.sendToChannel("my.topic", { count: i }).catch(err => {
+					console.error(`Unable to send at ${i} of ${MAX}. Received: ${count}`, err);
+					process.exit(1);
+				});
 			}
 			console.log(`Waiting for consumers...`);
 		}, 1000);

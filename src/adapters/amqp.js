@@ -254,13 +254,13 @@ class AmqpAdapter extends BaseAdapter {
 		);
 
 		this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
-		const consumerTag = await this.channel.consume(
+		const res = await this.channel.consume(
 			queueName,
 			this.createConsumerHandler(chan),
 			consumeOptions
 		);
 
-		this.subscriptions.set(chan.id, { chan, consumerTag });
+		this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });
 	}
 
 	/**
@@ -324,7 +324,7 @@ class AmqpAdapter extends BaseAdapter {
 
 		const data = this.serializer.serialize(payload);
 		const res = this.channel.publish(channelName, "", data, messageOptions);
-		if (res === false) throw MoleculerError("AMQP publish error. Write buffer is full.");
+		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 	}
 }
 
