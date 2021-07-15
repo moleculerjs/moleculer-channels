@@ -9,6 +9,7 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
+const { Serializers } = require("moleculer");
 
 let Redis;
 
@@ -16,6 +17,8 @@ let Redis;
  * Type defs to add some IntelliSense
  * @typedef {import("ioredis").Cluster} Cluster
  * @typedef {import("ioredis").Redis} Redis
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker
+ * @typedef {import("moleculer").LoggerInstance} Logger
  */
 
 /**
@@ -35,7 +38,20 @@ class RedisAdapter extends BaseAdapter {
 
 		super(opts);
 
-		this.client = null;
+		this.opts = _.defaultsDeep(this.opts, {
+			serializer: "JSON"
+		});
+
+		/**
+		 * @type {Map<string,Cluster|Redis>}
+		 */
+		this.clients = new Map();
+		this.pubName = "Pub"; // Static name of the Publish client
+
+		// Tracks the messages that are still being processed
+		this.activeMessages = [];
+
+		this.stopping = false;
 	}
 
 	/**
@@ -60,64 +76,93 @@ class RedisAdapter extends BaseAdapter {
 		}
 
 		this.checkClientLibVersion("ioredis", "^4.27.6");
+
+		// create an instance of serializer (default to JSON)
+		this.serializer = Serializers.resolve(this.opts.serializer);
+		this.serializer.init(this.broker);
+		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
 	}
 
 	/**
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		return new Promise((resolve, reject) => {
-			let isConnected = false;
-			this.client = this.getRedisClient(this.opts.redis);
-
-			this.client.on("connect", () => {
-				this.logger.info("Redis adapter is connected.");
-				isConnected = true;
-				resolve();
-			});
-
-			/* istanbul ignore next */
-			this.client.on("error", err => {
-				this.logger.error("Redis adapter error", err.message);
-				this.logger.debug(err);
-				if (!isConnected) reject(err);
-			});
-
-			this.client.on("close", () => {
-				this.logger.warn("Redis adapter is disconnected.");
-			});
-		});
+		this.clients.set(this.pubName, await this.createRedisClient(this.pubName, this.opts.redis));
 	}
 
 	/**
 	 * Disconnect from adapter
 	 */
 	async disconnect() {
-		if (this.client) {
-			await this.client.disconnect();
-			this.client = null;
-		}
+		this.stopping = true;
+
+		return new Promise((resolve, reject) => {
+			const checkPendingMessages = () => {
+				if (this.activeMessages.length === 0) {
+					// Stop the publisher client
+					// The subscriber clients are stopped in unsubscribe() method, which is called in serviceStopping()
+					const promises = Array.from(this.clients.values()).map(client => {
+						return client.disconnect();
+					});
+
+					return Promise.all(promises)
+						.then(() => {
+							// Release the pointers
+							this.clients = new Map();
+						})
+						.then(() => resolve())
+						.catch(err => reject(err));
+				} else {
+					this.logger.warn(`Processing ${this.activeMessages.length} message(s)...`);
+
+					setTimeout(checkPendingMessages, 100);
+				}
+			};
+
+			setImmediate(checkPendingMessages);
+		});
 	}
 
 	/**
-	 * Return redis or redis.cluster client
+	 * Return redis or redis.cluster client instance
 	 *
+	 * @param {string} name Client name
 	 * @param {any} opts
 	 *
 	 * @memberof RedisTransporter
+	 * @returns {Promise<Cluster|Redis>)}
 	 */
-	getRedisClient(opts) {
-		/** @type {Cluster|Redis} */
-		let client;
-		if (opts && opts.cluster) {
-			if (!opts.cluster.nodes || opts.cluster.nodes.length === 0) {
-				throw new ServiceSchemaError("No nodes defined for cluster");
+	createRedisClient(name, opts) {
+		return new Promise((resolve, reject) => {
+			/** @type {Cluster|Redis} */
+			let client;
+			if (opts && opts.cluster) {
+				if (!opts.cluster.nodes || opts.cluster.nodes.length === 0) {
+					throw new ServiceSchemaError("No nodes defined for cluster");
+				}
+				client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
+			} else {
+				client = new Redis(opts);
 			}
-			client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
-		} else {
-			client = new Redis(opts);
-		}
-		return client;
+
+			let isConnected = false;
+			client.on("connect", () => {
+				this.logger.info(`Redis-Channel-Client-${name} adapter is connected.`);
+				isConnected = true;
+				resolve(client);
+			});
+
+			/* istanbul ignore next */
+			client.on("error", err => {
+				this.logger.error(`Redis-Channel-Client-${name} adapter error`, err.message);
+				this.logger.debug(err);
+				if (!isConnected) reject(err);
+			});
+
+			client.on("close", () => {
+				this.logger.warn(`Redis-Channel-Client-${name} adapter is disconnected.`);
+			});
+		});
 	}
 
 	/**
@@ -126,18 +171,156 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async subscribe(chan) {
-		// TODO
-		this.logger.info("TODO: subscribe", chan);
+		this.logger.debug(
+			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
+			chan.id
+		);
 
-		/* If a new message received
-		try {
-			await chan.handler(msg.payload);
-			await msg.ack();
-		} catch(err) {
-			this.logger.error(`Channel '${chan.name}' handler error`, err);
-			await msg.nack();
+		// Create a connection for current subscription
+		let chanSub;
+		if (this.clients.has(chan.id)) {
+			chanSub = this.clients.get(chan.id);
+		} else {
+			chanSub = await this.createRedisClient(chan.id, this.opts.redis);
+			this.clients.set(chan.id, chanSub);
 		}
-		*/
+
+		// 1. Create stream and consumer group
+		try {
+			// https://redis.io/commands/XGROUP
+			await chanSub.xgroup(
+				"CREATE",
+				chan.name, // Stream name
+				chan.group, // Consumer group
+				`$`, // Only the latest data
+				`MKSTREAM` // Create stream if doesn't exist
+			);
+		} catch (err) {
+			if (err.message.includes("BUSYGROUP")) {
+				// Silently ignore the error. Channel or Consumer Group already exists
+				this.logger.debug(`Consumer group '${chan.group}' already exists.`);
+			} else {
+				this.logger.error(
+					`Unable to create the '${chan.name}' stream or consumer group '${chan.group}'.`,
+					err
+				);
+			}
+		}
+
+		// Inspired on https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
+		chan.xreadgroup = async () => {
+			// Adapter is stopping. Reading no longer is allowed
+			if (this.stopping) return;
+
+			this.logger.debug(`Next xreadgroup...`, chan.id);
+
+			try {
+				// this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
+				// https://redis.io/commands/xreadgroup
+				let message;
+				try {
+					message = await chanSub.xreadgroup(
+						`GROUP`,
+						chan.group, // Group name
+						chan.id, // Consumer name
+						`BLOCK`,
+						0, // Never timeout while waiting for messages
+						`COUNT`,
+						chan.maxInFlight || 1, // Max number of messages to receive in a single read
+						`STREAMS`,
+						chan.name, // Channel name
+						`>` //  Read messages never delivered to other consumers so far
+					);
+				} catch (error) {
+					if (chan.unsubscribing) {
+						// Caused by unsubscribe()
+						return; // Exit the loop.
+					} else {
+						this.logger.error(error);
+					}
+				}
+
+				if (message) {
+					const { ids, parsedMessages } = this.parseMessage(message);
+
+					this.addActiveMessages(ids);
+
+					const promises = parsedMessages.map(entry => {
+						// Call the actual user defined handler
+						return chan.handler(entry);
+					});
+
+					const promiseResults = await Promise.allSettled(promises);
+
+					for (const result of promiseResults) {
+						if (result.status == "fulfilled") {
+							// Send ACK message
+							// https://redis.io/commands/xack
+							await chanSub.xack(chan.name, chan.group, ids);
+							this.logger.debug(`Messages is ACKed.`, {
+								id: ids,
+								name: chan.name,
+								group: chan.group
+							});
+						} else {
+							// Rejected
+						}
+
+						this.removeActiveMessages(ids);
+					}
+				}
+			} catch (error) {
+				this.logger.error(error);
+			}
+
+			setTimeout(() => chan.xreadgroup(), 0);
+		};
+
+		// Init the subscription loop
+		chan.xreadgroup();
+	}
+
+	/**
+	 * Add IDs of the messages that are currently being processed
+	 *
+	 * @param {Array} ids List of IDs
+	 */
+	addActiveMessages(ids) {
+		this.activeMessages.push(...ids);
+	}
+
+	/**
+	 * Remove IDs of the messages that were already processed
+	 *
+	 * @param {Array} ids List of IDs
+	 */
+	removeActiveMessages(ids) {
+		ids.forEach(id => {
+			let idx = this.activeMessages.indexOf(id);
+			if (idx != -1) {
+				this.activeMessages.splice(idx, 1);
+			}
+		});
+	}
+
+	/**
+	 * Parse the message(s)
+	 * @param {Array} messages
+	 * @returns {Array}
+	 */
+	parseMessage(messages) {
+		return messages[0][1].reduce(
+			(accumulator, currentVal) => {
+				accumulator.ids.push(currentVal[0]);
+				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+
+				return accumulator;
+			},
+			{
+				ids: [], // for XACK
+				parsedMessages: []
+			}
+		);
 	}
 
 	/**
@@ -146,8 +329,27 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
-		// TODO
-		this.logger.info("TODO: unsubscribe", chan);
+		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
+
+		const chanSub = this.clients.get(this.pubName);
+
+		// 1. Delete consumer from the consumer group
+		// 2. Do NOT destroy the consumer group
+		// https://redis.io/commands/XGROUP
+		await chanSub.xgroup(
+			"DELCONSUMER",
+			chan.name, // Stream Name
+			chan.group, // Consumer Group
+			chan.id // Consumer ID
+		);
+
+		// "Break" the xreadgroup() by disconnecting the client
+		// Will trigger an error that has to be handled
+		chan.unsubscribing = true;
+		await this.clients.get(chan.id).disconnect();
+
+		// Unsubscribed. Delete the client and release the memory
+		this.clients.delete(chan.id);
 	}
 
 	/**
@@ -157,8 +359,25 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Object?} opts
 	 */
 	async publish(channelName, payload, opts = {}) {
-		// TODO
-		this.logger.info(`TODO: publish a '${channelName}' message...`, payload, opts);
+		// Adapter is stopping. Publishing no longer is allowed
+		if (this.stopping) return;
+
+		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
+
+		const clientPub = this.clients.get(this.pubName);
+
+		try {
+			// https://redis.io/commands/XADD
+			const id = await clientPub.xadd(
+				channelName, // Stream name
+				"*", // Auto ID
+				"payload", // Entry
+				this.serializer.serialize(payload) // Actual payload
+			);
+			this.logger.debug(`Message ${id} was published at '${channelName}'`);
+		} catch (error) {
+			this.logger.error(`Cannot publish to '${channelName}'`, error);
+		}
 	}
 }
 
