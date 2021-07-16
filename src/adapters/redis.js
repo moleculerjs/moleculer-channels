@@ -48,9 +48,6 @@ class RedisAdapter extends BaseAdapter {
 		this.clients = new Map();
 		this.pubName = "Pub"; // Static name of the Publish client
 
-		// Tracks the messages that are still being processed
-		this.activeMessages = [];
-
 		this.stopping = false;
 	}
 
@@ -98,7 +95,7 @@ class RedisAdapter extends BaseAdapter {
 
 		return new Promise((resolve, reject) => {
 			const checkPendingMessages = () => {
-				if (this.activeMessages.length === 0) {
+				if (this.getNumberOfTrackedChannels() === 0) {
 					// Stop the publisher client
 					// The subscriber clients are stopped in unsubscribe() method, which is called in serviceStopping()
 					const promises = Array.from(this.clients.values()).map(client => {
@@ -113,7 +110,9 @@ class RedisAdapter extends BaseAdapter {
 						.then(() => resolve())
 						.catch(err => reject(err));
 				} else {
-					this.logger.warn(`Processing ${this.activeMessages.length} message(s)...`);
+					this.logger.warn(
+						`Processing ${this.getNumberOfTrackedChannels()} active connections(s)...`
+					);
 
 					setTimeout(checkPendingMessages, 100);
 				}
@@ -185,6 +184,8 @@ class RedisAdapter extends BaseAdapter {
 			this.clients.set(chan.id, chanSub);
 		}
 
+		this.initChannelActiveMessages(chan.id);
+
 		// 1. Create stream and consumer group
 		try {
 			// https://redis.io/commands/XGROUP
@@ -243,7 +244,7 @@ class RedisAdapter extends BaseAdapter {
 				if (message) {
 					const { ids, parsedMessages } = this.parseMessage(message);
 
-					this.addActiveMessages(ids);
+					this.addChannelActiveMessages(chan.id, ids);
 
 					const promises = parsedMessages.map(entry => {
 						// Call the actual user defined handler
@@ -266,7 +267,7 @@ class RedisAdapter extends BaseAdapter {
 							// Rejected
 						}
 
-						this.removeActiveMessages(ids);
+						this.removeChannelActiveMessages(chan.id, ids);
 					}
 				}
 			} catch (error) {
@@ -278,29 +279,6 @@ class RedisAdapter extends BaseAdapter {
 
 		// Init the subscription loop
 		chan.xreadgroup();
-	}
-
-	/**
-	 * Add IDs of the messages that are currently being processed
-	 *
-	 * @param {Array} ids List of IDs
-	 */
-	addActiveMessages(ids) {
-		this.activeMessages.push(...ids);
-	}
-
-	/**
-	 * Remove IDs of the messages that were already processed
-	 *
-	 * @param {Array} ids List of IDs
-	 */
-	removeActiveMessages(ids) {
-		ids.forEach(id => {
-			let idx = this.activeMessages.indexOf(id);
-			if (idx != -1) {
-				this.activeMessages.splice(idx, 1);
-			}
-		});
 	}
 
 	/**
@@ -329,27 +307,55 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
-		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
+		return new Promise((resolve, reject) => {
+			const checkPendingMessages = () => {
+				if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
+					this.logger.debug(
+						`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+					);
 
-		const chanSub = this.clients.get(this.pubName);
+					return Promise.resolve()
+						.then(() => {
+							const chanSub = this.clients.get(this.pubName);
+							// 1. Delete consumer from the consumer group
+							// 2. Do NOT destroy the consumer group
+							// https://redis.io/commands/XGROUP
+							return chanSub.xgroup(
+								"DELCONSUMER",
+								chan.name, // Stream Name
+								chan.group, // Consumer Group
+								chan.id // Consumer ID
+							);
+						})
+						.then(() => {
+							// "Break" the xreadgroup() by disconnecting the client
+							// Will trigger an error that has to be handled
+							chan.unsubscribing = true;
+							return this.clients.get(chan.id).disconnect();
+						})
+						.then(() => {
+							// Unsubscribed. Delete the client and release the memory
+							this.clients.delete(chan.id);
 
-		// 1. Delete consumer from the consumer group
-		// 2. Do NOT destroy the consumer group
-		// https://redis.io/commands/XGROUP
-		await chanSub.xgroup(
-			"DELCONSUMER",
-			chan.name, // Stream Name
-			chan.group, // Consumer Group
-			chan.id // Consumer ID
-		);
+							// Stop tracking channel's active messages
+							this.stopChannelActiveMessages(chan.id);
 
-		// "Break" the xreadgroup() by disconnecting the client
-		// Will trigger an error that has to be handled
-		chan.unsubscribing = true;
-		await this.clients.get(chan.id).disconnect();
+							resolve();
+						})
+						.catch(err => reject(err));
+				} else {
+					this.logger.warn(
+						`Processing ${this.getNumberOfChannelActiveMessages(
+							chan.id
+						)} message(s) of ${chan.id}...`
+					);
 
-		// Unsubscribed. Delete the client and release the memory
-		this.clients.delete(chan.id);
+					setTimeout(checkPendingMessages, 100);
+				}
+			};
+
+			setImmediate(checkPendingMessages);
+		});
 	}
 
 	/**
