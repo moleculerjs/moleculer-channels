@@ -15,7 +15,7 @@ function createBrokerService(numbBrokers, numChannels) {
 			},
 			middlewares: [
 				ChannelsMiddleware({
-					adapter: "redis://localhost:6379"
+					adapter: process.env.ADAPTER || "redis://localhost:6379"
 				})
 			],
 			replCommands: [

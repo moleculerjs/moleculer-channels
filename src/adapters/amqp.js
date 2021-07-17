@@ -42,7 +42,7 @@ class AmqpAdapter extends BaseAdapter {
 		super(opts);
 
 		this.opts.amqp = _.defaultsDeep(this.opts.amqp, {
-			prefetch: 1,
+			//prefetch: 1,
 			socketOptions: {},
 			queueOptions: {},
 			exchangeOptions: {},
