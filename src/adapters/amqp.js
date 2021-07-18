@@ -42,7 +42,7 @@ class AmqpAdapter extends BaseAdapter {
 		super(opts);
 
 		this.opts.amqp = _.defaultsDeep(this.opts.amqp, {
-			prefetch: 1,
+			//prefetch: 1,
 			socketOptions: {},
 			queueOptions: {},
 			exchangeOptions: {},
@@ -190,22 +190,20 @@ class AmqpAdapter extends BaseAdapter {
 	 * Disconnect from adapter
 	 */
 	async disconnect() {
+		if (this.stopping) return;
+
 		this.stopping = true;
 		try {
-			if (this.channel) {
-				this.logger.info("Closing AMQP channel...");
-				await this.channel.close();
-				this.channel = null;
-			}
-
 			if (this.connection) {
 				this.logger.info("Closing AMQP connection...");
 				await this.connection.close();
 				this.connection = null;
+				this.channel = null;
 			}
 		} catch (err) {
 			this.logger.error("Error while closing AMQP connection.", err);
 		}
+		this.stopping = false;
 	}
 
 	/**

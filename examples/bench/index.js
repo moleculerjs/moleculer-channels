@@ -22,8 +22,10 @@ function doPublish() {
 broker.createService({
 	name: "posts",
 	channels: {
-		"my.topic"() {
-			doPublish();
+		"my.topic": {
+			handler() {
+				doPublish();
+			}
 		}
 	}
 });

@@ -13,7 +13,7 @@ const broker = new ServiceBroker({
 	},
 	middlewares: [
 		ChannelsMiddleware({
-			adapter: "amqp://localhost:5672"
+			adapter: process.env.ADAPTER || "redis://localhost:6379"
 		})
 	],
 	replCommands: [
