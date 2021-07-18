@@ -242,6 +242,8 @@ class RedisAdapter extends BaseAdapter {
 				}
 
 				if (message) {
+					chan.messageLock = true;
+
 					const { ids, parsedMessages } = this.parseMessage(message);
 
 					this.addChannelActiveMessages(chan.id, ids);
@@ -257,7 +259,9 @@ class RedisAdapter extends BaseAdapter {
 						if (result.status == "fulfilled") {
 							// Send ACK message
 							// https://redis.io/commands/xack
-							await chanSub.xack(chan.name, chan.group, ids);
+							// Use pubClient to ensure that ACK is delivered to redis
+							const pubClient = this.clients.get(this.pubName);
+							await pubClient.xack(chan.name, chan.group, ids);
 							this.logger.debug(`Messages is ACKed.`, {
 								id: ids,
 								name: chan.name,
@@ -269,6 +273,8 @@ class RedisAdapter extends BaseAdapter {
 
 						this.removeChannelActiveMessages(chan.id, ids);
 					}
+
+					chan.messageLock = false;
 				}
 			} catch (error) {
 				this.logger.error(error);
@@ -307,55 +313,64 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
-		return new Promise((resolve, reject) => {
-			const checkPendingMessages = () => {
-				if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
-					this.logger.debug(
-						`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
-					);
+		return (
+			Promise.resolve()
+				.then(() => {
+					// "Break" the xreadgroup() by disconnecting the client
+					// Will trigger an error that has to be handled
+					chan.unsubscribing = true;
+					this.clients.get(chan.id).disconnect();
+				})
+				// Add delay to ensure that client is disconnected
+				.then(() => new Promise(resolve => setTimeout(resolve, 100)))
+				.then(() => {
+					return new Promise((resolve, reject) => {
+						const checkPendingMessages = () => {
+							if (
+								this.getNumberOfChannelActiveMessages(chan.id) === 0 &&
+								chan.messageLock === false
+							) {
+								this.logger.debug(
+									`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+								);
 
-					return Promise.resolve()
-						.then(() => {
-							const chanSub = this.clients.get(this.pubName);
-							// 1. Delete consumer from the consumer group
-							// 2. Do NOT destroy the consumer group
-							// https://redis.io/commands/XGROUP
-							return chanSub.xgroup(
-								"DELCONSUMER",
-								chan.name, // Stream Name
-								chan.group, // Consumer Group
-								chan.id // Consumer ID
-							);
-						})
-						.then(() => {
-							// "Break" the xreadgroup() by disconnecting the client
-							// Will trigger an error that has to be handled
-							chan.unsubscribing = true;
-							return this.clients.get(chan.id).disconnect();
-						})
-						.then(() => {
-							// Unsubscribed. Delete the client and release the memory
-							this.clients.delete(chan.id);
+								return Promise.resolve()
+									.then(() => {
+										// Unsubscribed. Delete the client and release the memory
+										this.clients.delete(chan.id);
 
-							// Stop tracking channel's active messages
-							this.stopChannelActiveMessages(chan.id);
+										// Stop tracking channel's active messages
+										this.stopChannelActiveMessages(chan.id);
+									})
+									.then(() => {
+										const pubClient = this.clients.get(this.pubName);
+										// 1. Delete consumer from the consumer group
+										// 2. Do NOT destroy the consumer group
+										// https://redis.io/commands/XGROUP
+										return pubClient.xgroup(
+											"DELCONSUMER",
+											chan.name, // Stream Name
+											chan.group, // Consumer Group
+											chan.id // Consumer ID
+										);
+									})
+									.then(() => resolve())
+									.catch(err => reject(err));
+							} else {
+								this.logger.warn(
+									`Processing ${this.getNumberOfChannelActiveMessages(
+										chan.id
+									)} message(s) of ${chan.id}...`
+								);
 
-							resolve();
-						})
-						.catch(err => reject(err));
-				} else {
-					this.logger.warn(
-						`Processing ${this.getNumberOfChannelActiveMessages(
-							chan.id
-						)} message(s) of ${chan.id}...`
-					);
+								setTimeout(checkPendingMessages, 100);
+							}
+						};
 
-					setTimeout(checkPendingMessages, 100);
-				}
-			};
-
-			setImmediate(checkPendingMessages);
-		});
+						setImmediate(checkPendingMessages);
+					});
+				})
+		);
 	}
 
 	/**
