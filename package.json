@@ -59,8 +59,7 @@
     ],
     "coverageDirectory": "../coverage",
     "coveragePathIgnorePatterns": [
-      "/node_modules/",
-      "/test/services/"
+      "/node_modules/"
     ]
   },
   "engines": {
