@@ -1,0 +1,54 @@
+name: Benchmark Test
+
+on: [workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Use Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: 14.x
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Start containers
+      run: docker-compose up -d
+      working-directory: ./test
+
+    - name: Sleeping 30 secs
+      run: sleep 30
+
+    - name: Check containers
+      run: docker-compose ps
+      working-directory: ./test
+
+    - name: Run benchmark tests
+      run: npm run bench
+      timeout-minutes: 15
+      env:
+        GITHUB_ACTIONS_CI: true
+
+    - name: Show container logs (in case of failure)
+      run: docker-compose logs
+      if: failure()
+      working-directory: ./test
+
+    - name: Stop containers
+      run: docker-compose down -v
+      working-directory: ./test
+
+    - name: Commit the result
+      if: success()
+      uses: EndBug/add-and-commit@v7 # You can change this to use a specific version
+      with:
+        # The arguments for the `git add` command (see the paragraph below for more info)
+        # Default: '.'
+        add: './benchmark/results'
+        default_author: github_actions
+        push: true

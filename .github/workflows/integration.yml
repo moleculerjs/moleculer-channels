@@ -1,0 +1,82 @@
+name: Integration Test
+
+on:
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - 'benchmark/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '*.md'
+
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'benchmark/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '*.md'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [12.x, 14.x, 16.x]
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v1
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies
+      run: npm ci
+
+    #- name: Run unit tests
+    #  run: npm run test:unit
+
+    - name: Start containers
+      run: docker-compose up -d
+      working-directory: ./test
+
+    - name: Sleeping 30 secs
+      run: sleep 30
+
+    - name: Check containers
+      run: docker-compose ps
+      working-directory: ./test
+
+    - name: Check logs
+      run: docker-compose logs
+      working-directory: ./test
+
+    - name: Run integration tests
+      run: npm run test:integration
+      env:
+        GITHUB_ACTIONS_CI: true
+
+    # - name: Run leak detection tests
+    #   run: npm run test:leak
+    #   env:
+    #     GITHUB_ACTIONS_CI: true
+
+    - name: Show container logs (in case of failure)
+      run: docker-compose logs
+      if: failure()
+      working-directory: ./test
+
+    - name: Stop containers
+      run: docker-compose down -v
+      working-directory: ./test
+
+    #- name: Upload code coverage
+    #  run: npm run coverall
+    #  if: success() && github.ref == 'refs/heads/master'
+    #  env:
+    #    COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
