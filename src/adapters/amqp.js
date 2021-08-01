@@ -161,7 +161,9 @@ class AmqpAdapter extends BaseAdapter {
 		this.channel = await this.connection.createChannel();
 		this.channel
 			.on("close", () => {
-				this.logger.error("AMQP channel closed.");
+				if (!this.stopping) {
+					this.logger.error("AMQP channel closed.");
+				}
 			})
 			.on("error", err => {
 				this.logger.error("AMQP channel error", err);

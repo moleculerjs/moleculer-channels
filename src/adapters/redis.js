@@ -159,7 +159,7 @@ class RedisAdapter extends BaseAdapter {
 			});
 
 			client.on("close", () => {
-				this.logger.warn(`Redis-Channel-Client-${name} adapter is disconnected.`);
+				this.logger.info(`Redis-Channel-Client-${name} adapter is disconnected.`);
 			});
 		});
 	}
