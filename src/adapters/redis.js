@@ -46,6 +46,7 @@ class RedisAdapter extends BaseAdapter {
 		 */
 		this.clients = new Map();
 		this.pubName = "Pub"; // Static name of the Publish client
+		this.claimName = "Claim"; // Static name of the XCLAIM client
 
 		this.stopping = false;
 	}
@@ -79,6 +80,11 @@ class RedisAdapter extends BaseAdapter {
 	 */
 	async connect() {
 		this.clients.set(this.pubName, await this.createRedisClient(this.pubName, this.opts.redis));
+
+		this.clients.set(
+			this.claimName,
+			await this.createRedisClient(this.claimName, this.opts.redis)
+		);
 	}
 
 	/**
@@ -236,39 +242,7 @@ class RedisAdapter extends BaseAdapter {
 				}
 
 				if (message) {
-					chan.messageLock = true;
-
-					const { ids, parsedMessages } = this.parseMessage(message);
-
-					this.addChannelActiveMessages(chan.id, ids);
-
-					const promises = parsedMessages.map(entry => {
-						// Call the actual user defined handler
-						return chan.handler(entry);
-					});
-
-					const promiseResults = await Promise.allSettled(promises);
-
-					for (const result of promiseResults) {
-						if (result.status == "fulfilled") {
-							// Send ACK message
-							// https://redis.io/commands/xack
-							// Use pubClient to ensure that ACK is delivered to redis
-							const pubClient = this.clients.get(this.pubName);
-							await pubClient.xack(chan.name, chan.group, ids);
-							this.logger.debug(`Messages is ACKed.`, {
-								id: ids,
-								name: chan.name,
-								group: chan.group
-							});
-						} else {
-							// Rejected
-						}
-
-						this.removeChannelActiveMessages(chan.id, ids);
-					}
-
-					chan.messageLock = false;
+					this.processMessage(chan, message);
 				}
 			} catch (error) {
 				this.logger.error(error);
@@ -276,6 +250,61 @@ class RedisAdapter extends BaseAdapter {
 
 			setTimeout(() => chan.xreadgroup(), 0);
 		};
+
+		// Initial ID
+		// More info: https://redis.io/commands/xautoclaim
+		let cursorID = "0-0";
+		chan.xclaim = async () => {
+			// Service is stopping. Claiming no longer is allowed
+			if (chan.unsubscribing) return;
+
+			const claimClient = this.clients.get(this.claimName);
+
+			this.logger.debug(`Next auto claim by ${chan.id}`);
+
+			try {
+				let message;
+				try {
+					// Claim messages that were not NACKed
+					// https://redis.io/commands/xautoclaim
+					message = await claimClient.xautoclaim(
+						chan.name, // Channel name
+						chan.group, // Group name
+						chan.id, // Consumer name,
+						100, // Claim messages that are pending for the specified period in milliseconds
+						cursorID,
+						"COUNT",
+						25 // Num messages to claim at a time
+					);
+				} catch (error) {
+					if (chan.unsubscribing) {
+						// Caused by unsubscribe()
+						return; // Exit the loop.
+					} else {
+						this.logger.error(error);
+					}
+				}
+
+				if (message) {
+					// Update the cursor id
+					cursorID = message[0];
+
+					// Messages
+					if (message[1].length !== 0) {
+						this.logger.info(`${chan.id} claimed ${message[1].length} messages`);
+						this.processMessage(chan, [message]);
+					}
+				}
+			} catch (error) {
+				this.logger.error(error);
+			}
+
+			// Next xclaim for the chan
+			setTimeout(() => chan.xclaim(), 1000);
+		};
+
+		// Init the claim loop
+		chan.xclaim();
 
 		// Init the subscription loop
 		chan.xreadgroup();
@@ -393,6 +422,47 @@ class RedisAdapter extends BaseAdapter {
 		} catch (error) {
 			this.logger.error(`Cannot publish to '${channelName}'`, error);
 		}
+	}
+
+	/**
+	 * Process incoming messages
+	 * @param {Object} chan
+	 * @param {Array<Object>} message
+	 */
+	async processMessage(chan, message) {
+		chan.messageLock = true;
+
+		const { ids, parsedMessages } = this.parseMessage(message);
+
+		this.addChannelActiveMessages(chan.id, ids);
+
+		const promises = parsedMessages.map(entry => {
+			// Call the actual user defined handler
+			return chan.handler(entry);
+		});
+
+		const promiseResults = await Promise.allSettled(promises);
+
+		for (const result of promiseResults) {
+			if (result.status == "fulfilled") {
+				// Send ACK message
+				// https://redis.io/commands/xack
+				// Use pubClient to ensure that ACK is delivered to redis
+				const pubClient = this.clients.get(this.pubName);
+				await pubClient.xack(chan.name, chan.group, ids);
+				this.logger.debug(`Messages is ACKed.`, {
+					id: ids,
+					name: chan.name,
+					group: chan.group
+				});
+			} else {
+				// Rejected
+			}
+
+			this.removeChannelActiveMessages(chan.id, ids);
+		}
+
+		chan.messageLock = false;
 	}
 }
 

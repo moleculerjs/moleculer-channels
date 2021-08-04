@@ -10,6 +10,7 @@
 ## Redis
 
 -   [x] one client per subscription
+-   [ ] make intervals configurable to give more freedom to the devs
 
 ## AMQP
 
