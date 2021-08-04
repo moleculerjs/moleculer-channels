@@ -260,7 +260,7 @@ class RedisAdapter extends BaseAdapter {
 
 			const claimClient = this.clients.get(this.claimName);
 
-			this.logger.debug(`Next auto claim by ${chan.id}`);
+			// this.logger.debug(`Next auto claim by ${chan.id}`);
 
 			try {
 				let message;
@@ -271,7 +271,7 @@ class RedisAdapter extends BaseAdapter {
 						chan.name, // Channel name
 						chan.group, // Group name
 						chan.id, // Consumer name,
-						100, // Claim messages that are pending for the specified period in milliseconds
+						10, // Claim messages that are pending for the specified period in milliseconds
 						cursorID,
 						"COUNT",
 						25 // Num messages to claim at a time
@@ -300,7 +300,7 @@ class RedisAdapter extends BaseAdapter {
 			}
 
 			// Next xclaim for the chan
-			setTimeout(() => chan.xclaim(), 1000);
+			setTimeout(() => chan.xclaim(), 10);
 		};
 
 		// Init the claim loop

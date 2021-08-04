@@ -212,64 +212,61 @@ describe("Integration tests", () => {
 				});
 			});
 
-			// TODO: This logic is not implemented in Redis yet.
-			if (adapter.type != "Redis") {
-				describe("Test retried messages logic", () => {
-					const broker = createBroker(adapter);
+			describe("Test retried messages logic", () => {
+				const broker = createBroker(adapter);
 
-					const error = new Error("Something happened");
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
-					const subGoodHandler = jest.fn(() => Promise.resolve());
+				const error = new Error("Something happened");
+				const subWrongHandler = jest.fn(() => Promise.reject(error));
+				const subGoodHandler = jest.fn(() => Promise.resolve());
 
-					broker.createService({
-						name: "sub1",
-						channels: {
-							"test.unstable.topic": {
-								group: "mygroup",
-								handler: subWrongHandler
-							}
+				broker.createService({
+					name: "sub1",
+					channels: {
+						"test.unstable.topic": {
+							group: "mygroup",
+							handler: subWrongHandler
 						}
-					});
-
-					broker.createService({
-						name: "sub2",
-						channels: {
-							"test.unstable.topic": {
-								group: "mygroup",
-								handler: subGoodHandler
-							}
-						}
-					});
-
-					beforeAll(() => broker.start());
-					afterAll(() => broker.stop());
-
-					beforeEach(() => {
-						subWrongHandler.mockClear();
-						subGoodHandler.mockClear();
-					});
-
-					it("should retried rejected messages and process by the good handler", async () => {
-						// ---- ^ SETUP ^ ---
-
-						await Promise.all(
-							_.times(6, id => broker.sendToChannel("test.unstable.topic", { id }))
-						);
-						await broker.Promise.delay(200);
-
-						// ---- ˇ ASSERTS ˇ ---
-						expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
-
-						expect(subGoodHandler).toHaveBeenCalledTimes(6);
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 2 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
-					});
+					}
 				});
-			}
+
+				broker.createService({
+					name: "sub2",
+					channels: {
+						"test.unstable.topic": {
+							group: "mygroup",
+							handler: subGoodHandler
+						}
+					}
+				});
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					subWrongHandler.mockClear();
+					subGoodHandler.mockClear();
+				});
+
+				it("should retried rejected messages and process by the good handler", async () => {
+					// ---- ^ SETUP ^ ---
+
+					await Promise.all(
+						_.times(6, id => broker.sendToChannel("test.unstable.topic", { id }))
+					);
+					await broker.Promise.delay(1000);
+
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
+
+					expect(subGoodHandler).toHaveBeenCalledTimes(6);
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 2 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
+				});
+			});
 		});
 	}
 });
