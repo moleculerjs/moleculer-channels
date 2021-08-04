@@ -8,7 +8,6 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { Serializers } = require("moleculer");
 const { MoleculerError } = require("moleculer").Errors;
 
 let Amqplib;
@@ -88,11 +87,6 @@ class AmqpAdapter extends BaseAdapter {
 		}
 
 		this.checkClientLibVersion("amqplib", "^0.8.0");
-
-		// create an instance of serializer (default to JSON)
-		this.serializer = Serializers.resolve(this.opts.serializer);
-		this.serializer.init(this.broker);
-		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
 	}
 
 	/**

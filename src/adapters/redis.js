@@ -9,7 +9,6 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
-const { Serializers } = require("moleculer");
 
 let Redis;
 
@@ -73,11 +72,6 @@ class RedisAdapter extends BaseAdapter {
 		}
 
 		this.checkClientLibVersion("ioredis", "^4.27.6");
-
-		// create an instance of serializer (default to JSON)
-		this.serializer = Serializers.resolve(this.opts.serializer);
-		this.serializer.init(this.broker);
-		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
 	}
 
 	/**

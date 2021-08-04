@@ -9,6 +9,7 @@
 const _ = require("lodash");
 const semver = require("semver");
 const { MoleculerError } = require("moleculer").Errors;
+const { Serializers } = require("moleculer");
 
 /**
  * Type defs to add some IntelliSense
@@ -44,6 +45,11 @@ class BaseAdapter {
 
 		if (!this.opts.consumerName) this.opts.consumerName = this.broker.nodeID;
 		if (this.opts.prefix == null) this.opts.prefix = broker.namespace;
+
+		// create an instance of serializer (default to JSON)
+		this.serializer = Serializers.resolve(this.opts.serializer);
+		this.serializer.init(this.broker);
+		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
 	}
 
 	/**
