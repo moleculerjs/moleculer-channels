@@ -267,6 +267,81 @@ describe("Integration tests", () => {
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
 				});
 			});
+
+			if (adapter.type != "AMQP") {
+				describe("Test Connection/Reconnection logic", () => {
+					const broker = createBroker(adapter);
+
+					const sub1Handler = jest.fn(() => Promise.resolve());
+					const sub2Handler = jest.fn(() => Promise.resolve());
+
+					beforeAll(() => broker.start());
+					afterAll(() => broker.stop());
+
+					beforeEach(() => {
+						sub1Handler.mockClear();
+						sub2Handler.mockClear();
+					});
+
+					it("should read messages after connecting", async () => {
+						const msg = {
+							id: 1,
+							name: "John",
+							age: 25
+						};
+
+						// Publish the messages
+						await Promise.all(
+							_.times(6, () =>
+								broker.sendToChannel("test.delayed.connection.topic", msg)
+							)
+						);
+						await broker.Promise.delay(200);
+
+						// Create and start the service
+						const svc1 = broker.createService({
+							name: "sub1",
+							channels: {
+								"test.delayed.connection.topic": {
+									group: "mygroup",
+									handler: sub1Handler
+								}
+							}
+						});
+						await broker.Promise.delay(200);
+						// ---- ^ SETUP ^ ---
+
+						// ---- ˇ ASSERTS ˇ ---
+						expect(sub1Handler).toHaveBeenCalledTimes(6);
+
+						// Server is going down
+						await broker.destroyService(svc1);
+						await broker.Promise.delay(200);
+
+						// In mean time, more messages are being publish
+						await Promise.all(
+							_.times(6, () =>
+								broker.sendToChannel("test.delayed.connection.topic", msg)
+							)
+						);
+						await broker.Promise.delay(200);
+
+						// Service replica is starting
+						const svc2 = broker.createService({
+							name: "sub1",
+							channels: {
+								"test.delayed.connection.topic": {
+									group: "mygroup",
+									handler: sub2Handler
+								}
+							}
+						});
+						await broker.Promise.delay(200);
+
+						expect(sub2Handler).toHaveBeenCalledTimes(6);
+					});
+				});
+			}
 		});
 	}
 });
