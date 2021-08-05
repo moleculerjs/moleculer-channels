@@ -284,16 +284,12 @@ describe("Integration tests", () => {
 					});
 
 					it("should read messages after connecting", async () => {
-						const msg = {
-							id: 1,
-							name: "John",
-							age: 25
-						};
+						let id = 0;
 
 						// -> Publish the messages while no listeners are running <- //
 						await Promise.all(
 							_.times(6, () =>
-								broker.sendToChannel("test.delayed.connection.topic", msg)
+								broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
 							)
 						);
 						await broker.Promise.delay(200);
@@ -304,14 +300,21 @@ describe("Integration tests", () => {
 							channels: {
 								"test.delayed.connection.topic": {
 									group: "mygroup",
+									maxInFlight: 6,
 									handler: sub1Handler
 								}
 							}
 						});
-						await broker.Promise.delay(200);
+						await broker.Promise.delay(1000);
 
 						// ---- ˇ ASSERT ˇ ---
 						expect(sub1Handler).toHaveBeenCalledTimes(6);
+						expect(sub1Handler).toHaveBeenCalledWith({ id: 0 });
+						expect(sub1Handler).toHaveBeenCalledWith({ id: 1 });
+						expect(sub1Handler).toHaveBeenCalledWith({ id: 2 });
+						expect(sub1Handler).toHaveBeenCalledWith({ id: 3 });
+						expect(sub1Handler).toHaveBeenCalledWith({ id: 4 });
+						expect(sub1Handler).toHaveBeenCalledWith({ id: 5 });
 
 						// -> Server is going down <- //
 						await broker.destroyService(svc1);
@@ -320,7 +323,7 @@ describe("Integration tests", () => {
 						// -> In mean time, more messages are being published <- //
 						await Promise.all(
 							_.times(6, () =>
-								broker.sendToChannel("test.delayed.connection.topic", msg)
+								broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
 							)
 						);
 						await broker.Promise.delay(200);
@@ -331,14 +334,21 @@ describe("Integration tests", () => {
 							channels: {
 								"test.delayed.connection.topic": {
 									group: "mygroup",
+									maxInFlight: 6,
 									handler: sub2Handler
 								}
 							}
 						});
-						await broker.Promise.delay(200);
+						await broker.Promise.delay(1000);
 
 						// ---- ˇ ASSERT ˇ ---
 						expect(sub2Handler).toHaveBeenCalledTimes(6);
+						expect(sub2Handler).toHaveBeenCalledWith({ id: 6 });
+						expect(sub2Handler).toHaveBeenCalledWith({ id: 7 });
+						expect(sub2Handler).toHaveBeenCalledWith({ id: 8 });
+						expect(sub2Handler).toHaveBeenCalledWith({ id: 9 });
+						expect(sub2Handler).toHaveBeenCalledWith({ id: 10 });
+						expect(sub2Handler).toHaveBeenCalledWith({ id: 11 });
 					});
 				});
 			}
