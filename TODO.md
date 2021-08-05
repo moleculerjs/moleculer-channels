@@ -6,11 +6,12 @@
 -   [x] move serializer to base adapter
 -   [x] move active message tracking to base adapter
 -   [ ] checking subscription after reconnecting
+-   [ ] make adapter accessible (`this.adapter`) to the devs
 
 ## Redis
 
 -   [x] one client per subscription
--   [ ] make intervals configurable to give more freedom to the devs
+-   [x] make intervals configurable to give more freedom to the devs
 
 ## AMQP
 

@@ -290,7 +290,7 @@ describe("Integration tests", () => {
 							age: 25
 						};
 
-						// Publish the messages
+						// -> Publish the messages while no listeners are running <- //
 						await Promise.all(
 							_.times(6, () =>
 								broker.sendToChannel("test.delayed.connection.topic", msg)
@@ -298,7 +298,7 @@ describe("Integration tests", () => {
 						);
 						await broker.Promise.delay(200);
 
-						// Create and start the service
+						// -> Create and start the service <- //
 						const svc1 = broker.createService({
 							name: "sub1",
 							channels: {
@@ -309,16 +309,15 @@ describe("Integration tests", () => {
 							}
 						});
 						await broker.Promise.delay(200);
-						// ---- ^ SETUP ^ ---
 
-						// ---- ˇ ASSERTS ˇ ---
+						// ---- ˇ ASSERT ˇ ---
 						expect(sub1Handler).toHaveBeenCalledTimes(6);
 
-						// Server is going down
+						// -> Server is going down <- //
 						await broker.destroyService(svc1);
 						await broker.Promise.delay(200);
 
-						// In mean time, more messages are being publish
+						// -> In mean time, more messages are being published <- //
 						await Promise.all(
 							_.times(6, () =>
 								broker.sendToChannel("test.delayed.connection.topic", msg)
@@ -326,7 +325,7 @@ describe("Integration tests", () => {
 						);
 						await broker.Promise.delay(200);
 
-						// Service replica is starting
+						// -> Service replica is starting <- //
 						const svc2 = broker.createService({
 							name: "sub1",
 							channels: {
@@ -338,6 +337,7 @@ describe("Integration tests", () => {
 						});
 						await broker.Promise.delay(200);
 
+						// ---- ˇ ASSERT ˇ ---
 						expect(sub2Handler).toHaveBeenCalledTimes(6);
 					});
 				});
