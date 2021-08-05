@@ -38,7 +38,12 @@ class RedisAdapter extends BaseAdapter {
 		super(opts);
 
 		this.opts = _.defaultsDeep(this.opts, {
-			serializer: "JSON"
+			// Timeout interval (in milliseconds) while waiting for new messages
+			// By default never timeout
+			readTimeoutInternal: 0,
+			claimInterval: 100,
+			// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed
+			minIdleTime: 10
 		});
 
 		/**
@@ -225,7 +230,7 @@ class RedisAdapter extends BaseAdapter {
 						chan.group, // Group name
 						chan.id, // Consumer name
 						`BLOCK`,
-						0, // Never timeout while waiting for messages
+						this.opts.readTimeoutInternal, // Timeout interval while waiting for messages
 						`COUNT`,
 						chan.maxInFlight || 1, // Max number of messages to receive in a single read
 						`STREAMS`,
@@ -260,6 +265,7 @@ class RedisAdapter extends BaseAdapter {
 
 			const claimClient = this.clients.get(this.claimName);
 
+			// xclaim is periodic. Generates too much logs
 			// this.logger.debug(`Next auto claim by ${chan.id}`);
 
 			try {
@@ -271,10 +277,10 @@ class RedisAdapter extends BaseAdapter {
 						chan.name, // Channel name
 						chan.group, // Group name
 						chan.id, // Consumer name,
-						10, // Claim messages that are pending for the specified period in milliseconds
+						this.opts.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
 						cursorID,
 						"COUNT",
-						25 // Num messages to claim at a time
+						chan.maxInFlight || 1 // Number of messages to claim at a time
 					);
 				} catch (error) {
 					if (chan.unsubscribing) {
@@ -286,12 +292,13 @@ class RedisAdapter extends BaseAdapter {
 				}
 
 				if (message) {
-					// Update the cursor id
+					// Update the cursor id to be used in subsequent call
+					// When there are no remaining entries, "0-0" is returned
 					cursorID = message[0];
 
 					// Messages
 					if (message[1].length !== 0) {
-						this.logger.info(`${chan.id} claimed ${message[1].length} messages`);
+						this.logger.debug(`${chan.id} claimed ${message[1].length} messages`);
 						this.processMessage(chan, [message]);
 					}
 				}
@@ -300,7 +307,7 @@ class RedisAdapter extends BaseAdapter {
 			}
 
 			// Next xclaim for the chan
-			setTimeout(() => chan.xclaim(), 10);
+			setTimeout(() => chan.xclaim(), this.opts.claimInterval);
 		};
 
 		// Init the claim loop
@@ -308,26 +315,6 @@ class RedisAdapter extends BaseAdapter {
 
 		// Init the subscription loop
 		chan.xreadgroup();
-	}
-
-	/**
-	 * Parse the message(s)
-	 * @param {Array} messages
-	 * @returns {Array}
-	 */
-	parseMessage(messages) {
-		return messages[0][1].reduce(
-			(accumulator, currentVal) => {
-				accumulator.ids.push(currentVal[0]);
-				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
-
-				return accumulator;
-			},
-			{
-				ids: [], // for XACK
-				parsedMessages: []
-			}
-		);
 	}
 
 	/**
@@ -456,13 +443,34 @@ class RedisAdapter extends BaseAdapter {
 					group: chan.group
 				});
 			} else {
-				// Rejected
+				// Message rejected
+				// It will be (eventually) picked by xclaim
 			}
 
 			this.removeChannelActiveMessages(chan.id, ids);
 		}
 
 		chan.messageLock = false;
+	}
+
+	/**
+	 * Parse the message(s)
+	 * @param {Array} messages
+	 * @returns {Array}
+	 */
+	parseMessage(messages) {
+		return messages[0][1].reduce(
+			(accumulator, currentVal) => {
+				accumulator.ids.push(currentVal[0]);
+				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+
+				return accumulator;
+			},
+			{
+				ids: [], // for XACK
+				parsedMessages: []
+			}
+		);
 	}
 }
 

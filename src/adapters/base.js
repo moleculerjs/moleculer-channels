@@ -23,7 +23,13 @@ class BaseAdapter {
 	 * @param  {Object?} opts
 	 */
 	constructor(opts) {
-		this.opts = _.defaultsDeep({ prefix: null }, opts);
+		this.opts = _.defaultsDeep(
+			{
+				prefix: null,
+				serializer: "JSON"
+			},
+			opts
+		);
 
 		/**
 		 * Tracks the messages that are still being processed by different clients
