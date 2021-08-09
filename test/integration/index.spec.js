@@ -268,90 +268,106 @@ describe("Integration tests", () => {
 				});
 			});
 
-			if (adapter.type != "AMQP") {
-				describe("Test Connection/Reconnection logic", () => {
-					const broker = createBroker(adapter);
+			//if (adapter.type != "AMQP") {
+			describe("Test Connection/Reconnection logic", () => {
+				const broker = createBroker(adapter);
 
-					const sub1Handler = jest.fn(() => Promise.resolve());
-					const sub2Handler = jest.fn(() => Promise.resolve());
+				const sub1Handler = jest.fn(() => Promise.resolve());
+				const sub2Handler = jest.fn(() => Promise.resolve());
 
-					beforeAll(() => broker.start());
-					afterAll(() => broker.stop());
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
 
-					beforeEach(() => {
-						sub1Handler.mockClear();
-						sub2Handler.mockClear();
-					});
-
-					it("should read messages after connecting", async () => {
-						let id = 0;
-
-						// -> Publish the messages while no listeners are running <- //
-						await Promise.all(
-							_.times(6, () =>
-								broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
-							)
-						);
-						await broker.Promise.delay(200);
-
-						// -> Create and start the service <- //
-						const svc1 = broker.createService({
-							name: "sub1",
-							channels: {
-								"test.delayed.connection.topic": {
-									group: "mygroup",
-									maxInFlight: 6,
-									handler: sub1Handler
-								}
-							}
-						});
-						await broker.Promise.delay(1000);
-
-						// ---- ˇ ASSERT ˇ ---
-						expect(sub1Handler).toHaveBeenCalledTimes(6);
-						expect(sub1Handler).toHaveBeenCalledWith({ id: 0 });
-						expect(sub1Handler).toHaveBeenCalledWith({ id: 1 });
-						expect(sub1Handler).toHaveBeenCalledWith({ id: 2 });
-						expect(sub1Handler).toHaveBeenCalledWith({ id: 3 });
-						expect(sub1Handler).toHaveBeenCalledWith({ id: 4 });
-						expect(sub1Handler).toHaveBeenCalledWith({ id: 5 });
-
-						// -> Server is going down <- //
-						await broker.destroyService(svc1);
-						await broker.Promise.delay(200);
-
-						// -> In mean time, more messages are being published <- //
-						await Promise.all(
-							_.times(6, () =>
-								broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
-							)
-						);
-						await broker.Promise.delay(200);
-
-						// -> Service replica is starting <- //
-						const svc2 = broker.createService({
-							name: "sub1",
-							channels: {
-								"test.delayed.connection.topic": {
-									group: "mygroup",
-									maxInFlight: 6,
-									handler: sub2Handler
-								}
-							}
-						});
-						await broker.Promise.delay(1000);
-
-						// ---- ˇ ASSERT ˇ ---
-						expect(sub2Handler).toHaveBeenCalledTimes(6);
-						expect(sub2Handler).toHaveBeenCalledWith({ id: 6 });
-						expect(sub2Handler).toHaveBeenCalledWith({ id: 7 });
-						expect(sub2Handler).toHaveBeenCalledWith({ id: 8 });
-						expect(sub2Handler).toHaveBeenCalledWith({ id: 9 });
-						expect(sub2Handler).toHaveBeenCalledWith({ id: 10 });
-						expect(sub2Handler).toHaveBeenCalledWith({ id: 11 });
-					});
+				beforeEach(() => {
+					sub1Handler.mockClear();
+					sub2Handler.mockClear();
 				});
-			}
+
+				it("should read messages after connecting", async () => {
+					let id = 0;
+
+					// -> Create and start the service to register consumer groups and queues <- //
+					const svc0 = broker.createService({
+						name: "sub1",
+						channels: {
+							"test.delayed.connection.topic": {
+								group: "mygroup",
+								maxInFlight: 6,
+								handler: sub1Handler
+							}
+						}
+					});
+					await broker.Promise.delay(500);
+					await broker.destroyService(svc0);
+					await broker.Promise.delay(200);
+					// ---- ^ SETUP ^ ---
+
+					// -> Publish the messages while no listeners are running <- //
+					await Promise.all(
+						_.times(6, () =>
+							broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
+						)
+					);
+					await broker.Promise.delay(200);
+
+					// -> Create and start the service <- //
+					const svc1 = broker.createService({
+						name: "sub1",
+						channels: {
+							"test.delayed.connection.topic": {
+								group: "mygroup",
+								maxInFlight: 6,
+								handler: sub1Handler
+							}
+						}
+					});
+					await broker.Promise.delay(1000);
+
+					// ---- ˇ ASSERT ˇ ---
+					expect(sub1Handler).toHaveBeenCalledTimes(6);
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 0 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 1 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 2 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 3 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 4 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 5 });
+
+					// -> Server is going down <- //
+					await broker.destroyService(svc1);
+					await broker.Promise.delay(200);
+
+					// -> In mean time, more messages are being published <- //
+					await Promise.all(
+						_.times(6, () =>
+							broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
+						)
+					);
+					await broker.Promise.delay(200);
+
+					// -> Service replica is starting <- //
+					const svc2 = broker.createService({
+						name: "sub1",
+						channels: {
+							"test.delayed.connection.topic": {
+								group: "mygroup",
+								maxInFlight: 6,
+								handler: sub2Handler
+							}
+						}
+					});
+					await broker.Promise.delay(1000);
+
+					// ---- ˇ ASSERT ˇ ---
+					expect(sub2Handler).toHaveBeenCalledTimes(6);
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 6 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 7 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 8 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 9 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 10 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 11 });
+				});
+			});
+			//}
 		});
 	}
 });
