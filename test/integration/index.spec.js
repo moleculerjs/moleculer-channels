@@ -234,6 +234,8 @@ describe("Integration tests", () => {
 					channels: {
 						"test.unstable.topic": {
 							group: "mygroup",
+							// Defaults to 1 hour. Decrease for unit tests
+							minIdleTime: 10,
 							handler: subGoodHandler
 						}
 					}

@@ -18,6 +18,17 @@ let Redis;
  * @typedef {import("ioredis").Redis} Redis
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
+ * @typedef {import("../index").Channel} Channel
+ * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions
+ */
+
+/**
+ * @typedef {Object} RedisDefaultOptions Redis Adapter configuration
+ * @property {Number} readTimeoutInternal Timeout interval (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout
+ * @property {Number} minIdleTime Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+ * @property {Number} claimInterval Interval (in milliseconds) between message claims
+ * @property {Number} maxInFlight Maximum number of messages to fetch in a single read
+ * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
  */
 
 /**
@@ -37,13 +48,18 @@ class RedisAdapter extends BaseAdapter {
 
 		super(opts);
 
+		/** @type {RedisDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			// Timeout interval (in milliseconds) while waiting for new messages
 			// By default never timeout
 			readTimeoutInternal: 0,
+			// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+			minIdleTime: 3_600_000,
 			claimInterval: 100,
-			// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed
-			minIdleTime: 10
+			// Max number of messages to fetch in a single read
+			maxInFlight: 1,
+			// Special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+			startID: "$"
 		});
 
 		/**
@@ -180,6 +196,27 @@ class RedisAdapter extends BaseAdapter {
 			chan.id
 		);
 
+		// https://redis.io/commands/XGROUP
+		if (!chan.startID) {
+			chan.startID = this.opts.startID;
+		}
+
+		if (!chan.minIdleTime) {
+			chan.minIdleTime = this.opts.minIdleTime;
+		}
+
+		if (!chan.claimInterval) {
+			chan.claimInterval = this.opts.claimInterval;
+		}
+
+		if (!chan.maxInFlight) {
+			chan.maxInFlight = this.opts.maxInFlight;
+		}
+
+		if (!chan.readTimeoutInternal) {
+			chan.readTimeoutInternal = this.opts.readTimeoutInternal;
+		}
+
 		// Create a connection for current subscription
 		let chanSub;
 		if (this.clients.has(chan.id)) {
@@ -198,7 +235,7 @@ class RedisAdapter extends BaseAdapter {
 				"CREATE",
 				chan.name, // Stream name
 				chan.group, // Consumer group
-				`$`, // Only the latest data
+				chan.startID, // Starting point to read messages
 				`MKSTREAM` // Create stream if doesn't exist
 			);
 		} catch (err) {
@@ -230,9 +267,9 @@ class RedisAdapter extends BaseAdapter {
 						chan.group, // Group name
 						chan.id, // Consumer name
 						`BLOCK`,
-						this.opts.readTimeoutInternal, // Timeout interval while waiting for messages
+						chan.readTimeoutInternal, // Timeout interval while waiting for messages
 						`COUNT`,
-						chan.maxInFlight || 1, // Max number of messages to receive in a single read
+						chan.maxInFlight, // Max number of messages to fetch in a single read
 						`STREAMS`,
 						chan.name, // Channel name
 						`>` //  Read messages never delivered to other consumers so far
@@ -277,10 +314,10 @@ class RedisAdapter extends BaseAdapter {
 						chan.name, // Channel name
 						chan.group, // Group name
 						chan.id, // Consumer name,
-						this.opts.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
+						chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
 						cursorID,
 						"COUNT",
-						chan.maxInFlight || 1 // Number of messages to claim at a time
+						chan.maxInFlight // Number of messages to claim at a time
 					);
 				} catch (error) {
 					if (chan.unsubscribing) {
@@ -307,7 +344,7 @@ class RedisAdapter extends BaseAdapter {
 			}
 
 			// Next xclaim for the chan
-			setTimeout(() => chan.xclaim(), this.opts.claimInterval);
+			setTimeout(() => chan.xclaim(), chan.claimInterval);
 		};
 
 		// Init the claim loop

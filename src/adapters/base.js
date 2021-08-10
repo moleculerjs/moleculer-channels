@@ -17,12 +17,20 @@ const { Serializers } = require("moleculer");
  * @typedef {import("moleculer").LoggerInstance} Logger
  */
 
+/**
+ * @typedef {Object} BaseDefaultOptions Base Adapter configuration
+ * @property {String?} prefix Adapter prefix
+ * @property {String} consumerName Name of the consumer
+ * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
+ */
+
 class BaseAdapter {
 	/**
 	 * Constructor of adapter
 	 * @param  {Object?} opts
 	 */
 	constructor(opts) {
+		/** @type {BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(
 			{
 				prefix: null,
