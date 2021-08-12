@@ -255,7 +255,7 @@ describe("Integration tests", () => {
 					await Promise.all(
 						_.times(6, id => broker.sendToChannel("test.unstable.topic", { id }))
 					);
-					await broker.Promise.delay(1000);
+					await broker.Promise.delay(1500);
 
 					// ---- ˇ ASSERTS ˇ ---
 					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
