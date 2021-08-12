@@ -401,6 +401,7 @@ describe("Integration tests", () => {
 							}
 						});
 
+						await broker.Promise.delay(500);
 						// -> Publish a message <- //
 						await broker.sendToChannel("test.fail.topic", { test: 1 });
 						await broker.Promise.delay(1000);
