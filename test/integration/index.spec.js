@@ -212,61 +212,202 @@ describe("Integration tests", () => {
 				});
 			});
 
-			// TODO: This logic is not implemented in Redis yet.
-			if (adapter.type != "Redis") {
-				describe("Test retried messages logic", () => {
+			describe("Test retried messages logic", () => {
+				const broker = createBroker(adapter);
+
+				const error = new Error("Something happened");
+				const subWrongHandler = jest.fn(() => Promise.reject(error));
+				const subGoodHandler = jest.fn(() => Promise.resolve());
+
+				broker.createService({
+					name: "sub1",
+					channels: {
+						"test.unstable.topic": {
+							group: "mygroup",
+							handler: subWrongHandler
+						}
+					}
+				});
+
+				broker.createService({
+					name: "sub2",
+					channels: {
+						"test.unstable.topic": {
+							group: "mygroup",
+							// Defaults to 1 hour. Decrease for unit tests
+							minIdleTime: 10,
+							handler: subGoodHandler
+						}
+					}
+				});
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					subWrongHandler.mockClear();
+					subGoodHandler.mockClear();
+				});
+
+				it("should retried rejected messages and process by the good handler", async () => {
+					// ---- ^ SETUP ^ ---
+
+					await Promise.all(
+						_.times(6, id => broker.sendToChannel("test.unstable.topic", { id }))
+					);
+					await broker.Promise.delay(1500);
+
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
+
+					expect(subGoodHandler).toHaveBeenCalledTimes(6);
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 2 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
+				});
+			});
+
+			//if (adapter.type != "AMQP") {
+			describe("Test Connection/Reconnection logic", () => {
+				const broker = createBroker(adapter);
+
+				const sub1Handler = jest.fn(() => Promise.resolve());
+				const sub2Handler = jest.fn(() => Promise.resolve());
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					sub1Handler.mockClear();
+					sub2Handler.mockClear();
+				});
+
+				it("should read messages after connecting", async () => {
+					let id = 0;
+
+					// -> Create and start the service to register consumer groups and queues <- //
+					const svc0 = broker.createService({
+						name: "sub1",
+						channels: {
+							"test.delayed.connection.topic": {
+								group: "mygroup",
+								maxInFlight: 6,
+								handler: sub1Handler
+							}
+						}
+					});
+					await broker.Promise.delay(500);
+					await broker.destroyService(svc0);
+					await broker.Promise.delay(200);
+					// ---- ^ SETUP ^ ---
+
+					// -> Publish the messages while no listeners are running <- //
+					await Promise.all(
+						_.times(6, () =>
+							broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
+						)
+					);
+					await broker.Promise.delay(200);
+
+					// -> Create and start the service <- //
+					const svc1 = broker.createService({
+						name: "sub1",
+						channels: {
+							"test.delayed.connection.topic": {
+								group: "mygroup",
+								maxInFlight: 6,
+								handler: sub1Handler
+							}
+						}
+					});
+					await broker.Promise.delay(1000);
+
+					// ---- ˇ ASSERT ˇ ---
+					expect(sub1Handler).toHaveBeenCalledTimes(6);
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 0 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 1 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 2 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 3 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 4 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 5 });
+
+					// -> Server is going down <- //
+					await broker.destroyService(svc1);
+					await broker.Promise.delay(200);
+
+					// -> In mean time, more messages are being published <- //
+					await Promise.all(
+						_.times(6, () =>
+							broker.sendToChannel("test.delayed.connection.topic", { id: id++ })
+						)
+					);
+					await broker.Promise.delay(200);
+
+					// -> Service replica is starting <- //
+					const svc2 = broker.createService({
+						name: "sub1",
+						channels: {
+							"test.delayed.connection.topic": {
+								group: "mygroup",
+								maxInFlight: 6,
+								handler: sub2Handler
+							}
+						}
+					});
+					await broker.Promise.delay(1000);
+
+					// ---- ˇ ASSERT ˇ ---
+					expect(sub2Handler).toHaveBeenCalledTimes(6);
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 6 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 7 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 8 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 9 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 10 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 11 });
+				});
+			});
+			//}
+
+			if (adapter.type != "AMQP") {
+				describe("Test Failed Message logic", () => {
 					const broker = createBroker(adapter);
 
 					const error = new Error("Something happened");
 					const subWrongHandler = jest.fn(() => Promise.reject(error));
-					const subGoodHandler = jest.fn(() => Promise.resolve());
-
-					broker.createService({
-						name: "sub1",
-						channels: {
-							"test.unstable.topic": {
-								group: "mygroup",
-								handler: subWrongHandler
-							}
-						}
-					});
-
-					broker.createService({
-						name: "sub2",
-						channels: {
-							"test.unstable.topic": {
-								group: "mygroup",
-								handler: subGoodHandler
-							}
-						}
-					});
 
 					beforeAll(() => broker.start());
 					afterAll(() => broker.stop());
 
 					beforeEach(() => {
 						subWrongHandler.mockClear();
-						subGoodHandler.mockClear();
 					});
 
-					it("should retried rejected messages and process by the good handler", async () => {
-						// ---- ^ SETUP ^ ---
+					it("should place message into FAILED LIST", async () => {
+						// -> Create and start the service to register consumer groups and queues <- //
+						broker.createService({
+							name: "sub1",
+							channels: {
+								"test.fail.topic": {
+									maxInFlight: 1,
+									minIdleTime: 50,
+									claimInterval: 50,
+									maxProcessingAttempts: 6,
+									processingAttemptsInterval: 10,
+									handler: subWrongHandler
+								}
+							}
+						});
 
-						await Promise.all(
-							_.times(6, id => broker.sendToChannel("test.unstable.topic", { id }))
-						);
-						await broker.Promise.delay(200);
+						await broker.Promise.delay(500);
+						// -> Publish a message <- //
+						await broker.sendToChannel("test.fail.topic", { test: 1 });
+						await broker.Promise.delay(1000);
 
-						// ---- ˇ ASSERTS ˇ ---
-						expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
-
-						expect(subGoodHandler).toHaveBeenCalledTimes(6);
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 2 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 });
-						expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
+						// ---- ˇ ASSERT ˇ ---
+						expect(subWrongHandler).toHaveBeenCalledTimes(6);
 					});
 				});
 			}

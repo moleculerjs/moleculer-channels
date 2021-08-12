@@ -9,7 +9,10 @@
 			"request": "launch",
 			"name": "Launch selected demo",
 			"program": "${file}",
-			"cwd": "${workspaceRoot}"
+			"cwd": "${workspaceRoot}",
+			"args": [
+				"redis-fail-message"
+			]
 		},
 		{
 			"type": "node",

@@ -13,14 +13,28 @@ const Adapters = require("./adapters");
 /**
  * Type defs to add some IntelliSense
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
+ * @typedef {import("moleculer").LoggerInstance} Logger
  * @typedef {import("moleculer").Service} Service
- * @typedef {import("./adapters/").Base} BaseAdapter
+ * @typedef {import("./adapters/base")} BaseAdapter
+ */
+
+/**
+ * @typedef {Object} Channel Consumer configuration
+ * @property {String} id Consumer ID
+ * @property {String} name Channel/Queue/Stream name
+ * @property {String} group Consumer group name
+ * @property {Boolean} unsubscribing Flag denoting if service is stopping
+ * @property {Number?} maxInFlight Max number of messages to fetch in a single read
+ * @property {Function} handler User defined handler
  */
 
 module.exports = function ChannelsMiddleware(mwOpts) {
 	mwOpts = _.defaultsDeep(mwOpts, {});
+	/** @type {ServiceBroker} */
 	let broker;
+	/** @type {Logger} */
 	let logger;
+	/** @type {BaseAdapter} */
 	let adapter;
 	let started = false;
 	let channelRegistry = [];
@@ -59,6 +73,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 					return adapter.publish(channelName, payload, opts);
 				};
 			}
+
+			// Add adapter reference to the broker instance
+			broker.channelAdapter = adapter;
 		},
 
 		/**
@@ -73,6 +90,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				await broker.Promise.mapSeries(
 					Object.entries(svc.schema.channels),
 					async ([name, def]) => {
+						/** @type {Channel} */
 						let chan;
 
 						if (_.isFunction(def)) {
@@ -99,7 +117,6 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Consumer ID
 						chan.id = `${broker.nodeID}|${svc.fullName}|${chan.name}`;
 						chan.unsubscribing = false;
-						chan.messageLock = false;
 
 						// Wrap the original handler
 						const handler = chan.handler;
