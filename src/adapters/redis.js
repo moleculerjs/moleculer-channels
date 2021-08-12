@@ -30,6 +30,7 @@ let Redis;
  * @property {Number} maxInFlight Maximum number of messages to fetch in a single read
  * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
  * @property {Number} maxProcessingAttempts Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
+ * @property {Number} processingAttemptsInterval Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
  */
 
 /**
@@ -62,7 +63,9 @@ class RedisAdapter extends BaseAdapter {
 			// Special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
 			startID: "$",
 			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
-			maxProcessingAttempts: 10
+			maxProcessingAttempts: 10,
+			// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+			processingAttemptsInterval: 1000
 		});
 
 		/**
@@ -213,6 +216,8 @@ class RedisAdapter extends BaseAdapter {
 		if (!chan.readTimeoutInternal) chan.readTimeoutInternal = this.opts.readTimeoutInternal;
 		if (!chan.maxProcessingAttempts)
 			chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
+		if (!chan.processingAttemptsInterval)
+			chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
 
 		// Create a connection for current subscription
 		let chanSub;
@@ -349,58 +354,82 @@ class RedisAdapter extends BaseAdapter {
 			// Service is stopping. Moving failed messages no longer is allowed
 			if (chan.unsubscribing) return;
 
-			// https://redis.io/commands/XPENDING
-			let pendingMessages = await nackedClient.xpending(chan.name, chan.group, "-", "+", 10);
+			try {
+				let pendingMessages;
+				try {
+					// https://redis.io/commands/XPENDING
+					pendingMessages = await nackedClient.xpending(
+						chan.name,
+						chan.group,
+						"-",
+						"+",
+						10 // Max reported entries
+					);
+				} catch (error) {
+					if (chan.unsubscribing) {
+						// Caused by unsubscribe()
+						return; // Exit the loop.
+					} else {
+						this.logger.error(error);
+					}
+				}
 
-			// Filter messages
-			pendingMessages = pendingMessages.filter(entry => {
-				return entry[3] > chan.maxProcessingAttempts;
-			});
+				// Filter messages
+				// Message format here: https://redis.io/commands/XPENDING#extended-form-of-xpending
+				pendingMessages = pendingMessages.filter(entry => {
+					return entry[3] > chan.maxProcessingAttempts;
+				});
 
-			if (pendingMessages.length != 0) {
-				this.logger.debug(
-					`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`
-				);
+				if (pendingMessages.length != 0) {
+					// Ids of the messages that will transferred into the FAILED_MESSAGES channel
+					let ids = pendingMessages.map(entry => entry[0]);
 
-				// https://redis.io/commands/xclaim
-				let messages = await nackedClient.xclaim(
-					chan.name,
-					chan.group,
-					chan.id,
-					0, // Min idle time
-					pendingMessages.map(entry => entry[0]) // Only the ids
-				);
+					this.addChannelActiveMessages(chan.id, ids);
 
-				// Move the messages to a dedicated channel
-				await Promise.all(
-					messages.map(entry => {
-						return nackedClient.xadd(
-							`${chan.name}-FAILED_MESSAGES`,
-							"*", // Auto generate the ID
-							"failureID",
-							entry[0], // Original ID (timestamp) of failed message
-							"payload",
-							entry[1][1] // Message contents
-						);
-					})
-				);
+					this.logger.debug(
+						`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`
+					);
 
-				// Acknowledge the messages and break the "reject-claim" loop
-				await nackedClient.xack(
-					chan.name,
-					chan.group,
-					pendingMessages.map(entry => entry[0])
-				);
+					// https://redis.io/commands/xclaim
+					let messages = await nackedClient.xclaim(
+						chan.name,
+						chan.group,
+						chan.id,
+						0, // Min idle time
+						ids
+					);
 
-				this.logger.warn(
-					`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`
-				);
+					// Move the messages to a dedicated channel
+					await Promise.all(
+						messages.map(entry => {
+							return nackedClient.xadd(
+								`${chan.name}-FAILED_MESSAGES`,
+								"*", // Auto generate the ID
+								"failureID",
+								entry[0], // Original ID (timestamp) of failed message
+								"payload",
+								entry[1][1] // Message contents
+							);
+						})
+					);
+
+					// Acknowledge the messages and break the "reject-claim" loop
+					await nackedClient.xack(chan.name, chan.group, ids);
+
+					this.removeChannelActiveMessages(chan.id, ids);
+
+					this.logger.warn(
+						`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`
+					);
+				}
+			} catch (error) {
+				this.logger.error(error);
 			}
 
-			setTimeout(() => chan.failed_messages(), 1000);
+			setTimeout(() => chan.failed_messages(), chan.processingAttemptsInterval);
 		};
 
-		// Init failed messages loop
+		// Init the failed messages loop
 		chan.failed_messages();
 
 		// Init the claim loop
