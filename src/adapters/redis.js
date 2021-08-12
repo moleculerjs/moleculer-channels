@@ -31,6 +31,7 @@ let Redis;
  * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
  * @property {Number} maxProcessingAttempts Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
  * @property {Number} processingAttemptsInterval Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+ * @property {String} failedMessagesTopic Default channel name where failed messages will be placed
  */
 
 /**
@@ -65,7 +66,10 @@ class RedisAdapter extends BaseAdapter {
 			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
 			maxProcessingAttempts: 10,
 			// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-			processingAttemptsInterval: 1000
+			processingAttemptsInterval: 1000,
+
+			// Default channel name where failed messages will be placed
+			failedMessagesTopic: "FAILED_MESSAGES"
 		});
 
 		/**
@@ -218,6 +222,7 @@ class RedisAdapter extends BaseAdapter {
 			chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
 		if (!chan.processingAttemptsInterval)
 			chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
+		if (!chan.failedMessagesTopic) chan.failedMessagesTopic = this.opts.failedMessagesTopic;
 
 		// Create a connection for current subscription
 		let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
@@ -351,7 +356,7 @@ class RedisAdapter extends BaseAdapter {
 				// Filter messages
 				// Message format here: https://redis.io/commands/XPENDING#extended-form-of-xpending
 				pendingMessages = pendingMessages.filter(entry => {
-					return entry[3] > chan.maxProcessingAttempts;
+					return entry[3] >= chan.maxProcessingAttempts;
 				});
 
 				if (pendingMessages.length != 0) {
@@ -377,10 +382,12 @@ class RedisAdapter extends BaseAdapter {
 					await Promise.all(
 						messages.map(entry => {
 							return nackedClient.xadd(
-								`${chan.name}-FAILED_MESSAGES`,
+								chan.failedMessagesTopic,
 								"*", // Auto generate the ID
 								"failureID",
 								entry[0], // Original ID (timestamp) of failed message
+								"failureTopic",
+								chan.name, // Topic where failure occurred
 								"payload",
 								entry[1][1] // Message contents
 							);

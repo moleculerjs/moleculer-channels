@@ -370,6 +370,46 @@ describe("Integration tests", () => {
 				});
 			});
 			//}
+
+			if (adapter.type != "AMQP") {
+				describe("Test Failed Message logic", () => {
+					const broker = createBroker(adapter);
+
+					const error = new Error("Something happened");
+					const subWrongHandler = jest.fn(() => Promise.reject(error));
+
+					beforeAll(() => broker.start());
+					afterAll(() => broker.stop());
+
+					beforeEach(() => {
+						subWrongHandler.mockClear();
+					});
+
+					it("should place message into FAILED LIST", async () => {
+						// -> Create and start the service to register consumer groups and queues <- //
+						broker.createService({
+							name: "sub1",
+							channels: {
+								"test.fail.topic": {
+									maxInFlight: 1,
+									minIdleTime: 50,
+									claimInterval: 50,
+									maxProcessingAttempts: 6,
+									processingAttemptsInterval: 10,
+									handler: subWrongHandler
+								}
+							}
+						});
+
+						// -> Publish a message <- //
+						await broker.sendToChannel("test.fail.topic", { test: 1 });
+						await broker.Promise.delay(1000);
+
+						// ---- ˇ ASSERT ˇ ---
+						expect(subWrongHandler).toHaveBeenCalledTimes(6);
+					});
+				});
+			}
 		});
 	}
 });
