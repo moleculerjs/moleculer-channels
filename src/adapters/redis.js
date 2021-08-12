@@ -366,7 +366,7 @@ class RedisAdapter extends BaseAdapter {
 					this.addChannelActiveMessages(chan.id, ids);
 
 					this.logger.debug(
-						`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`
+						`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`, ids
 					);
 
 					// https://redis.io/commands/xclaim
@@ -384,7 +384,9 @@ class RedisAdapter extends BaseAdapter {
 							return nackedClient.xadd(
 								chan.failedMessagesTopic,
 								"*", // Auto generate the ID
-								"failureID",
+								"channel",
+								chan.name,
+								"originalID",
 								entry[0], // Original ID (timestamp) of failed message
 								"failureTopic",
 								chan.name, // Topic where failure occurred
@@ -400,7 +402,7 @@ class RedisAdapter extends BaseAdapter {
 					this.removeChannelActiveMessages(chan.id, ids);
 
 					this.logger.warn(
-						`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`
+						`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`, ids
 					);
 				}
 			} catch (error) {
