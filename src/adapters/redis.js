@@ -220,13 +220,8 @@ class RedisAdapter extends BaseAdapter {
 			chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
 
 		// Create a connection for current subscription
-		let chanSub;
-		if (this.clients.has(chan.id)) {
-			chanSub = this.clients.get(chan.id);
-		} else {
-			chanSub = await this.createRedisClient(chan.id, this.opts.redis);
-			this.clients.set(chan.id, chanSub);
-		}
+		let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
+		this.clients.set(chan.id, chanSub);
 
 		this.initChannelActiveMessages(chan.id);
 
@@ -289,14 +284,13 @@ class RedisAdapter extends BaseAdapter {
 					this.processMessage(chan, message);
 				}
 			} catch (error) {
-				this.logger.error(error);
+				this.logger.error(`Error while ${chan.id} was reading messages`, error);
 			}
 
 			setTimeout(() => chan.xreadgroup(), 0);
 		};
 
-		// Initial ID
-		// More info: https://redis.io/commands/xautoclaim
+		// Initial ID. More info: https://redis.io/commands/xautoclaim
 		let cursorID = "0-0";
 		const claimClient = this.clients.get(this.claimName);
 		chan.xclaim = async () => {
@@ -307,27 +301,17 @@ class RedisAdapter extends BaseAdapter {
 			// this.logger.debug(`Next auto claim by ${chan.id}`);
 
 			try {
-				let message;
-				try {
-					// Claim messages that were not NACKed
-					// https://redis.io/commands/xautoclaim
-					message = await claimClient.xautoclaim(
-						chan.name, // Channel name
-						chan.group, // Group name
-						chan.id, // Consumer name,
-						chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
-						cursorID,
-						"COUNT",
-						chan.maxInFlight // Number of messages to claim at a time
-					);
-				} catch (error) {
-					if (chan.unsubscribing) {
-						// Caused by unsubscribe()
-						return; // Exit the loop.
-					} else {
-						this.logger.error(error);
-					}
-				}
+				// Claim messages that were not NACKed
+				// https://redis.io/commands/xautoclaim
+				let message = await claimClient.xautoclaim(
+					chan.name, // Channel name
+					chan.group, // Group name
+					chan.id, // Consumer name,
+					chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
+					cursorID,
+					"COUNT",
+					chan.maxInFlight // Number of messages to claim at a time
+				);
 
 				if (message) {
 					// Update the cursor id to be used in subsequent call
@@ -341,7 +325,7 @@ class RedisAdapter extends BaseAdapter {
 					}
 				}
 			} catch (error) {
-				this.logger.error(error);
+				this.logger.error(`Error while claiming messages by ${chan.id}`, error);
 			}
 
 			// Next xclaim for the chan
@@ -355,24 +339,14 @@ class RedisAdapter extends BaseAdapter {
 			if (chan.unsubscribing) return;
 
 			try {
-				let pendingMessages;
-				try {
-					// https://redis.io/commands/XPENDING
-					pendingMessages = await nackedClient.xpending(
-						chan.name,
-						chan.group,
-						"-",
-						"+",
-						10 // Max reported entries
-					);
-				} catch (error) {
-					if (chan.unsubscribing) {
-						// Caused by unsubscribe()
-						return; // Exit the loop.
-					} else {
-						this.logger.error(error);
-					}
-				}
+				// https://redis.io/commands/XPENDING
+				let pendingMessages = await nackedClient.xpending(
+					chan.name,
+					chan.group,
+					"-",
+					"+",
+					10 // Max reported entries
+				);
 
 				// Filter messages
 				// Message format here: https://redis.io/commands/XPENDING#extended-form-of-xpending
@@ -382,7 +356,7 @@ class RedisAdapter extends BaseAdapter {
 
 				if (pendingMessages.length != 0) {
 					// Ids of the messages that will transferred into the FAILED_MESSAGES channel
-					let ids = pendingMessages.map(entry => entry[0]);
+					const ids = pendingMessages.map(entry => entry[0]);
 
 					this.addChannelActiveMessages(chan.id, ids);
 
@@ -423,7 +397,10 @@ class RedisAdapter extends BaseAdapter {
 					);
 				}
 			} catch (error) {
-				this.logger.error(error);
+				this.logger.error(
+					`Error while moving messages of ${chan.name} to FAILED_MESSAGES`,
+					error
+				);
 			}
 
 			setTimeout(() => chan.failed_messages(), chan.processingAttemptsInterval);
@@ -568,10 +545,9 @@ class RedisAdapter extends BaseAdapter {
 				// Message rejected
 				// It will be (eventually) picked by xclaim
 			}
-
-			this.removeChannelActiveMessages(chan.id, ids);
 		}
 
+		this.removeChannelActiveMessages(chan.id, ids);
 		chan.messageLock = false;
 	}
 
