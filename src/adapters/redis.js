@@ -366,7 +366,8 @@ class RedisAdapter extends BaseAdapter {
 					this.addChannelActiveMessages(chan.id, ids);
 
 					this.logger.debug(
-						`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`, ids
+						`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`,
+						ids
 					);
 
 					// https://redis.io/commands/xclaim
@@ -385,11 +386,9 @@ class RedisAdapter extends BaseAdapter {
 								chan.failedMessagesTopic,
 								"*", // Auto generate the ID
 								"channel",
-								chan.name,
+								chan.name, // Topic where failure occurred
 								"originalID",
 								entry[0], // Original ID (timestamp) of failed message
-								"failureTopic",
-								chan.name, // Topic where failure occurred
 								"payload",
 								entry[1][1] // Message contents
 							);
@@ -402,7 +401,8 @@ class RedisAdapter extends BaseAdapter {
 					this.removeChannelActiveMessages(chan.id, ids);
 
 					this.logger.warn(
-						`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`, ids
+						`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`,
+						ids
 					);
 				}
 			} catch (error) {
@@ -532,13 +532,13 @@ class RedisAdapter extends BaseAdapter {
 		});
 
 		const promiseResults = await Promise.allSettled(promises);
+		const pubClient = this.clients.get(this.pubName);
 
 		for (const result of promiseResults) {
 			if (result.status == "fulfilled") {
 				// Send ACK message
 				// https://redis.io/commands/xack
 				// Use pubClient to ensure that ACK is delivered to redis
-				const pubClient = this.clients.get(this.pubName);
 				await pubClient.xack(chan.name, chan.group, ids);
 				this.logger.debug(`Messages is ACKed.`, {
 					id: ids,
