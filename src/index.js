@@ -24,7 +24,6 @@ const Adapters = require("./adapters");
  * @property {String} name Channel/Queue/Stream name
  * @property {String} group Consumer group name
  * @property {Boolean} unsubscribing Flag denoting if service is stopping
- * @property {Boolean} messageLock Flag denoting if channel is processing messages and, therefore, cannot be stopped.
  * @property {Number?} maxInFlight Max number of messages to fetch in a single read
  * @property {Function} handler User defined handler
  */
@@ -118,7 +117,6 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Consumer ID
 						chan.id = `${broker.nodeID}|${svc.fullName}|${chan.name}`;
 						chan.unsubscribing = false;
-						chan.messageLock = false;
 
 						// Wrap the original handler
 						const handler = chan.handler;

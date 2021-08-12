@@ -435,10 +435,7 @@ class RedisAdapter extends BaseAdapter {
 				.then(() => {
 					return new Promise((resolve, reject) => {
 						const checkPendingMessages = () => {
-							if (
-								this.getNumberOfChannelActiveMessages(chan.id) === 0 &&
-								chan.messageLock === false
-							) {
+							if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
 								this.logger.debug(
 									`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
 								);
@@ -516,8 +513,6 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		chan.messageLock = true;
-
 		const { ids, parsedMessages } = this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
@@ -548,7 +543,6 @@ class RedisAdapter extends BaseAdapter {
 		}
 
 		this.removeChannelActiveMessages(chan.id, ids);
-		chan.messageLock = false;
 	}
 
 	/**
