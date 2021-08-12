@@ -74,6 +74,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 					return adapter.publish(channelName, payload, opts);
 				};
 			}
+
+			// Add adapter reference to the broker instance
+			broker.channelAdapter = adapter;
 		},
 
 		/**
