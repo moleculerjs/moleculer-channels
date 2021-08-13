@@ -209,8 +209,6 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async subscribe(chan) {
-		chan.name = this.addPrefixTopic(chan.name);
-
 		this.logger.debug(
 			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
 			chan.id

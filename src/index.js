@@ -111,7 +111,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							);
 						}
 
-						if (!chan.name) chan.name = name;
+						if (!chan.name) chan.name = adapter.addPrefixTopic(name);
 						if (!chan.group) chan.group = svc.fullName;
 
 						// Consumer ID
