@@ -16,6 +16,7 @@ let Amqplib;
  * Type defs to add some IntelliSense
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
+ * @typedef {import("../index").Channel} Channel
  */
 
 /**
@@ -224,8 +225,7 @@ class AmqpAdapter extends BaseAdapter {
 		this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
 		// --- CREATE QUEUE ---
-		let queueName = `${chan.group}.${chan.name}`;
-		if (this.opts.prefix) queueName = `${this.opts.prefix}.${queueName}`;
+		const queueName = `${chan.group}.${chan.name}`;
 
 		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
 		const queueOptions = _.defaultsDeep(

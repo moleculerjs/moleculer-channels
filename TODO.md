@@ -2,11 +2,11 @@
 
 ## Common
 
--   [ ] using prefix as `broker.namespace` if not defined in `opts` for queue names
+-   [x] using prefix as `broker.namespace` if not defined in `opts` for queue names
 -   [x] move serializer to base adapter
 -   [x] move active message tracking to base adapter
 -   [ ] checking subscription after reconnecting
--   [ ] make adapter accessible (`this.adapter`) to the devs
+-   [x] make adapter accessible (`broker.channelAdapter`) to the devs
 
 ## Redis
 

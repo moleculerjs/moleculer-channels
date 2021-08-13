@@ -15,6 +15,7 @@ const { Serializers } = require("moleculer");
  * Type defs to add some IntelliSense
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
+ * @typedef {import("../index").Channel} Channel
  */
 
 /**
@@ -174,6 +175,20 @@ class BaseAdapter {
 	 */
 	getNumberOfTrackedChannels() {
 		return this.activeMessages.size;
+	}
+
+	/**
+	 * Given a topic name adds the prefix
+	 *
+	 * @param {String} topicName
+	 * @returns {String} New topic name
+	 */
+	addPrefixTopic(topicName) {
+		if (this.opts.prefix) {
+			return `${this.opts.prefix}.${topicName}`;
+		}
+
+		return topicName;
 	}
 
 	/**
