@@ -32,6 +32,38 @@ describe("Integration tests", () => {
 
 	for (const adapter of Adapters) {
 		describe(`Adapter: ${adapter.name || adapter.type}`, () => {
+			describe("Test prefix logic", () => {
+				const broker = createBroker(adapter, {
+					namespace: "abcd"
+				});
+
+				const subTestTopicHandler = jest.fn(() => Promise.resolve());
+
+				broker.createService({
+					name: "sub",
+					channels: {
+						"test.prefix.topic": subTestTopicHandler
+					}
+				});
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				it("should receive the published message", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.prefix.topic", msg);
+					await broker.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(subTestTopicHandler).toHaveBeenCalledWith(msg);
+				});
+			});
+
 			describe("Test simple publish/subscribe logic", () => {
 				const broker = createBroker(adapter);
 

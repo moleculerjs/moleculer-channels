@@ -16,6 +16,7 @@ let Amqplib;
  * Type defs to add some IntelliSense
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
+ * @typedef {import("../index").Channel} Channel
  */
 
 /**
@@ -208,6 +209,8 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async subscribe(chan) {
+		chan.name = this.addPrefixTopic(chan.name);
+
 		this.logger.debug(
 			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
 			chan.id
@@ -225,7 +228,7 @@ class AmqpAdapter extends BaseAdapter {
 
 		// --- CREATE QUEUE ---
 		let queueName = `${chan.group}.${chan.name}`;
-		if (this.opts.prefix) queueName = `${this.opts.prefix}.${queueName}`;
+		queueName = this.addPrefixTopic(queueName);
 
 		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
 		const queueOptions = _.defaultsDeep(

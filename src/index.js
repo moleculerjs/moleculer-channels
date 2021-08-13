@@ -70,7 +70,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			// Populate broker with new methods
 			if (!broker.sendToChannel) {
 				broker.sendToChannel = (channelName, payload, opts) => {
-					return adapter.publish(channelName, payload, opts);
+					return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 				};
 			}
 
@@ -115,7 +115,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						if (!chan.group) chan.group = svc.fullName;
 
 						// Consumer ID
-						chan.id = `${broker.nodeID}|${svc.fullName}|${chan.name}`;
+						chan.id = adapter.addPrefixTopic(
+							`${broker.nodeID}.${svc.fullName}.${chan.name}`
+						);
 						chan.unsubscribing = false;
 
 						// Wrap the original handler
