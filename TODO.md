@@ -7,7 +7,7 @@
 -   [x] move active message tracking to base adapter
 -   [x] checking subscription after reconnecting
 -   [x] make adapter accessible (`broker.channelAdapter`) to the devs
--   [ ] middleware consturctor option for the property name in svc schema (`queues`) and for the method name in the broker (`sendToChannel`)
+-   [ ] middleware constructor option for the property name in svc schema (`channels`) and for the method name in the broker (`sendToChannel`)
 
 ## Redis
 
