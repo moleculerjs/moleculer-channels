@@ -227,8 +227,7 @@ class AmqpAdapter extends BaseAdapter {
 		this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
 		// --- CREATE QUEUE ---
-		let queueName = `${chan.group}.${chan.name}`;
-		queueName = this.addPrefixTopic(queueName);
+		const queueName = `${chan.group}.${chan.name}`;
 
 		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
 		const queueOptions = _.defaultsDeep(
