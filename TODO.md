@@ -5,8 +5,9 @@
 -   [x] using prefix as `broker.namespace` if not defined in `opts` for queue names
 -   [x] move serializer to base adapter
 -   [x] move active message tracking to base adapter
--   [ ] checking subscription after reconnecting
+-   [x] checking subscription after reconnecting
 -   [x] make adapter accessible (`broker.channelAdapter`) to the devs
+-   [ ] middleware consturctor option for the property name in svc schema (`queues`) and for the method name in the broker (`sendToChannel`)
 
 ## Redis
 
