@@ -236,6 +236,7 @@ describe("Integration tests", () => {
 							group: "mygroup",
 							// Defaults to 1 hour. Decrease for unit tests
 							minIdleTime: 10,
+							claimInterval: 10,
 							handler: subGoodHandler
 						}
 					}
@@ -258,8 +259,6 @@ describe("Integration tests", () => {
 					await broker.Promise.delay(1500);
 
 					// ---- ˇ ASSERTS ˇ ---
-					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
-
 					expect(subGoodHandler).toHaveBeenCalledTimes(6);
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 });
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 });
@@ -267,6 +266,8 @@ describe("Integration tests", () => {
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 });
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 });
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
+
+					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
 				});
 			});
 

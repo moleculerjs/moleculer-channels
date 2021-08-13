@@ -366,7 +366,7 @@ class RedisAdapter extends BaseAdapter {
 					this.addChannelActiveMessages(chan.id, ids);
 
 					this.logger.debug(
-						`Moving ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES...`,
+						`Moving ${pendingMessages.length} message(s) to ${chan.failedMessagesTopic}...`,
 						ids
 					);
 
@@ -401,13 +401,13 @@ class RedisAdapter extends BaseAdapter {
 					this.removeChannelActiveMessages(chan.id, ids);
 
 					this.logger.warn(
-						`Moved ${pendingMessages.length} message to ${chan.name}-FAILED_MESSAGES`,
+						`Moved ${pendingMessages.length} message(s) to ${chan.failedMessagesTopic}`,
 						ids
 					);
 				}
 			} catch (error) {
 				this.logger.error(
-					`Error while moving messages of ${chan.name} to FAILED_MESSAGES`,
+					`Error while moving messages of ${chan.name} to ${chan.failedMessagesTopic}`,
 					error
 				);
 			}
