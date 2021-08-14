@@ -26,7 +26,7 @@ const broker = new ServiceBroker({
 	replCommands: [
 		{},
 		{
-			command: "publish",
+			command: "pub1",
 			alias: ["p1"],
 			async action(broker, args) {
 				const { options } = args;
@@ -38,7 +38,7 @@ const broker = new ServiceBroker({
 			}
 		},
 		{
-			command: "publish",
+			command: "pub2",
 			alias: ["p2"],
 			async action(broker, args) {
 				const { options } = args;
@@ -58,7 +58,7 @@ broker.createService({
 		"test.redisChannel": {
 			group: "mygroup",
 			handler() {
-				return "redisChannel";
+				this.logger.info("redisChannel");
 			}
 		}
 	},
@@ -66,7 +66,7 @@ broker.createService({
 		"test.redisAnother": {
 			group: "mygroup",
 			handler() {
-				return "redisAnother";
+				this.logger.info("redisAnother");
 			}
 		}
 	}

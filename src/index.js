@@ -29,7 +29,12 @@ const Adapters = require("./adapters");
  */
 
 module.exports = function ChannelsMiddleware(mwOpts) {
-	mwOpts = _.defaultsDeep(mwOpts, {});
+	mwOpts = _.defaultsDeep(mwOpts, {
+		schemaProperty: "channels",
+		sendMethodName: "sendToChannel",
+		adapterPropertyName: "channelAdapter"
+	});
+
 	/** @type {ServiceBroker} */
 	let broker;
 	/** @type {Logger} */
@@ -72,11 +77,19 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				broker[mwOpts.sendMethodName] = (channelName, payload, opts) => {
 					return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 				};
+			} else {
+				throw new BrokerOptionsError(
+					`broker.${mwOpts.sendMethodName} method is already in use by another Channel middleware`
+				);
 			}
 
 			// Add adapter reference to the broker instance
 			if (!broker[mwOpts.adapterPropertyName]) {
 				broker[mwOpts.adapterPropertyName] = adapter;
+			} else {
+				throw new BrokerOptionsError(
+					`broker.${mwOpts.adapterPropertyName} property is already in use by another Channel middleware`
+				);
 			}
 		},
 
