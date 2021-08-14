@@ -1,7 +1,7 @@
 "use strict";
 
 const _ = require("lodash");
-const { ServiceBroker } = require("moleculer");
+const { ServiceBroker, Errors } = require("moleculer");
 const ChannelMiddleware = require("./../../").Middleware;
 
 let Adapters;
@@ -446,4 +446,67 @@ describe("Integration tests", () => {
 			}
 		});
 	}
+});
+
+describe("Multiple Adapters", () => {
+	const broker = new ServiceBroker({
+		logger: true,
+		logLevel: "error",
+		middlewares: [
+			ChannelMiddleware({
+				adapter: "Redis",
+				schemaProperty: "redisChannels",
+				sendMethodName: "sendToRedisChannel",
+				adapterPropertyName: "redisAdapter"
+			}),
+			ChannelMiddleware({
+				adapter: "AMQP",
+				schemaProperty: "amqpChannels",
+				sendMethodName: "sendToAMQPChannel",
+				adapterPropertyName: "amqpAdapter"
+			})
+		]
+	});
+
+	const redisChannelHandler = jest.fn(() => Promise.resolve());
+	const amqpChannelHandler = jest.fn(() => Promise.resolve());
+
+	broker.createService({
+		name: "sub",
+		redisChannels: {
+			"test.redis.topic": {
+				group: "mygroup",
+				handler: redisChannelHandler
+			}
+		},
+		amqpChannels: {
+			"test.amqp.topic": {
+				group: "mygroup",
+				handler: amqpChannelHandler
+			}
+		}
+	});
+
+	beforeAll(() => broker.start());
+	afterAll(() => broker.stop());
+
+	it("should work with both adapters", async () => {
+		const msgRedis = { test: 123 };
+		const msgAMQP = { test: 456 };
+
+		await broker.sendToRedisChannel("test.redis.topic", msgRedis);
+		await broker.sendToAMQPChannel("test.amqp.topic", msgAMQP);
+
+		await broker.Promise.delay(500);
+
+		// ---- ˇ ASSERT ˇ ---
+		expect(redisChannelHandler).toHaveBeenCalledTimes(1);
+		expect(redisChannelHandler).toHaveBeenCalledWith(msgRedis);
+
+		expect(amqpChannelHandler).toHaveBeenCalledTimes(1);
+		expect(amqpChannelHandler).toHaveBeenCalledWith(msgAMQP);
+
+		expect(broker.redisAdapter).toBeDefined();
+		expect(broker.amqpAdapter).toBeDefined();
+	});
 });
