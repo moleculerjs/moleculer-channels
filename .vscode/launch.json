@@ -11,7 +11,7 @@
 			"program": "${file}",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"redis-fail-message"
+				"multi-adapter"
 			]
 		},
 		{

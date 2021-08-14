@@ -68,14 +68,16 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			adapter.init(broker, logger);
 
 			// Populate broker with new methods
-			if (!broker.sendToChannel) {
-				broker.sendToChannel = (channelName, payload, opts) => {
+			if (!broker[mwOpts.sendMethodName]) {
+				broker[mwOpts.sendMethodName] = (channelName, payload, opts) => {
 					return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 				};
 			}
 
 			// Add adapter reference to the broker instance
-			broker.channelAdapter = adapter;
+			if (!broker[mwOpts.adapterPropertyName]) {
+				broker[mwOpts.adapterPropertyName] = adapter;
+			}
 		},
 
 		/**
@@ -84,11 +86,11 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * @param {Service} svc
 		 */
 		async serviceCreated(svc) {
-			if (_.isPlainObject(svc.schema.channels)) {
+			if (_.isPlainObject(svc.schema[mwOpts.schemaProperty])) {
 				//svc.$channels = {};
 				// Process `channels` in the schema
 				await broker.Promise.mapSeries(
-					Object.entries(svc.schema.channels),
+					Object.entries(svc.schema[mwOpts.schemaProperty]),
 					async ([name, def]) => {
 						/** @type {Channel} */
 						let chan;
