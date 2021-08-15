@@ -447,3 +447,81 @@ describe("Integration tests", () => {
 		});
 	}
 });
+
+describe("Multiple Adapters", () => {
+	const broker = new ServiceBroker({
+		logger: true,
+		logLevel: "error",
+		middlewares: [
+			// Default options
+			ChannelMiddleware({ adapter: { type: "Redis", options: {} } }),
+			ChannelMiddleware({
+				adapter: "Redis",
+				schemaProperty: "redisChannels",
+				sendMethodName: "sendToRedisChannel",
+				adapterPropertyName: "redisAdapter"
+			}),
+			ChannelMiddleware({
+				adapter: "AMQP",
+				schemaProperty: "amqpChannels",
+				sendMethodName: "sendToAMQPChannel",
+				adapterPropertyName: "amqpAdapter"
+			})
+		]
+	});
+
+	const defaultChannelHandler = jest.fn(() => Promise.resolve());
+	const redisChannelHandler = jest.fn(() => Promise.resolve());
+	const amqpChannelHandler = jest.fn(() => Promise.resolve());
+
+	broker.createService({
+		name: "sub",
+		channels: {
+			"test.default.options.topic": {
+				group: "mygroup",
+				handler: defaultChannelHandler
+			}
+		},
+		redisChannels: {
+			"test.redis.topic": {
+				group: "mygroup",
+				handler: redisChannelHandler
+			}
+		},
+		amqpChannels: {
+			"test.amqp.topic": {
+				group: "mygroup",
+				handler: amqpChannelHandler
+			}
+		}
+	});
+
+	beforeAll(() => broker.start());
+	afterAll(() => broker.stop());
+
+	it("should work with both adapters", async () => {
+		const msgDefault = { test: "default" };
+		const msgRedis = { test: 123 };
+		const msgAMQP = { test: 456 };
+
+		await broker.sendToChannel("test.default.options.topic", msgDefault);
+		await broker.sendToRedisChannel("test.redis.topic", msgRedis);
+		await broker.sendToAMQPChannel("test.amqp.topic", msgAMQP);
+
+		await broker.Promise.delay(500);
+
+		// ---- ˇ ASSERT ˇ ---
+		expect(defaultChannelHandler).toHaveBeenCalledTimes(1);
+		expect(defaultChannelHandler).toHaveBeenCalledWith(msgDefault);
+
+		expect(redisChannelHandler).toHaveBeenCalledTimes(1);
+		expect(redisChannelHandler).toHaveBeenCalledWith(msgRedis);
+
+		expect(amqpChannelHandler).toHaveBeenCalledTimes(1);
+		expect(amqpChannelHandler).toHaveBeenCalledWith(msgAMQP);
+
+		expect(broker.channelAdapter).toBeDefined();
+		expect(broker.redisAdapter).toBeDefined();
+		expect(broker.amqpAdapter).toBeDefined();
+	});
+});

@@ -29,7 +29,12 @@ const Adapters = require("./adapters");
  */
 
 module.exports = function ChannelsMiddleware(mwOpts) {
-	mwOpts = _.defaultsDeep(mwOpts, {});
+	mwOpts = _.defaultsDeep(mwOpts, {
+		schemaProperty: "channels",
+		sendMethodName: "sendToChannel",
+		adapterPropertyName: "channelAdapter"
+	});
+
 	/** @type {ServiceBroker} */
 	let broker;
 	/** @type {Logger} */
@@ -68,14 +73,24 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			adapter.init(broker, logger);
 
 			// Populate broker with new methods
-			if (!broker.sendToChannel) {
-				broker.sendToChannel = (channelName, payload, opts) => {
+			if (!broker[mwOpts.sendMethodName]) {
+				broker[mwOpts.sendMethodName] = (channelName, payload, opts) => {
 					return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 				};
+			} else {
+				throw new BrokerOptionsError(
+					`broker.${mwOpts.sendMethodName} method is already in use by another Channel middleware`
+				);
 			}
 
 			// Add adapter reference to the broker instance
-			broker.channelAdapter = adapter;
+			if (!broker[mwOpts.adapterPropertyName]) {
+				broker[mwOpts.adapterPropertyName] = adapter;
+			} else {
+				throw new BrokerOptionsError(
+					`broker.${mwOpts.adapterPropertyName} property is already in use by another Channel middleware`
+				);
+			}
 		},
 
 		/**
@@ -84,11 +99,11 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		 * @param {Service} svc
 		 */
 		async serviceCreated(svc) {
-			if (_.isPlainObject(svc.schema.channels)) {
+			if (_.isPlainObject(svc.schema[mwOpts.schemaProperty])) {
 				//svc.$channels = {};
 				// Process `channels` in the schema
 				await broker.Promise.mapSeries(
-					Object.entries(svc.schema.channels),
+					Object.entries(svc.schema[mwOpts.schemaProperty]),
 					async ([name, def]) => {
 						/** @type {Channel} */
 						let chan;
