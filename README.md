@@ -38,11 +38,10 @@ module.exports = {
 	middlewares: [
 		ChannelsMiddleware({
 			adapter: "redis://localhost:6379"
-			/* Default values
-			sendMethodName: "sendToChannel",
-			adapterPropertyName: "channelAdapter",
-			schemaProperty: "channels"
-            */
+			// Default values
+			// sendMethodName: "sendToChannel",
+			// adapterPropertyName: "channelAdapter",
+			// schemaProperty: "channels"
 		})
 	]
 };
@@ -234,6 +233,8 @@ module.exports = {
 
 You can override the default values in the handler definition.
 
+**Overwrite default options in service**
+
 ```js
 module.exports = {
 	name: "payments",
@@ -252,7 +253,7 @@ module.exports = {
 		"payment.processed": {
 			minIdleTime: 10,
 			claimInterval: 10,
-            failedMessagesTopic: 'CUSTOM_TOPIC_NAME'
+			failedMessagesTopic: "CUSTOM_TOPIC_NAME",
 			async handler(payload) {
 				/*...*/
 			}
