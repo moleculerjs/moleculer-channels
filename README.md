@@ -19,6 +19,10 @@ Reliable messages for Moleculer services.
 -   max-in-flight option
 
 ## Install
+Until the first version is not published on NPM:
+```
+npm i moleculerjs/moleculer-channels#master
+```
 
 <!-- ```
 npm i @moleculer/channels
@@ -26,7 +30,7 @@ npm i @moleculer/channels
 
 ## Usage
 
-**Register middleware**
+### Register middleware in broker options
 
 ```js
 // moleculer.config.js
@@ -38,10 +42,6 @@ module.exports = {
     middlewares: [
         ChannelsMiddleware({
             adapter: "redis://localhost:6379"
-            // Default values
-            // sendMethodName: "sendToChannel",
-            // adapterPropertyName: "channelAdapter",
-            // schemaProperty: "channels"
         })
     ]
 };
@@ -84,6 +84,8 @@ module.exports = {
 };
 ```
 
+>The received `payload` doesn't contain any Moleculer-specific data. It means you can use it to get messages from 3rd party topics/channels, as well.
+
 ### Producing messages
 
 ```js
@@ -94,6 +96,8 @@ broker.sendToChannel("order.created", {
     ]
 });
 ```
+
+>The sent message doesn't contain any Moleculer-specific data. It means you can use it to produce messages to 3rd party topics/channels, as well.
 
 ### Multiple adapters
 
@@ -166,6 +170,41 @@ module.exports = {
     }
 };
 ```
+
+## Middleware options
+
+| Name | Type | Default value | Description |
+| ---- | ---- | ------------- | ----------- |
+| `adapter` | `String\|Object` | `null` | Adapter definition. It can be a `String` as name of the adapter or a connection string or an adapter definition `Object`. [More info](#adapters) |
+| `schemaProperty` | `String` | `"channels"` | Name of the property in service schema. |
+| `sendMethodName` | `String` | `"sendToChannel"` | Name of the method in ServiceBroker to send message to the channels. |
+| `adapterPropertyName` | `String` | `"channelAdapter"` | Name of the property in ServiceBroker to access the `Adapter` instance directly. |
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379",
+            sendMethodName: "sendToChannel",
+            adapterPropertyName: "channelAdapter",
+            schemaProperty: "channels"
+        })
+    ]
+};
+```
+
+## Channel options
+
+| Name | Type | Default value | Description |
+| ---- | ---- | ------------- | ----------- |
+| `group` | `String` | Full name of service | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version) |
+| `handler` | `Function(payload: any)` | `null` | Channel handler function. |
+TODO: adapter-specific options
 
 ## Adapters
 
@@ -268,7 +307,7 @@ Coming soon.
 
 ### RabbitMQ
 
-Coming soon.
+TODO: examples
 
 ### NATS JetStream
 
