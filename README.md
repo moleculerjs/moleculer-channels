@@ -19,7 +19,7 @@ Reliable messages for Moleculer services.
 -   max-in-flight option
 
 ## Install
-Until the first version is not published on NPM:
+Until the first version is published on NPM:
 ```
 npm i moleculerjs/moleculer-channels#master
 ```
@@ -270,7 +270,7 @@ module.exports = {
 };
 ```
 
-You can override the default values in the handler definition.
+You can overwrite the default values in the handler definition.
 
 **Overwrite default options in service**
 
