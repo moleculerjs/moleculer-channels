@@ -33,17 +33,17 @@ npm i @moleculer/channels
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	logger: true,
+    logger: true,
 
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "redis://localhost:6379"
-			// Default values
-			// sendMethodName: "sendToChannel",
-			// adapterPropertyName: "channelAdapter",
-			// schemaProperty: "channels"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+            // Default values
+            // sendMethodName: "sendToChannel",
+            // adapterPropertyName: "channelAdapter",
+            // schemaProperty: "channels"
+        })
+    ]
 };
 ```
 
@@ -54,33 +54,33 @@ Moreover, it will register handlers located in `channels` of a service schema.
 
 ```js
 module.exports = {
-	name: "payments",
+    name: "payments",
 
-	actions: {
-		/*...*/
-	},
+    actions: {
+        /*...*/
+    },
 
-	channels: {
-		// Shorthand format
-		// In this case the consumer group is the service full name
-		async "order.created"(payload) {
-			// Do something with the payload
-			// You should throw error if you want to NACK the message processing.
-		},
+    channels: {
+        // Shorthand format
+        // In this case the consumer group is the service full name
+        async "order.created"(payload) {
+            // Do something with the payload
+            // You should throw error if you want to NACK the message processing.
+        },
 
-		"payment.processed": {
-			// Using custom consumer-group
-			group: "other",
-			async handler(payload) {
-				// Do something with the payload
-				// You should throw error if you want to NACK the message processing.
-			}
-		}
-	},
+        "payment.processed": {
+            // Using custom consumer-group
+            group: "other",
+            async handler(payload) {
+                // Do something with the payload
+                // You should throw error if you want to NACK the message processing.
+            }
+        }
+    },
 
-	methods: {
-		/*...*/
-	}
+    methods: {
+        /*...*/
+    }
 };
 ```
 
@@ -88,10 +88,10 @@ module.exports = {
 
 ```js
 broker.sendToChannel("order.created", {
-	id: 1234,
-	items: [
-		/*...*/
-	]
+    id: 1234,
+    items: [
+        /*...*/
+    ]
 });
 ```
 
@@ -104,29 +104,29 @@ const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 // moleculer.config.js
 module.exports = {
-	logger: true,
-	logLevel: "error",
-	middlewares: [
-		// Default options
-		ChannelsMiddleware({
-			adapter: {
-				type: "Redis",
-				options: {}
-			}
-		}),
-		ChannelsMiddleware({
-			adapter: "Redis",
-			schemaProperty: "redisChannels",
-			sendMethodName: "sendToRedisChannel",
-			adapterPropertyName: "redisAdapter"
-		}),
-		ChannelsMiddleware({
-			adapter: "AMQP",
-			schemaProperty: "amqpChannels",
-			sendMethodName: "sendToAMQPChannel",
-			adapterPropertyName: "amqpAdapter"
-		})
-	]
+    logger: true,
+    logLevel: "error",
+    middlewares: [
+        // Default options
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {}
+            }
+        }),
+        ChannelsMiddleware({
+            adapter: "Redis",
+            schemaProperty: "redisChannels",
+            sendMethodName: "sendToRedisChannel",
+            adapterPropertyName: "redisAdapter"
+        }),
+        ChannelsMiddleware({
+            adapter: "AMQP",
+            schemaProperty: "amqpChannels",
+            sendMethodName: "sendToAMQPChannel",
+            adapterPropertyName: "amqpAdapter"
+        })
+    ]
 };
 ```
 
@@ -134,36 +134,36 @@ module.exports = {
 
 ```js
 module.exports = {
-	name: "payments",
+    name: "payments",
 
-	actions: {
-		/*...*/
-	},
+    actions: {
+        /*...*/
+    },
 
-	channels: {
-		"default.options.topic": {
-			group: "mygroup",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	},
-	redisChannels: {
-		"redis.topic": {
-			group: "mygroup",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	},
-	amqpChannels: {
-		"amqp.topic": {
-			group: "mygroup",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	}
+    channels: {
+        "default.options.topic": {
+            group: "mygroup",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    },
+    redisChannels: {
+        "redis.topic": {
+            group: "mygroup",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    },
+    amqpChannels: {
+        "amqp.topic": {
+            group: "mygroup",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    }
 };
 ```
 
@@ -180,11 +180,11 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "redis://localhost:6379"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
 };
 ```
 
@@ -195,39 +195,39 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "Redis",
-				options: {
-					redis: {
-						// ioredis constructor options: https://github.com/luin/ioredis#connect-to-redis
-						host: "127.0.0.1",
-						port: 6379,
-						db: 3,
-						password: "pass1234"
-					},
-					// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-					readTimeoutInternal: 0,
-					// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-					minIdleTime: 60 * 60 * 1000,
-					// Interval (in milliseconds) between two claims
-					claimInterval: 100,
-					// Max number of messages to fetch in a single read
-					maxInFlight: 1,
-					// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-					// More info: https://redis.io/commands/XGROUP
-					startID: "$",
-					// Maximum number of attempts to process a message. After this number is achieved messages are moved into "FAILED_MESSAGES".
-					maxProcessingAttempts: 10,
-					// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-					processingAttemptsInterval: 1000,
-					// Default channel name where failed messages will be placed
-					failedMessagesTopic: "FAILED_MESSAGES"
-				}
-			}
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {
+                    redis: {
+                        // ioredis constructor options: https://github.com/luin/ioredis#connect-to-redis
+                        host: "127.0.0.1",
+                        port: 6379,
+                        db: 3,
+                        password: "pass1234"
+                    },
+                    // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+                    readTimeoutInternal: 0,
+                    // Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+                    minIdleTime: 60 * 60 * 1000,
+                    // Interval (in milliseconds) between two claims
+                    claimInterval: 100,
+                    // Max number of messages to fetch in a single read
+                    maxInFlight: 1,
+                    // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+                    // More info: https://redis.io/commands/XGROUP
+                    startID: "$",
+                    // Maximum number of attempts to process a message. After this number is achieved messages are moved into "FAILED_MESSAGES".
+                    maxProcessingAttempts: 10,
+                    // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+                    processingAttemptsInterval: 1000,
+                    // Default channel name where failed messages will be placed
+                    failedMessagesTopic: "FAILED_MESSAGES"
+                }
+            }
+        })
+    ]
 };
 ```
 
@@ -237,28 +237,28 @@ You can override the default values in the handler definition.
 
 ```js
 module.exports = {
-	name: "payments",
+    name: "payments",
 
-	actions: {
-		/*...*/
-	},
+    actions: {
+        /*...*/
+    },
 
-	channels: {
-		"order.created": {
-			maxInFlight: 6,
-			async handler(payload) {
-				/*...*/
-			}
-		},
-		"payment.processed": {
-			minIdleTime: 10,
-			claimInterval: 10,
-			failedMessagesTopic: "CUSTOM_TOPIC_NAME",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	}
+    channels: {
+        "order.created": {
+            maxInFlight: 6,
+            async handler(payload) {
+                /*...*/
+            }
+        },
+        "payment.processed": {
+            minIdleTime: 10,
+            claimInterval: 10,
+            failedMessagesTopic: "CUSTOM_TOPIC_NAME",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    }
 };
 ```
 
