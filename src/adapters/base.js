@@ -24,7 +24,7 @@ const { Serializers } = require("moleculer");
  * @property {String?} prefix Adapter prefix
  * @property {String} consumerName Name of the consumer
  * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
- * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
+ * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue or drop
  * @property {DeadLetteringOptions} deadLettering Dead-letter-queue options
  */
 
