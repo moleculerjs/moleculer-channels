@@ -23,7 +23,7 @@ describe("Integration tests", () => {
 	function createBroker(adapter, opts) {
 		return new ServiceBroker(
 			_.defaultsDeep(opts, {
-				logger: true,
+				logger: false,
 				logLevel: "error",
 				middlewares: [ChannelMiddleware({ adapter })]
 			})
@@ -258,7 +258,7 @@ describe("Integration tests", () => {
 					channels: {
 						"test.unstable.topic": {
 							group: "mygroup",
-							maxProcessingAttempts: 5,
+							maxRetries: 5,
 							handler: subWrongHandler
 						}
 					}
@@ -272,7 +272,7 @@ describe("Integration tests", () => {
 							// Defaults to 1 hour. Decrease for unit tests
 							minIdleTime: 10,
 							claimInterval: 10,
-							maxProcessingAttempts: 5,
+							maxRetries: 5,
 							handler: subGoodHandler
 						}
 					}
@@ -429,7 +429,7 @@ describe("Integration tests", () => {
 								maxInFlight: 1,
 								minIdleTime: 50,
 								claimInterval: 50,
-								maxProcessingAttempts: 6,
+								maxRetries: 6,
 								processingAttemptsInterval: 10,
 								handler: subWrongHandler
 							}
@@ -443,7 +443,7 @@ describe("Integration tests", () => {
 								maxInFlight: 1,
 								minIdleTime: 50,
 								claimInterval: 50,
-								maxProcessingAttempts: 6,
+								maxRetries: 6,
 								processingAttemptsInterval: 10,
 								handler: subGoodHandler
 							}
