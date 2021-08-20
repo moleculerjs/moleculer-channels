@@ -44,7 +44,11 @@ broker.createService({
 			group: "mygroup",
 			minIdleTime: 1000,
 			claimInterval: 500,
-
+			maxRetries: 0,
+			deadLettering: {
+				enabled: true,
+				queueName: "DEAD_LETTER"
+			},
 			handler() {
 				this.logger.error("Ups! Something happened");
 				return Promise.reject(new Error("Something happened"));

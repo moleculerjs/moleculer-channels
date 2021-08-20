@@ -16,6 +16,7 @@ const { Serializers } = require("moleculer");
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
  * @typedef {import("../index").Channel} Channel
+ * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions
  */
 
 /**
@@ -23,6 +24,8 @@ const { Serializers } = require("moleculer");
  * @property {String?} prefix Adapter prefix
  * @property {String} consumerName Name of the consumer
  * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
+ * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
+ * @property {DeadLetteringOptions} deadLettering Dead-letter-queue options
  */
 
 class BaseAdapter {
@@ -36,7 +39,12 @@ class BaseAdapter {
 			{
 				consumerName: null,
 				prefix: null,
-				serializer: "JSON"
+				serializer: "JSON",
+				maxRetries: 3,
+				deadLettering: {
+					enabled: false,
+					queueName: "FAILED_MESSAGES"
+				}
 			},
 			opts
 		);
