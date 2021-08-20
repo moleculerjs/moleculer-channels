@@ -503,7 +503,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages } = this.parseMessage(message);
+		const { ids, parsedMessages, rawMessages } = this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
 
@@ -517,13 +517,14 @@ class RedisAdapter extends BaseAdapter {
 
 		for (let i = 0; i < promiseResults.length; i++) {
 			const result = promiseResults[i];
+			const id = ids[i];
 			if (result.status == "fulfilled") {
 				// Send ACK message
 				// https://redis.io/commands/xack
 				// Use pubClient to ensure that ACK is delivered to redis
-				await pubClient.xack(chan.name, chan.group, ids);
-				this.logger.debug(`Messages is ACKed.`, {
-					id: ids,
+				await pubClient.xack(chan.name, chan.group, id);
+				this.logger.debug(`Message is ACKed.`, {
+					id,
 					name: chan.name,
 					group: chan.group
 				});
@@ -534,8 +535,8 @@ class RedisAdapter extends BaseAdapter {
 
 					if (chan.deadLettering.enabled) {
 						this.logger.debug(
-							`Moving ${parsedMessages.length} message(s) to '${chan.deadLettering.queueName}'...`,
-							ids
+							`Moving message to '${chan.deadLettering.queueName}'...`,
+							id
 						);
 
 						// Move the message to a dedicated channel
@@ -546,20 +547,20 @@ class RedisAdapter extends BaseAdapter {
 							"channel",
 							chan.name, // Topic where failure occurred
 							"originalID",
-							ids[i], // Original ID (timestamp) of failed message
+							id, // Original ID (timestamp) of failed message
 							"payload",
-							parsedMessages[i] // Message contents
+							rawMessages[i] // Message contents
 						);
 
 						this.logger.warn(
-							`Moved ${parsedMessages.length} message(s) to '${chan.deadLettering.queueName}'`,
-							ids
+							`Moved ${parsedMessages.length} message to '${chan.deadLettering.queueName}'`,
+							id
 						);
 					} else {
 						// Drop message
-						this.logger.error(`Drop message...`, ids);
+						this.logger.error(`Drop message...`, id);
 					}
-					await pubClient.xack(chan.name, chan.group, ids);
+					await pubClient.xack(chan.name, chan.group, id);
 				} else {
 					// It will be (eventually) picked by xclaim
 				}
@@ -579,13 +580,15 @@ class RedisAdapter extends BaseAdapter {
 		return messages[0][1].reduce(
 			(accumulator, currentVal) => {
 				accumulator.ids.push(currentVal[0]);
+				accumulator.rawMessages.push(currentVal[1][1]);
 				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
 				return accumulator;
 			},
 			{
 				ids: [], // for XACK
-				parsedMessages: []
+				parsedMessages: [],
+				rawMessages: []
 			}
 		);
 	}
