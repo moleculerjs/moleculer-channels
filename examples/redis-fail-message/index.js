@@ -23,13 +23,15 @@ const broker = new ServiceBroker({
 			async action(broker, args) {
 				const { options } = args;
 				//console.log(options);
-				await broker.sendToChannel("test.fail.topic", {
+				const payload = {
 					id: 2,
 					name: "Jane Doe",
 					status: false,
 					count: ++c,
 					pid: process.pid
-				});
+				};
+
+				await broker.sendToChannel("my.fail.topic", payload);
 			}
 		}
 	]
@@ -38,7 +40,7 @@ const broker = new ServiceBroker({
 broker.createService({
 	name: "sub1",
 	channels: {
-		"test.fail.topic": {
+		"my.fail.topic": {
 			group: "mygroup",
 			minIdleTime: 1000,
 			claimInterval: 500,

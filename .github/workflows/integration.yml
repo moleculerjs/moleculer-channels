@@ -69,8 +69,8 @@ jobs:
       run: docker-compose logs
       working-directory: ./test
 
-    - name: Run integration tests
-      run: npm run test:integration
+    - name: Run tests
+      run: npm test
       env:
         GITHUB_ACTIONS_CI: true
 

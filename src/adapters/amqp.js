@@ -22,6 +22,9 @@ let Amqplib;
 /**
  * AMQP adapter for RabbitMQ
  *
+ * TODO: rewrite to using RabbitMQ Streams
+ * https://www.rabbitmq.com/streams.html
+ *
  * @class AmqpAdapter
  * @extends {BaseAdapter}
  */
@@ -41,13 +44,21 @@ class AmqpAdapter extends BaseAdapter {
 
 		super(opts);
 
-		this.opts.amqp = _.defaultsDeep(this.opts.amqp, {
-			//prefetch: 1,
-			socketOptions: {},
-			queueOptions: {},
-			exchangeOptions: {},
-			messageOptions: {},
-			consumeOptions: {}
+		this.opts = _.defaultsDeep(this.opts, {
+			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
+			maxProcessingAttempts: 3,
+
+			// Default queue name where failed messages will be placed
+			failedMessagesQueue: "FAILED_MESSAGES",
+
+			amqp: {
+				//prefetch: 1,
+				socketOptions: {},
+				queueOptions: {},
+				exchangeOptions: {},
+				messageOptions: {},
+				consumeOptions: {}
+			}
 		});
 
 		if (typeof this.opts.amqp.url == "string") {
@@ -214,47 +225,60 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
-		// --- CREATE EXCHANGE ---
-		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
-		const exchangeOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.exchangeOptions : {},
-			this.opts.amqp.exchangeOptions
-		);
-		this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
-		this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
+		try {
+			if (!chan.maxProcessingAttempts)
+				chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
+			if (!chan.failedMessagesQueue) chan.failedMessagesQueue = this.opts.failedMessagesQueue;
+			chan.failedMessagesQueue = this.addPrefixTopic(chan.failedMessagesQueue);
 
-		// --- CREATE QUEUE ---
-		const queueName = `${chan.group}.${chan.name}`;
+			// --- CREATE EXCHANGE ---
+			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
+			const exchangeOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.exchangeOptions : {},
+				this.opts.amqp.exchangeOptions
+			);
+			this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
+			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
-		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
-		const queueOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.queueOptions : {},
-			this.opts.amqp.queueOptions
-		);
-		this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
-		await this.channel.assertQueue(queueName, queueOptions);
+			// --- CREATE QUEUE ---
+			const queueName = `${chan.group}.${chan.name}`;
 
-		// --- BIND QUEUE TO EXCHANGE ---
-		this.logger.debug(`Binding '${chan.name}' -> '${queueName}'...`);
-		this.channel.bindQueue(queueName, chan.name, "");
+			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
+			const queueOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.queueOptions : {},
+				this.opts.amqp.queueOptions
+			);
+			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
+			await this.channel.assertQueue(queueName, queueOptions);
 
-		// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
-		const consumeOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.consumeOptions : {},
-			this.opts.amqp.consumeOptions
-		);
+			// --- BIND QUEUE TO EXCHANGE ---
+			this.logger.debug(`Binding '${chan.name}' -> '${queueName}'...`);
+			this.channel.bindQueue(queueName, chan.name, "");
 
-		this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
-		const res = await this.channel.consume(
-			queueName,
-			this.createConsumerHandler(chan),
-			consumeOptions
-		);
+			// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
+			const consumeOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.consumeOptions : {},
+				this.opts.amqp.consumeOptions
+			);
 
-		this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });
+			this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
+			const res = await this.channel.consume(
+				queueName,
+				this.createConsumerHandler(chan),
+				consumeOptions
+			);
+
+			this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });
+		} catch (err) {
+			this.logger.error(
+				`Error while subscribing to '${chan.name}' chan with '${chan.group}' group`,
+				err
+			);
+			throw err;
+		}
 	}
 
 	/**
@@ -273,8 +297,46 @@ class AmqpAdapter extends BaseAdapter {
 				await chan.handler(content);
 				this.channel.ack(msg);
 			} catch (err) {
-				this.logger.warn("Queue message processing error. Send NACK...", err);
-				this.channel.nack(msg, false, true);
+				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
+				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
+				if (
+					chan.maxProcessingAttempts > 0 &&
+					redeliveryCount >= chan.maxProcessingAttempts
+				) {
+					if (chan.failedMessagesQueue) {
+						this.logger.debug(
+							`Message redelivered too many times (${redeliveryCount}). Moving a message to '${chan.failedMessagesQueue}' queue...`
+						);
+						const res = this.channel.publish("", chan.failedMessagesQueue, msg.content);
+						if (res === false)
+							throw new MoleculerError("AMQP publish error. Write buffer is full.");
+
+						this.channel.ack(msg);
+					} else {
+						this.logger.error(
+							`Message redelivered too many times (${redeliveryCount}). Drop message...`,
+							msg
+						);
+						this.channel.nack(msg, false, false);
+					}
+				} else {
+					// Redeliver the message directly to the queue instead of exchange
+					const queueName = `${chan.group}.${chan.name}`;
+					this.logger.warn(
+						`Redeliver message into '${queueName}' queue.`,
+						redeliveryCount
+					);
+
+					const res = this.channel.publish("", queueName, msg.content, {
+						headers: Object.assign({}, msg.properties.headers, {
+							"x-redelivered-count": redeliveryCount + 1
+						})
+					});
+					if (res === false)
+						throw new MoleculerError("AMQP publish error. Write buffer is full.");
+
+					this.channel.ack(msg);
+				}
 			}
 		};
 	}
@@ -310,13 +372,25 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Object?} opts
 	 */
 	async publish(channelName, payload, opts = {}) {
+		// Adapter is stopping. Publishing no longer is allowed
+		if (this.stopping) return;
+
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
 		const messageOptions = _.defaultsDeep(
-			{ persistent: opts.persistent, expiration: opts.ttl },
+			{
+				persistent: opts.persistent,
+				expiration: opts.ttl,
+				priority: opts.priority,
+				correlationId: opts.correlationId,
+				headers: opts.headers
+				// ? mandatory: opts.mandatory
+			},
 			this.opts.amqp.messageOptions
 		);
 
-		const data = this.serializer.serialize(payload);
+		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
+
+		const data = opts.raw ? payload : this.serializer.serialize(payload);
 		const res = this.channel.publish(channelName, "", data, messageOptions);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 	}
