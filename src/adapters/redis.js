@@ -57,17 +57,17 @@ class RedisAdapter extends BaseAdapter {
 			// By default never timeout
 			readTimeoutInternal: 0,
 			// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-			minIdleTime: 3_600_000,
+			minIdleTime: 60 * 60 * 1000,
+			// Time between claims (in milliseconds)
 			claimInterval: 100,
 			// Max number of messages to fetch in a single read
 			maxInFlight: 1,
 			// Special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
 			startID: "$",
 			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
-			maxProcessingAttempts: 10,
+			maxProcessingAttempts: 3,
 			// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
 			processingAttemptsInterval: 1000,
-
 			// Default channel name where failed messages will be placed
 			failedMessagesTopic: "FAILED_MESSAGES"
 		});
@@ -223,6 +223,7 @@ class RedisAdapter extends BaseAdapter {
 		if (!chan.processingAttemptsInterval)
 			chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
 		if (!chan.failedMessagesTopic) chan.failedMessagesTopic = this.opts.failedMessagesTopic;
+		chan.failedMessagesTopic = this.addPrefixTopic(chan.failedMessagesTopic);
 
 		// Create a connection for current subscription
 		let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
@@ -366,7 +367,7 @@ class RedisAdapter extends BaseAdapter {
 					this.addChannelActiveMessages(chan.id, ids);
 
 					this.logger.debug(
-						`Moving ${pendingMessages.length} message(s) to ${chan.failedMessagesTopic}...`,
+						`Moving ${pendingMessages.length} message(s) to '${chan.failedMessagesTopic}'...`,
 						ids
 					);
 
@@ -401,7 +402,7 @@ class RedisAdapter extends BaseAdapter {
 					this.removeChannelActiveMessages(chan.id, ids);
 
 					this.logger.warn(
-						`Moved ${pendingMessages.length} message(s) to ${chan.failedMessagesTopic}`,
+						`Moved ${pendingMessages.length} message(s) to '${chan.failedMessagesTopic}'`,
 						ids
 					);
 				}
@@ -508,7 +509,7 @@ class RedisAdapter extends BaseAdapter {
 				channelName, // Stream name
 				"*", // Auto ID
 				"payload", // Entry
-				this.serializer.serialize(payload) // Actual payload
+				opts.raw ? payload : this.serializer.serialize(payload) // Actual payload
 			);
 			this.logger.debug(`Message ${id} was published at '${channelName}'`);
 		} catch (error) {

@@ -41,13 +41,21 @@ class AmqpAdapter extends BaseAdapter {
 
 		super(opts);
 
-		this.opts.amqp = _.defaultsDeep(this.opts.amqp, {
-			//prefetch: 1,
-			socketOptions: {},
-			queueOptions: {},
-			exchangeOptions: {},
-			messageOptions: {},
-			consumeOptions: {}
+		this.opts = _.defaultsDeep(this.opts, {
+			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
+			maxProcessingAttempts: 3,
+
+			// Default queue name where failed messages will be placed
+			failedMessagesQueue: "FAILED_MESSAGES",
+
+			amqp: {
+				//prefetch: 1,
+				socketOptions: {},
+				queueOptions: {},
+				exchangeOptions: {},
+				messageOptions: {},
+				consumeOptions: {}
+			}
 		});
 
 		if (typeof this.opts.amqp.url == "string") {
@@ -214,6 +222,11 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
+		if (!chan.maxProcessingAttempts)
+			chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
+		if (!chan.failedMessagesQueue) chan.failedMessagesQueue = this.opts.failedMessagesQueue;
+		chan.failedMessagesQueue = this.addPrefixTopic(chan.failedMessagesQueue);
+
 		// --- CREATE EXCHANGE ---
 		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
 		const exchangeOptions = _.defaultsDeep(
@@ -273,8 +286,46 @@ class AmqpAdapter extends BaseAdapter {
 				await chan.handler(content);
 				this.channel.ack(msg);
 			} catch (err) {
-				this.logger.warn("Queue message processing error. Send NACK...", err);
-				this.channel.nack(msg, false, true);
+				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
+				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 0;
+				if (
+					chan.maxProcessingAttempts > 0 &&
+					redeliveryCount >= chan.maxProcessingAttempts
+				) {
+					if (chan.failedMessagesQueue) {
+						this.logger.debug(
+							`Message redelivered too many times (${redeliveryCount}). Moving a message to '${chan.failedMessagesQueue}' queue...`
+						);
+						const res = this.channel.publish("", chan.failedMessagesQueue, msg.content);
+						if (res === false)
+							throw new MoleculerError("AMQP publish error. Write buffer is full.");
+
+						this.channel.ack(msg);
+					} else {
+						this.logger.error(
+							`Message redelivered too many times (${redeliveryCount}). Drop message...`,
+							msg
+						);
+						this.channel.nack(msg, false, false);
+					}
+				} else {
+					// Redeliver the message directly to the queue instead of exchange
+					const queueName = `${chan.group}.${chan.name}`;
+					this.logger.warn(
+						`Redeliver message into '${queueName}' queue.`,
+						redeliveryCount
+					);
+
+					const res = this.channel.publish("", queueName, msg.content, {
+						headers: Object.assign({}, msg.properties.headers, {
+							"x-redelivered-count": redeliveryCount + 1
+						})
+					});
+					if (res === false)
+						throw new MoleculerError("AMQP publish error. Write buffer is full.");
+
+					this.channel.ack(msg);
+				}
 			}
 		};
 	}
@@ -310,13 +361,24 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Object?} opts
 	 */
 	async publish(channelName, payload, opts = {}) {
+		// Adapter is stopping. Publishing no longer is allowed
+		if (this.stopping) return;
+
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
 		const messageOptions = _.defaultsDeep(
-			{ persistent: opts.persistent, expiration: opts.ttl },
+			{
+				persistent: opts.persistent,
+				expiration: opts.ttl,
+				priority: opts.priority,
+				correlationId: opts.correlationId,
+				headers: opts.headers
+			},
 			this.opts.amqp.messageOptions
 		);
 
-		const data = this.serializer.serialize(payload);
+		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
+
+		const data = opts.raw ? payload : this.serializer.serialize(payload);
 		const res = this.channel.publish(channelName, "", data, messageOptions);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 	}

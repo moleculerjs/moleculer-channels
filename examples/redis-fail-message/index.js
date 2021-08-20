@@ -23,13 +23,15 @@ const broker = new ServiceBroker({
 			async action(broker, args) {
 				const { options } = args;
 				//console.log(options);
-				await broker.sendToChannel("test.fail.topic", {
+				const payload = {
 					id: 2,
 					name: "Jane Doe",
 					status: false,
 					count: ++c,
 					pid: process.pid
-				});
+				};
+
+				await broker.sendToChannel("test.fail.topic", payload);
 			}
 		}
 	]
