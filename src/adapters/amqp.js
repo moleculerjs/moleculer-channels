@@ -22,6 +22,9 @@ let Amqplib;
 /**
  * AMQP adapter for RabbitMQ
  *
+ * TODO: rewrite to using RabbitMQ Streams
+ * https://www.rabbitmq.com/streams.html
+ *
  * @class AmqpAdapter
  * @extends {BaseAdapter}
  */
@@ -222,52 +225,60 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
-		if (!chan.maxProcessingAttempts)
-			chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
-		if (!chan.failedMessagesQueue) chan.failedMessagesQueue = this.opts.failedMessagesQueue;
-		chan.failedMessagesQueue = this.addPrefixTopic(chan.failedMessagesQueue);
+		try {
+			if (!chan.maxProcessingAttempts)
+				chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
+			if (!chan.failedMessagesQueue) chan.failedMessagesQueue = this.opts.failedMessagesQueue;
+			chan.failedMessagesQueue = this.addPrefixTopic(chan.failedMessagesQueue);
 
-		// --- CREATE EXCHANGE ---
-		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
-		const exchangeOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.exchangeOptions : {},
-			this.opts.amqp.exchangeOptions
-		);
-		this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
-		this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
+			// --- CREATE EXCHANGE ---
+			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
+			const exchangeOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.exchangeOptions : {},
+				this.opts.amqp.exchangeOptions
+			);
+			this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
+			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
-		// --- CREATE QUEUE ---
-		const queueName = `${chan.group}.${chan.name}`;
+			// --- CREATE QUEUE ---
+			const queueName = `${chan.group}.${chan.name}`;
 
-		// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
-		const queueOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.queueOptions : {},
-			this.opts.amqp.queueOptions
-		);
-		this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
-		await this.channel.assertQueue(queueName, queueOptions);
+			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
+			const queueOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.queueOptions : {},
+				this.opts.amqp.queueOptions
+			);
+			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
+			await this.channel.assertQueue(queueName, queueOptions);
 
-		// --- BIND QUEUE TO EXCHANGE ---
-		this.logger.debug(`Binding '${chan.name}' -> '${queueName}'...`);
-		this.channel.bindQueue(queueName, chan.name, "");
+			// --- BIND QUEUE TO EXCHANGE ---
+			this.logger.debug(`Binding '${chan.name}' -> '${queueName}'...`);
+			this.channel.bindQueue(queueName, chan.name, "");
 
-		// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
-		const consumeOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.consumeOptions : {},
-			this.opts.amqp.consumeOptions
-		);
+			// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
+			const consumeOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.consumeOptions : {},
+				this.opts.amqp.consumeOptions
+			);
 
-		this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
-		const res = await this.channel.consume(
-			queueName,
-			this.createConsumerHandler(chan),
-			consumeOptions
-		);
+			this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
+			const res = await this.channel.consume(
+				queueName,
+				this.createConsumerHandler(chan),
+				consumeOptions
+			);
 
-		this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });
+			this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });
+		} catch (err) {
+			this.logger.error(
+				`Error while subscribing to '${chan.name}' chan with '${chan.group}' group`,
+				err
+			);
+			throw err;
+		}
 	}
 
 	/**
@@ -372,6 +383,7 @@ class AmqpAdapter extends BaseAdapter {
 				priority: opts.priority,
 				correlationId: opts.correlationId,
 				headers: opts.headers
+				// ? mandatory: opts.mandatory
 			},
 			this.opts.amqp.messageOptions
 		);

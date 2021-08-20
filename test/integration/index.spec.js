@@ -14,7 +14,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 } else {
 	// Local development tests
 	Adapters = [
-		{ type: "Redis", options: {} },
+		//		{ type: "Redis", options: {} },
 		{ type: "AMQP", options: {} }
 	];
 }
@@ -64,10 +64,12 @@ describe("Integration tests", () => {
 				});
 			});
 
-			describe("Test simple publish/subscribe logic", () => {
+			describe.only("Test simple publish/subscribe logic", () => {
 				const broker = createBroker(adapter);
 
-				const subTestTopicHandler = jest.fn(() => Promise.resolve());
+				const subTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
+				});
 
 				broker.createService({
 					name: "sub",

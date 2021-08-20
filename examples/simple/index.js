@@ -93,7 +93,7 @@ broker
 	.then(async () => {
 		broker.repl();
 
-		await Promise.delay(1000);
+		//await Promise.delay(1000);
 		console.log("Publish 'my.first.topic' message...");
 		await broker.sendToChannel("my.first.topic", {
 			id: 1,
