@@ -5,10 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon examples/index.js",
-    "ci:unit": "jest --testMatch \"**/unit/**/*.spec.js\" --watch",
-    "ci:integration": "jest --testMatch \"**/integration/**/*.spec.js\" --runInBand --watch",
-    "test:unit": "jest --testMatch \"**/unit/**/*.spec.js\"",
-    "test:integration": "jest --testMatch \"**/integration/**/*.spec.js\" --runInBand --coverage",
+    "ci": "jest --testMatch \"**/*.spec.js\" --runInBand --watch",
     "test": "jest --testMatch \"**/*.spec.js\" --runInBand --coverage",
     "lint": "eslint --ext=.js src examples test",
     "bench": "node benchmark/index.js",
