@@ -208,6 +208,16 @@ TODO: adapter-specific options
 
 ## Adapters
 
+### Adapter options
+
+| Name | Type | Default value | Description |
+| ---- | ---- | ------------- | ----------- |
+| `consumerName` | `String` | ServiceBroker nodeID | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
+| `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
+| `serializer` | `String\|Object\|Serializer` | `JSON` | Serializer for messages. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
+
+TODO: adapter-specific options
+
 ### Redis Streams
 
 [Redis Streams](https://redis.io/topics/streams-intro) was introduced in Redis 5.0. Hoverer, since this module relies on the [XAUTOCLAIM](https://redis.io/commands/xautoclaim) command, Redis >= 6.2.0 is required.

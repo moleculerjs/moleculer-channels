@@ -34,6 +34,7 @@ class BaseAdapter {
 		/** @type {BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(
 			{
+				consumerName: null,
 				prefix: null,
 				serializer: "JSON"
 			},
@@ -60,6 +61,9 @@ class BaseAdapter {
 
 		if (!this.opts.consumerName) this.opts.consumerName = this.broker.nodeID;
 		if (this.opts.prefix == null) this.opts.prefix = broker.namespace;
+
+		this.logger.info("Channel consumer name:", this.opts.consumerName);
+		this.logger.info("Channel prefix:", this.opts.prefix);
 
 		// create an instance of serializer (default to JSON)
 		this.serializer = Serializers.resolve(this.opts.serializer);
