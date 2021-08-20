@@ -287,7 +287,7 @@ class AmqpAdapter extends BaseAdapter {
 				this.channel.ack(msg);
 			} catch (err) {
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
-				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 0;
+				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
 				if (
 					chan.maxProcessingAttempts > 0 &&
 					redeliveryCount >= chan.maxProcessingAttempts
