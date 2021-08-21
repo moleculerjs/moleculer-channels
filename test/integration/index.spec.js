@@ -429,6 +429,55 @@ describe("Integration tests", () => {
 				});
 			});
 
+			describe("Test Max-In-Flight logic", () => {
+				const broker = createBroker({ ...adapter, options: { amqp: { prefetch: 1 } } });
+
+				let FLOW = [];
+
+				broker.createService({
+					name: "sub1",
+					channels: {
+						"test.mif.topic": {
+							maxInFlight: 1,
+							async handler(payload) {
+								FLOW.push(`BEGIN: ${payload.id}`);
+								await this.Promise.delay(300);
+								FLOW.push(`END: ${payload.id}`);
+							}
+						}
+					}
+				});
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					FLOW = [];
+				});
+
+				it("should process the messages 1-to-1", async () => {
+					// -> Publish messages <- //
+					await Promise.all(
+						_.times(5, i => broker.sendToChannel("test.mif.topic", { id: i }))
+					);
+					await broker.Promise.delay(2000);
+
+					// ---- ˇ ASSERT ˇ ---
+					expect(FLOW).toEqual([
+						"BEGIN: 0",
+						"END: 0",
+						"BEGIN: 1",
+						"END: 1",
+						"BEGIN: 2",
+						"END: 2",
+						"BEGIN: 3",
+						"END: 3",
+						"BEGIN: 4",
+						"END: 4"
+					]);
+				});
+			});
+
 			describe("Test namespaces logic", () => {
 				// --- NO NAMESPACE ---
 				const broker1 = createBroker(adapter, {});
