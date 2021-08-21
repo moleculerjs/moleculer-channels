@@ -35,19 +35,16 @@ class BaseAdapter {
 	 */
 	constructor(opts) {
 		/** @type {BaseDefaultOptions} */
-		this.opts = _.defaultsDeep(
-			{
-				consumerName: null,
-				prefix: null,
-				serializer: "JSON",
-				maxRetries: 3,
-				deadLettering: {
-					enabled: false,
-					queueName: "FAILED_MESSAGES"
-				}
-			},
-			opts
-		);
+		this.opts = _.defaultsDeep({}, opts, {
+			consumerName: null,
+			prefix: null,
+			serializer: "JSON",
+			maxRetries: 3,
+			deadLettering: {
+				enabled: false,
+				queueName: "FAILED_MESSAGES"
+			}
+		});
 
 		/**
 		 * Tracks the messages that are still being processed by different clients
@@ -196,7 +193,7 @@ class BaseAdapter {
 	 * @returns {String} New topic name
 	 */
 	addPrefixTopic(topicName) {
-		if (this.opts.prefix && topicName) {
+		if (this.opts.prefix != null && topicName) {
 			return `${this.opts.prefix}.${topicName}`;
 		}
 
