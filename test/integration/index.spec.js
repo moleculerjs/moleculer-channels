@@ -9,12 +9,36 @@ let Adapters;
 if (process.env.GITHUB_ACTIONS_CI) {
 	Adapters = [
 		{ type: "Redis", options: {} },
+		{
+			type: "Redis",
+			options: {
+				cluster: {
+					nodes: [
+						{ host: "127.0.0.1", port: 6381 },
+						{ host: "127.0.0.1", port: 6382 },
+						{ host: "127.0.0.1", port: 6383 }
+					]
+				}
+			}
+		},
 		{ type: "AMQP", options: {} }
 	];
 } else {
 	// Local development tests
 	Adapters = [
 		{ type: "Redis", options: {} },
+		{
+			type: "Redis",
+			options: {
+				cluster: {
+					nodes: [
+						{ host: "127.0.0.1", port: 6381 },
+						{ host: "127.0.0.1", port: 6382 },
+						{ host: "127.0.0.1", port: 6383 }
+					]
+				}
+			}
+		},
 		{ type: "AMQP", options: {} }
 	];
 }

@@ -12,6 +12,30 @@ services:
     ports:
       - "6379:6379"
 
+  redis-node-1:
+    image: docker.io/bitnami/redis-cluster:6.2
+    ports:
+      - "6381:6379"
+    environment:
+      - 'ALLOW_EMPTY_PASSWORD=yes'
+      - 'REDIS_NODES=redis-node-1 redis-node-2 redis-node-3'
+
+  redis-node-2:
+    image: docker.io/bitnami/redis-cluster:6.2
+    ports:
+      - "6382:6379"
+    environment:
+      - 'ALLOW_EMPTY_PASSWORD=yes'
+      - 'REDIS_NODES=redis-node-1 redis-node-2 redis-node-3'
+
+  redis-node-3:
+    image: docker.io/bitnami/redis-cluster:6.2
+    ports:
+      - "6383:6379"
+    environment:
+      - 'ALLOW_EMPTY_PASSWORD=yes'
+      - 'REDIS_NODES=redis-node-1 redis-node-2 redis-node-3'
+
   rabbitmq:
     image: rabbitmq:3-management
     ports:
