@@ -1,7 +1,7 @@
 "use strict";
 
 const { ServiceBroker } = require("moleculer");
-const ChannelsMiddleware = require("../../").Middleware;
+const ChannelsMiddleware = require("../..").Middleware;
 
 let c = 1;
 
@@ -31,7 +31,7 @@ const broker = new ServiceBroker({
 					pid: process.pid
 				};
 
-				await broker.sendToChannel("my.fail.topic", payload);
+				await broker.sendToChannel("my.tracked.topic", payload);
 			}
 		}
 	]
@@ -40,14 +40,11 @@ const broker = new ServiceBroker({
 broker.createService({
 	name: "sub1",
 	channels: {
-		"my.fail.topic": {
-			group: "mygroup",
-			minIdleTime: 1000,
-			claimInterval: 500,
-
-			handler() {
-				this.logger.error("Ups! Something happened");
-				return Promise.reject(new Error("Something happened"));
+		"my.tracked.topic": {
+			async handler() {
+				this.logger.info(">>> Start processing message. It will takes 10s...");
+				await this.Promise.delay(10 * 1000);
+				this.logger.info(">>> Processing finished.");
 			}
 		}
 	}

@@ -2,19 +2,15 @@
 
 ## Common
 
--   [x] using prefix as `broker.namespace` if not defined in `opts` for queue names
--   [x] move serializer to base adapter
--   [x] move active message tracking to base adapter
--   [x] checking subscription after reconnecting
--   [x] make adapter accessible (`broker.channelAdapter`) to the devs
--   [ ] middleware constructor option for the property name in svc schema (`channels`) and for the method name in the broker (`sendToChannel`)
 
 ## Redis
+-   [ ] add example for Redis Cluster connection into README
+-   [ ] add Redis Cluster test env with 3 nodes into docker-compose
+-   [ ] fix `maxInFlight` logic because it gets new messages, while the max messages are in progress. Adapter should check the `getNumberOfChannelActiveMessages` before start a new `chan.xreadgroup`
 
--   [x] one client per subscription
--   [x] make intervals configurable to give more freedom to the devs
 
 ## AMQP
+-   [ ] use pending-message handling from base adapter.
 
 ## NATS Jet Stream
 

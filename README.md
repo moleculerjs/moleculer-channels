@@ -203,8 +203,16 @@ module.exports = {
 | Name | Type | Default value | Description |
 | ---- | ---- | ------------- | ----------- |
 | `group` | `String` | Full name of service | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version) |
+| `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
+| `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
+| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
 | `handler` | `Function(payload: any)` | `null` | Channel handler function. |
 TODO: adapter-specific options
+
+## Failed message
+If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
+When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
+Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
 
 ## Adapters
 
@@ -215,6 +223,9 @@ TODO: adapter-specific options
 | `consumerName` | `String` | ServiceBroker nodeID | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
 | `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
 | `serializer` | `String\|Object\|Serializer` | `JSON` | Serializer for messages. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
+| `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
+| `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
+| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
 
 TODO: adapter-specific options
 
@@ -267,12 +278,8 @@ module.exports = {
                     // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
                     // More info: https://redis.io/commands/XGROUP
                     startID: "$",
-                    // Maximum number of attempts to process a message. After this number is achieved messages are moved into "FAILED_MESSAGES".
-                    maxProcessingAttempts: 10,
                     // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
                     processingAttemptsInterval: 1000,
-                    // Default channel name where failed messages will be placed
-                    failedMessagesTopic: "FAILED_MESSAGES"
                 }
             }
         })

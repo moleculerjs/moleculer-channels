@@ -19,17 +19,25 @@ const Adapters = require("./adapters");
  */
 
 /**
+ * @typedef {Object} DeadLetteringOptions Dead-letter-queue options
+ * @property {Boolean} enabled Enable dead-letter-queue
+ * @property {String} queueName Name of the dead-letter-queue
+ */
+
+/**
  * @typedef {Object} Channel Consumer configuration
  * @property {String} id Consumer ID
  * @property {String} name Channel/Queue/Stream name
  * @property {String} group Consumer group name
  * @property {Boolean} unsubscribing Flag denoting if service is stopping
  * @property {Number?} maxInFlight Max number of messages to fetch in a single read
+ * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
+ * @property {DeadLetteringOptions?} deadLettering Dead-letter-queue options
  * @property {Function} handler User defined handler
  */
 
 module.exports = function ChannelsMiddleware(mwOpts) {
-	mwOpts = _.defaultsDeep(mwOpts, {
+	mwOpts = _.defaultsDeep({}, mwOpts, {
 		adapter: null,
 		schemaProperty: "channels",
 		sendMethodName: "sendToChannel",

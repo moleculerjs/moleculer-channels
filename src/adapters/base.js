@@ -16,6 +16,7 @@ const { Serializers } = require("moleculer");
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
  * @typedef {import("../index").Channel} Channel
+ * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions
  */
 
 /**
@@ -23,6 +24,8 @@ const { Serializers } = require("moleculer");
  * @property {String?} prefix Adapter prefix
  * @property {String} consumerName Name of the consumer
  * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
+ * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue or drop
+ * @property {DeadLetteringOptions} deadLettering Dead-letter-queue options
  */
 
 class BaseAdapter {
@@ -32,14 +35,16 @@ class BaseAdapter {
 	 */
 	constructor(opts) {
 		/** @type {BaseDefaultOptions} */
-		this.opts = _.defaultsDeep(
-			{
-				consumerName: null,
-				prefix: null,
-				serializer: "JSON"
-			},
-			opts
-		);
+		this.opts = _.defaultsDeep({}, opts, {
+			consumerName: null,
+			prefix: null,
+			serializer: "JSON",
+			maxRetries: 3,
+			deadLettering: {
+				enabled: false,
+				queueName: "FAILED_MESSAGES"
+			}
+		});
 
 		/**
 		 * Tracks the messages that are still being processed by different clients
@@ -154,7 +159,7 @@ class BaseAdapter {
 		const messageList = this.activeMessages.get(channelID);
 
 		IDs.forEach(id => {
-			let idx = messageList.indexOf(id);
+			const idx = messageList.indexOf(id);
 			if (idx != -1) {
 				messageList.splice(idx, 1);
 			}
@@ -188,7 +193,7 @@ class BaseAdapter {
 	 * @returns {String} New topic name
 	 */
 	addPrefixTopic(topicName) {
-		if (this.opts.prefix && topicName) {
+		if (this.opts.prefix != null && topicName) {
 			return `${this.opts.prefix}.${topicName}`;
 		}
 

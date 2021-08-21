@@ -29,9 +29,7 @@ let Redis;
  * @property {Number} claimInterval Interval (in milliseconds) between message claims
  * @property {Number} maxInFlight Maximum number of messages to fetch in a single read
  * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
- * @property {Number} maxProcessingAttempts Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
  * @property {Number} processingAttemptsInterval Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
- * @property {String} failedMessagesTopic Default channel name where failed messages will be placed
  */
 
 /**
@@ -64,12 +62,8 @@ class RedisAdapter extends BaseAdapter {
 			maxInFlight: 1,
 			// Special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
 			startID: "$",
-			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
-			maxProcessingAttempts: 3,
 			// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-			processingAttemptsInterval: 1000,
-			// Default channel name where failed messages will be placed
-			failedMessagesTopic: "FAILED_MESSAGES"
+			processingAttemptsInterval: 1000
 		});
 
 		/**
@@ -212,218 +206,233 @@ class RedisAdapter extends BaseAdapter {
 			chan.id
 		);
 
-		// https://redis.io/commands/XGROUP
-		if (!chan.startID) chan.startID = this.opts.startID;
-		if (!chan.minIdleTime) chan.minIdleTime = this.opts.minIdleTime;
-		if (!chan.claimInterval) chan.claimInterval = this.opts.claimInterval;
-		if (!chan.maxInFlight) chan.maxInFlight = this.opts.maxInFlight;
-		if (!chan.readTimeoutInternal) chan.readTimeoutInternal = this.opts.readTimeoutInternal;
-		if (!chan.maxProcessingAttempts)
-			chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
-		if (!chan.processingAttemptsInterval)
-			chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
-		if (!chan.failedMessagesTopic) chan.failedMessagesTopic = this.opts.failedMessagesTopic;
-		chan.failedMessagesTopic = this.addPrefixTopic(chan.failedMessagesTopic);
-
-		// Create a connection for current subscription
-		let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
-		this.clients.set(chan.id, chanSub);
-
-		this.initChannelActiveMessages(chan.id);
-
-		// 1. Create stream and consumer group
 		try {
 			// https://redis.io/commands/XGROUP
-			await chanSub.xgroup(
-				"CREATE",
-				chan.name, // Stream name
-				chan.group, // Consumer group
-				chan.startID, // Starting point to read messages
-				`MKSTREAM` // Create stream if doesn't exist
-			);
-		} catch (err) {
-			if (err.message.includes("BUSYGROUP")) {
-				// Silently ignore the error. Channel or Consumer Group already exists
-				this.logger.debug(`Consumer group '${chan.group}' already exists.`);
-			} else {
-				this.logger.error(
-					`Unable to create the '${chan.name}' stream or consumer group '${chan.group}'.`,
-					err
-				);
+			if (chan.startID == null) chan.startID = this.opts.startID;
+			if (chan.minIdleTime == null) chan.minIdleTime = this.opts.minIdleTime;
+			if (chan.claimInterval == null) chan.claimInterval = this.opts.claimInterval;
+			if (chan.maxInFlight == null) chan.maxInFlight = this.opts.maxInFlight;
+			if (chan.readTimeoutInternal == null)
+				chan.readTimeoutInternal = this.opts.readTimeoutInternal;
+			if (chan.processingAttemptsInterval == null)
+				chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
+
+			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
+			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
+			if (chan.deadLettering.enabled) {
+				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 			}
-		}
 
-		// Inspired on https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
-		chan.xreadgroup = async () => {
-			// Adapter is stopping. Reading no longer is allowed
-			if (this.stopping) return;
+			// Create a connection for current subscription
+			let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
+			this.clients.set(chan.id, chanSub);
 
-			this.logger.debug(`Next xreadgroup...`, chan.id);
+			this.initChannelActiveMessages(chan.id);
 
+			// 1. Create stream and consumer group
 			try {
-				// this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
-				// https://redis.io/commands/xreadgroup
-				let message;
+				// https://redis.io/commands/XGROUP
+				await chanSub.xgroup(
+					"CREATE",
+					chan.name, // Stream name
+					chan.group, // Consumer group
+					chan.startID, // Starting point to read messages
+					`MKSTREAM` // Create stream if doesn't exist
+				);
+			} catch (err) {
+				if (err.message.includes("BUSYGROUP")) {
+					// Silently ignore the error. Channel or Consumer Group already exists
+					this.logger.debug(`Consumer group '${chan.group}' already exists.`);
+				} else {
+					this.logger.error(
+						`Unable to create the '${chan.name}' stream or consumer group '${chan.group}'.`,
+						err
+					);
+				}
+			}
+
+			// Inspired on https://stackoverflow.com/questions/62179656/node-redis-xread-blocking-subscription
+			chan.xreadgroup = async () => {
+				// Adapter is stopping. Reading no longer is allowed
+				if (this.stopping) return;
+
+				this.logger.debug(`Next xreadgroup...`, chan.id);
+
 				try {
-					message = await chanSub.xreadgroup(
-						`GROUP`,
-						chan.group, // Group name
-						chan.id, // Consumer name
-						`BLOCK`,
-						chan.readTimeoutInternal, // Timeout interval while waiting for messages
-						`COUNT`,
-						chan.maxInFlight, // Max number of messages to fetch in a single read
-						`STREAMS`,
-						chan.name, // Channel name
-						`>` //  Read messages never delivered to other consumers so far
-					);
+					// this.logger.debug(`Subscription ${chan.id} is armed and waiting....`)
+					// https://redis.io/commands/xreadgroup
+					let message;
+					try {
+						message = await chanSub.xreadgroup(
+							`GROUP`,
+							chan.group, // Group name
+							chan.id, // Consumer name
+							`BLOCK`,
+							chan.readTimeoutInternal, // Timeout interval while waiting for messages
+							`COUNT`,
+							chan.maxInFlight, // Max number of messages to fetch in a single read
+							`STREAMS`,
+							chan.name, // Channel name
+							`>` //  Read messages never delivered to other consumers so far
+						);
+					} catch (error) {
+						if (chan.unsubscribing) {
+							// Caused by unsubscribe()
+							return; // Exit the loop.
+						} else {
+							this.logger.error(error);
+						}
+					}
+
+					if (message) {
+						this.processMessage(chan, message);
+					}
 				} catch (error) {
-					if (chan.unsubscribing) {
-						// Caused by unsubscribe()
-						return; // Exit the loop.
-					} else {
-						this.logger.error(error);
-					}
+					this.logger.error(`Error while ${chan.id} was reading messages`, error);
 				}
 
-				if (message) {
-					this.processMessage(chan, message);
-				}
-			} catch (error) {
-				this.logger.error(`Error while ${chan.id} was reading messages`, error);
-			}
+				setTimeout(() => chan.xreadgroup(), 0);
+			};
 
-			setTimeout(() => chan.xreadgroup(), 0);
-		};
+			// Initial ID. More info: https://redis.io/commands/xautoclaim
+			let cursorID = "0-0";
+			const claimClient = this.clients.get(this.claimName);
+			chan.xclaim = async () => {
+				// Service is stopping. Claiming no longer is allowed
+				if (chan.unsubscribing) return;
 
-		// Initial ID. More info: https://redis.io/commands/xautoclaim
-		let cursorID = "0-0";
-		const claimClient = this.clients.get(this.claimName);
-		chan.xclaim = async () => {
-			// Service is stopping. Claiming no longer is allowed
-			if (chan.unsubscribing) return;
+				// xclaim is periodic. Generates too much logs
+				// this.logger.debug(`Next auto claim by ${chan.id}`);
 
-			// xclaim is periodic. Generates too much logs
-			// this.logger.debug(`Next auto claim by ${chan.id}`);
-
-			try {
-				// Claim messages that were not NACKed
-				// https://redis.io/commands/xautoclaim
-				let message = await claimClient.xautoclaim(
-					chan.name, // Channel name
-					chan.group, // Group name
-					chan.id, // Consumer name,
-					chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
-					cursorID,
-					"COUNT",
-					chan.maxInFlight // Number of messages to claim at a time
-				);
-
-				if (message) {
-					// Update the cursor id to be used in subsequent call
-					// When there are no remaining entries, "0-0" is returned
-					cursorID = message[0];
-
-					// Messages
-					if (message[1].length !== 0) {
-						this.logger.debug(`${chan.id} claimed ${message[1].length} messages`);
-						this.processMessage(chan, [message]);
-					}
-				}
-			} catch (error) {
-				this.logger.error(`Error while claiming messages by ${chan.id}`, error);
-			}
-
-			// Next xclaim for the chan
-			setTimeout(() => chan.xclaim(), chan.claimInterval);
-		};
-
-		// Move NACKed messages to a dedicated channel
-		const nackedClient = this.clients.get(this.nackedName);
-		chan.failed_messages = async () => {
-			// Service is stopping. Moving failed messages no longer is allowed
-			if (chan.unsubscribing) return;
-
-			try {
-				// https://redis.io/commands/XPENDING
-				let pendingMessages = await nackedClient.xpending(
-					chan.name,
-					chan.group,
-					"-",
-					"+",
-					10 // Max reported entries
-				);
-
-				// Filter messages
-				// Message format here: https://redis.io/commands/XPENDING#extended-form-of-xpending
-				pendingMessages = pendingMessages.filter(entry => {
-					return entry[3] >= chan.maxProcessingAttempts;
-				});
-
-				if (pendingMessages.length != 0) {
-					// Ids of the messages that will transferred into the FAILED_MESSAGES channel
-					const ids = pendingMessages.map(entry => entry[0]);
-
-					this.addChannelActiveMessages(chan.id, ids);
-
-					this.logger.debug(
-						`Moving ${pendingMessages.length} message(s) to '${chan.failedMessagesTopic}'...`,
-						ids
+				try {
+					// Claim messages that were not NACKed
+					// https://redis.io/commands/xautoclaim
+					let message = await claimClient.xautoclaim(
+						chan.name, // Channel name
+						chan.group, // Group name
+						chan.id, // Consumer name,
+						chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
+						cursorID,
+						"COUNT",
+						chan.maxInFlight // Number of messages to claim at a time
 					);
 
-					// https://redis.io/commands/xclaim
-					let messages = await nackedClient.xclaim(
+					if (message) {
+						// Update the cursor id to be used in subsequent call
+						// When there are no remaining entries, "0-0" is returned
+						cursorID = message[0];
+
+						// Messages
+						if (message[1].length !== 0) {
+							this.logger.debug(`${chan.id} claimed ${message[1].length} messages`);
+							this.processMessage(chan, [message]);
+						}
+					}
+				} catch (error) {
+					this.logger.error(`Error while claiming messages by ${chan.id}`, error);
+				}
+
+				// Next xclaim for the chan
+				setTimeout(() => chan.xclaim(), chan.claimInterval);
+			};
+
+			// Move NACKed messages to a dedicated channel
+			const nackedClient = this.clients.get(this.nackedName);
+			chan.failed_messages = async () => {
+				// Service is stopping. Moving failed messages no longer is allowed
+				if (chan.unsubscribing) return;
+
+				try {
+					// https://redis.io/commands/XPENDING
+					let pendingMessages = await nackedClient.xpending(
 						chan.name,
 						chan.group,
-						chan.id,
-						0, // Min idle time
-						ids
+						"-",
+						"+",
+						10 // Max reported entries
 					);
 
-					// Move the messages to a dedicated channel
-					await Promise.all(
-						messages.map(entry => {
-							return nackedClient.xadd(
-								chan.failedMessagesTopic,
-								"*", // Auto generate the ID
-								"channel",
-								chan.name, // Topic where failure occurred
-								"originalID",
-								entry[0], // Original ID (timestamp) of failed message
-								"payload",
-								entry[1][1] // Message contents
+					// Filter messages
+					// Message format here: https://redis.io/commands/XPENDING#extended-form-of-xpending
+					pendingMessages = pendingMessages.filter(entry => {
+						return entry[3] >= chan.maxRetries;
+					});
+
+					if (pendingMessages.length != 0) {
+						// Ids of the messages that will transferred into the FAILED_MESSAGES channel
+						const ids = pendingMessages.map(entry => entry[0]);
+
+						this.addChannelActiveMessages(chan.id, ids);
+
+						// https://redis.io/commands/xclaim
+						let messages = await nackedClient.xclaim(
+							chan.name,
+							chan.group,
+							chan.id,
+							0, // Min idle time
+							ids
+						);
+
+						if (chan.deadLettering.enabled) {
+							this.logger.debug(
+								`Moving ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'...`,
+								ids
 							);
-						})
-					);
 
-					// Acknowledge the messages and break the "reject-claim" loop
-					await nackedClient.xack(chan.name, chan.group, ids);
+							// Move the messages to a dedicated channel
+							await Promise.all(
+								messages.map(entry => {
+									return nackedClient.xadd(
+										chan.deadLettering.queueName,
+										"*", // Auto generate the ID
+										"channel",
+										chan.name, // Topic where failure occurred
+										"originalID",
+										entry[0], // Original ID (timestamp) of failed message
+										"payload",
+										entry[1][1] // Message contents
+									);
+								})
+							);
 
-					this.removeChannelActiveMessages(chan.id, ids);
+							this.logger.warn(
+								`Moved ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'`,
+								ids
+							);
+						} else {
+							this.logger.error(`Dropped ${pendingMessages.length} message(s).`, ids);
+						}
 
-					this.logger.warn(
-						`Moved ${pendingMessages.length} message(s) to '${chan.failedMessagesTopic}'`,
-						ids
+						// Acknowledge the messages and break the "reject-claim" loop
+						await nackedClient.xack(chan.name, chan.group, ids);
+
+						this.removeChannelActiveMessages(chan.id, ids);
+					}
+				} catch (error) {
+					this.logger.error(
+						`Error while moving messages of ${chan.name} to ${chan.deadLettering.queueName}`,
+						error
 					);
 				}
-			} catch (error) {
-				this.logger.error(
-					`Error while moving messages of ${chan.name} to ${chan.failedMessagesTopic}`,
-					error
-				);
-			}
 
-			setTimeout(() => chan.failed_messages(), chan.processingAttemptsInterval);
-		};
+				setTimeout(() => chan.failed_messages(), chan.processingAttemptsInterval);
+			};
 
-		// Init the failed messages loop
-		chan.failed_messages();
+			// Init the failed messages loop
+			chan.failed_messages();
 
-		// Init the claim loop
-		chan.xclaim();
+			// Init the claim loop
+			chan.xclaim();
 
-		// Init the subscription loop
-		chan.xreadgroup();
+			// Init the subscription loop
+			chan.xreadgroup();
+		} catch (err) {
+			this.logger.error(
+				`Error while subscribing to '${chan.name}' chan with '${chan.group}' group`,
+				err
+			);
+			throw err;
+		}
 	}
 
 	/**
@@ -476,21 +485,119 @@ class RedisAdapter extends BaseAdapter {
 								this.logger.warn(
 									`Processing ${this.getNumberOfChannelActiveMessages(
 										chan.id
-									)} message(s) of ${chan.id}...`
+									)} message(s) of '${chan.id}'...`
 								);
 
-								setTimeout(checkPendingMessages, 100);
+								setTimeout(() => checkPendingMessages(), 1000);
 							}
 						};
 
-						setImmediate(checkPendingMessages);
+						checkPendingMessages();
 					});
 				})
 		);
 	}
 
 	/**
+	 * Process incoming messages.
+	 *
+	 * @param {Channel} chan
+	 * @param {Array<Object>} message
+	 */
+	async processMessage(chan, message) {
+		const { ids, parsedMessages, rawMessages } = this.parseMessage(message);
+
+		this.addChannelActiveMessages(chan.id, ids);
+
+		const promises = parsedMessages.map(entry => {
+			// Call the actual user defined handler
+			return chan.handler(entry);
+		});
+
+		const promiseResults = await Promise.allSettled(promises);
+		const pubClient = this.clients.get(this.pubName);
+
+		for (let i = 0; i < promiseResults.length; i++) {
+			const result = promiseResults[i];
+			const id = ids[i];
+			if (result.status == "fulfilled") {
+				// Send ACK message
+				// https://redis.io/commands/xack
+				// Use pubClient to ensure that ACK is delivered to redis
+				await pubClient.xack(chan.name, chan.group, id);
+				this.logger.debug(`Message is ACKed.`, {
+					id,
+					name: chan.name,
+					group: chan.group
+				});
+			} else {
+				// Message rejected
+				if (!chan.maxRetries) {
+					// No retries
+
+					if (chan.deadLettering.enabled) {
+						this.logger.debug(
+							`Moving message to '${chan.deadLettering.queueName}'...`,
+							id
+						);
+
+						// Move the message to a dedicated channel
+						const nackedClient = this.clients.get(this.nackedName);
+						await nackedClient.xadd(
+							chan.deadLettering.queueName,
+							"*", // Auto generate the ID
+							"channel",
+							chan.name, // Topic where failure occurred
+							"originalID",
+							id, // Original ID (timestamp) of failed message
+							"payload",
+							rawMessages[i] // Message contents
+						);
+
+						this.logger.warn(
+							`Moved ${parsedMessages.length} message to '${chan.deadLettering.queueName}'`,
+							id
+						);
+					} else {
+						// Drop message
+						this.logger.error(`Drop message...`, id);
+					}
+					await pubClient.xack(chan.name, chan.group, id);
+				} else {
+					// It will be (eventually) picked by xclaim
+				}
+			}
+		}
+
+		this.removeChannelActiveMessages(chan.id, ids);
+	}
+
+	/**
+	 * Parse the message(s).
+	 *
+	 * @param {Array} messages
+	 * @returns {Array}
+	 */
+	parseMessage(messages) {
+		return messages[0][1].reduce(
+			(accumulator, currentVal) => {
+				accumulator.ids.push(currentVal[0]);
+				accumulator.rawMessages.push(currentVal[1][1]);
+				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+
+				return accumulator;
+			},
+			{
+				ids: [], // for XACK
+				parsedMessages: [],
+				rawMessages: []
+			}
+		);
+	}
+
+	/**
 	 * Publish a payload to a channel.
+	 *
 	 * @param {String} channelName
 	 * @param {any} payload
 	 * @param {Object?} opts
@@ -512,67 +619,10 @@ class RedisAdapter extends BaseAdapter {
 				opts.raw ? payload : this.serializer.serialize(payload) // Actual payload
 			);
 			this.logger.debug(`Message ${id} was published at '${channelName}'`);
-		} catch (error) {
-			this.logger.error(`Cannot publish to '${channelName}'`, error);
+		} catch (err) {
+			this.logger.error(`Cannot publish to '${channelName}'`, err);
+			throw err;
 		}
-	}
-
-	/**
-	 * Process incoming messages
-	 * @param {Object} chan
-	 * @param {Array<Object>} message
-	 */
-	async processMessage(chan, message) {
-		const { ids, parsedMessages } = this.parseMessage(message);
-
-		this.addChannelActiveMessages(chan.id, ids);
-
-		const promises = parsedMessages.map(entry => {
-			// Call the actual user defined handler
-			return chan.handler(entry);
-		});
-
-		const promiseResults = await Promise.allSettled(promises);
-		const pubClient = this.clients.get(this.pubName);
-
-		for (const result of promiseResults) {
-			if (result.status == "fulfilled") {
-				// Send ACK message
-				// https://redis.io/commands/xack
-				// Use pubClient to ensure that ACK is delivered to redis
-				await pubClient.xack(chan.name, chan.group, ids);
-				this.logger.debug(`Messages is ACKed.`, {
-					id: ids,
-					name: chan.name,
-					group: chan.group
-				});
-			} else {
-				// Message rejected
-				// It will be (eventually) picked by xclaim
-			}
-		}
-
-		this.removeChannelActiveMessages(chan.id, ids);
-	}
-
-	/**
-	 * Parse the message(s)
-	 * @param {Array} messages
-	 * @returns {Array}
-	 */
-	parseMessage(messages) {
-		return messages[0][1].reduce(
-			(accumulator, currentVal) => {
-				accumulator.ids.push(currentVal[0]);
-				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
-
-				return accumulator;
-			},
-			{
-				ids: [], // for XACK
-				parsedMessages: []
-			}
-		);
 	}
 }
 

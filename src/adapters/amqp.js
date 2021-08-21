@@ -17,6 +17,19 @@ let Amqplib;
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker
  * @typedef {import("moleculer").LoggerInstance} Logger
  * @typedef {import("../index").Channel} Channel
+ * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions
+ */
+
+/**
+ * @typedef {Object} AmqpDefaultOptions Redis Adapter configuration
+ * @property {Object} amqp AMQP lib configuration
+ * @property {Number} amqp.url Connection URI
+ * @property {Number} amqp.prefetch Max-in-flight messages
+ * @property {Object} amqp.socketOptions AMQP lib socket configuration
+ * @property {Object} amqp.queueOptions AMQP lib queue configuration
+ * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
+ * @property {Object} amqp.messageOptions AMQP lib message configuration
+ * @property {Object} amqp.consumeOptions AMQP lib consume configuration
  */
 
 /**
@@ -44,15 +57,10 @@ class AmqpAdapter extends BaseAdapter {
 
 		super(opts);
 
+		/** @type {AmqpDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
-			// Maximum number of attempts to process a message. After this number is achieved messages are moved into "{chanel_name}-FAILED_MESSAGES".
-			maxProcessingAttempts: 3,
-
-			// Default queue name where failed messages will be placed
-			failedMessagesQueue: "FAILED_MESSAGES",
-
 			amqp: {
-				//prefetch: 1,
+				prefetch: 10,
 				socketOptions: {},
 				queueOptions: {},
 				exchangeOptions: {},
@@ -226,10 +234,14 @@ class AmqpAdapter extends BaseAdapter {
 		);
 
 		try {
-			if (!chan.maxProcessingAttempts)
-				chan.maxProcessingAttempts = this.opts.maxProcessingAttempts;
-			if (!chan.failedMessagesQueue) chan.failedMessagesQueue = this.opts.failedMessagesQueue;
-			chan.failedMessagesQueue = this.addPrefixTopic(chan.failedMessagesQueue);
+			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
+			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
+			if (chan.deadLettering.enabled) {
+				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
+				chan.deadLettering.exchangeName = this.addPrefixTopic(
+					chan.deadLettering.exchangeName
+				);
+			}
 
 			// --- CREATE EXCHANGE ---
 			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
@@ -264,6 +276,7 @@ class AmqpAdapter extends BaseAdapter {
 				this.opts.amqp.consumeOptions
 			);
 
+			this.initChannelActiveMessages(chan.id);
 			this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
 			const res = await this.channel.consume(
 				queueName,
@@ -289,33 +302,55 @@ class AmqpAdapter extends BaseAdapter {
 	 */
 	createConsumerHandler(chan) {
 		return async msg => {
+			this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
+			const id =
+				msg.properties.correlationId ||
+				`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
+
 			try {
-				this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
+				this.addChannelActiveMessages(chan.id, [id]);
 				const content = this.serializer.deserialize(msg.content);
 				//this.logger.debug("Content:", content);
 
 				await chan.handler(content);
 				this.channel.ack(msg);
+
+				this.removeChannelActiveMessages(chan.id, [id]);
 			} catch (err) {
+				this.removeChannelActiveMessages(chan.id, [id]);
+
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
+				if (!chan.maxRetries) {
+					// No retries, drop message
+					this.logger.error(`Drop message...`);
+					this.channel.nack(msg, false, false);
+				}
+
 				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
-				if (
-					chan.maxProcessingAttempts > 0 &&
-					redeliveryCount >= chan.maxProcessingAttempts
-				) {
-					if (chan.failedMessagesQueue) {
+				if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
+					if (chan.deadLettering.enabled) {
+						// Reached max retries and has dead-letter topic, move message
 						this.logger.debug(
-							`Message redelivered too many times (${redeliveryCount}). Moving a message to '${chan.failedMessagesQueue}' queue...`
+							`Message redelivered too many times (${redeliveryCount}). Moving a message to '${chan.deadLettering.queueName}' queue...`
 						);
-						const res = this.channel.publish("", chan.failedMessagesQueue, msg.content);
+						const res = this.channel.publish(
+							chan.deadLettering.exchangeName || "",
+							chan.deadLettering.queueName,
+							msg.content,
+							{
+								headers: {
+									"x-original-channel": chan.name
+								}
+							}
+						);
 						if (res === false)
 							throw new MoleculerError("AMQP publish error. Write buffer is full.");
 
 						this.channel.ack(msg);
 					} else {
+						// Reached max retries and no dead-letter topic, drop message
 						this.logger.error(
-							`Message redelivered too many times (${redeliveryCount}). Drop message...`,
-							msg
+							`Message redelivered too many times (${redeliveryCount}). Drop message...`
 						);
 						this.channel.nack(msg, false, false);
 					}
@@ -351,6 +386,35 @@ class AmqpAdapter extends BaseAdapter {
 
 		const { consumerTag } = this.subscriptions.get(chan.id);
 		await this.channel.cancel(consumerTag);
+
+		await new Promise((resolve, reject) => {
+			const checkPendingMessages = () => {
+				try {
+					if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
+						this.logger.debug(
+							`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+						);
+
+						// Stop tracking channel's active messages
+						this.stopChannelActiveMessages(chan.id);
+
+						resolve();
+					} else {
+						this.logger.warn(
+							`Processing ${this.getNumberOfChannelActiveMessages(
+								chan.id
+							)} message(s) of '${chan.id}'...`
+						);
+
+						setTimeout(() => checkPendingMessages(), 1000);
+					}
+				} catch (err) {
+					reject(err);
+				}
+			};
+
+			checkPendingMessages();
+		});
 	}
 
 	/**
@@ -377,6 +441,7 @@ class AmqpAdapter extends BaseAdapter {
 
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
 		const messageOptions = _.defaultsDeep(
+			{},
 			{
 				persistent: opts.persistent,
 				expiration: opts.ttl,
@@ -393,6 +458,7 @@ class AmqpAdapter extends BaseAdapter {
 		const data = opts.raw ? payload : this.serializer.serialize(payload);
 		const res = this.channel.publish(channelName, "", data, messageOptions);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
+		this.logger.debug(`Message was published at '${channelName}'`);
 	}
 }
 
