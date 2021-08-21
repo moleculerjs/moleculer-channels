@@ -428,167 +428,167 @@ describe("Integration tests", () => {
 					expect(subWrongHandler).toHaveBeenCalledTimes(6);
 				});
 			});
-		});
 
-		describe("Test namespaces logic", () => {
-			// --- NO NAMESPACE ---
-			const broker1 = createBroker(adapter, {});
-			const subHandler1 = jest.fn(() => Promise.resolve());
-			broker1.createService({
-				name: "sub",
-				channels: { "test.ns.topic": subHandler1 }
-			});
+			describe("Test namespaces logic", () => {
+				// --- NO NAMESPACE ---
+				const broker1 = createBroker(adapter, {});
+				const subHandler1 = jest.fn(() => Promise.resolve());
+				broker1.createService({
+					name: "sub",
+					channels: { "test.ns.topic": subHandler1 }
+				});
 
-			// --- NAMESPACE A ---
-			const broker2 = createBroker(adapter, { namespace: "A" });
-			const subHandler2 = jest.fn(() => Promise.resolve());
-			broker2.createService({
-				name: "sub",
-				channels: { "test.ns.topic": subHandler2 }
-			});
+				// --- NAMESPACE A ---
+				const broker2 = createBroker(adapter, { namespace: "A" });
+				const subHandler2 = jest.fn(() => Promise.resolve());
+				broker2.createService({
+					name: "sub",
+					channels: { "test.ns.topic": subHandler2 }
+				});
 
-			// --- NAMESPACE B ---
-			const broker3 = createBroker(adapter, { namespace: "B" });
-			const subHandler3 = jest.fn(() => Promise.resolve());
-			broker3.createService({
-				name: "sub",
-				channels: { "test.ns.topic": subHandler3 }
-			});
+				// --- NAMESPACE B ---
+				const broker3 = createBroker(adapter, { namespace: "B" });
+				const subHandler3 = jest.fn(() => Promise.resolve());
+				broker3.createService({
+					name: "sub",
+					channels: { "test.ns.topic": subHandler3 }
+				});
 
-			// --- NAMESPACE BUT NO PREFIX ---
-			const broker4 = createBroker(
-				{ ...adapter, options: { prefix: "" } },
-				{ namespace: "C" }
-			);
-			const subHandler4 = jest.fn(() => Promise.resolve());
-			broker4.createService({
-				name: "sub",
-				channels: { "test.ns.topic": { group: "other", handler: subHandler4 } }
-			});
+				// --- NAMESPACE BUT NO PREFIX ---
+				const broker4 = createBroker(
+					{ ...adapter, options: { prefix: "" } },
+					{ namespace: "C" }
+				);
+				const subHandler4 = jest.fn(() => Promise.resolve());
+				broker4.createService({
+					name: "sub",
+					channels: { "test.ns.topic": { group: "other", handler: subHandler4 } }
+				});
 
-			// --- NO NAMESPACE BUT PREFIX ---
-			const broker5 = createBroker({ ...adapter, options: { prefix: "C" } });
-			const subHandler5 = jest.fn(() => Promise.resolve());
-			broker5.createService({
-				name: "sub",
-				channels: { "test.ns.topic": { handler: subHandler5 } }
-			});
+				// --- NO NAMESPACE BUT PREFIX ---
+				const broker5 = createBroker({ ...adapter, options: { prefix: "C" } });
+				const subHandler5 = jest.fn(() => Promise.resolve());
+				broker5.createService({
+					name: "sub",
+					channels: { "test.ns.topic": { handler: subHandler5 } }
+				});
 
-			beforeAll(() =>
-				Promise.all([
-					broker1.start(),
-					broker2.start(),
-					broker3.start(),
-					broker4.start(),
-					broker5.start()
-				])
-			);
-			afterAll(() =>
-				Promise.all([
-					broker1.stop(),
-					broker2.stop(),
-					broker3.stop(),
-					broker4.stop(),
-					broker5.stop()
-				])
-			);
+				beforeAll(() =>
+					Promise.all([
+						broker1.start(),
+						broker2.start(),
+						broker3.start(),
+						broker4.start(),
+						broker5.start()
+					])
+				);
+				afterAll(() =>
+					Promise.all([
+						broker1.stop(),
+						broker2.stop(),
+						broker3.stop(),
+						broker4.stop(),
+						broker5.stop()
+					])
+				);
 
-			beforeEach(() => {
-				subHandler1.mockClear();
-				subHandler2.mockClear();
-				subHandler3.mockClear();
-				subHandler4.mockClear();
-				subHandler5.mockClear();
-			});
+				beforeEach(() => {
+					subHandler1.mockClear();
+					subHandler2.mockClear();
+					subHandler3.mockClear();
+					subHandler4.mockClear();
+					subHandler5.mockClear();
+				});
 
-			it("should receive the published message on no-namespace handlers", async () => {
-				const msg = {
-					id: 1,
-					name: "John",
-					age: 25
-				};
-				// ---- ^ SETUP ^ ---
-				await broker1.sendToChannel("test.ns.topic", msg);
-				await broker1.sendToChannel("test.ns.topic", msg);
-				await broker1.Promise.delay(200);
-				// ---- ˇ ASSERTS ˇ ---
-				expect(subHandler1).toHaveBeenCalledTimes(2);
-				expect(subHandler2).toHaveBeenCalledTimes(0);
-				expect(subHandler3).toHaveBeenCalledTimes(0);
-				expect(subHandler4).toHaveBeenCalledTimes(2);
-				expect(subHandler5).toHaveBeenCalledTimes(0);
-			});
+				it("should receive the published message on no-namespace handlers", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker1.sendToChannel("test.ns.topic", msg);
+					await broker1.sendToChannel("test.ns.topic", msg);
+					await broker1.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subHandler1).toHaveBeenCalledTimes(2);
+					expect(subHandler2).toHaveBeenCalledTimes(0);
+					expect(subHandler3).toHaveBeenCalledTimes(0);
+					expect(subHandler4).toHaveBeenCalledTimes(2);
+					expect(subHandler5).toHaveBeenCalledTimes(0);
+				});
 
-			it("should receive the published message on no-namespace handlers (broker4)", async () => {
-				const msg = {
-					id: 1,
-					name: "John",
-					age: 25
-				};
-				// ---- ^ SETUP ^ ---
-				await broker4.sendToChannel("test.ns.topic", msg);
-				await broker4.sendToChannel("test.ns.topic", msg);
-				await broker4.Promise.delay(200);
-				// ---- ˇ ASSERTS ˇ ---
-				expect(subHandler1).toHaveBeenCalledTimes(2);
-				expect(subHandler2).toHaveBeenCalledTimes(0);
-				expect(subHandler3).toHaveBeenCalledTimes(0);
-				expect(subHandler4).toHaveBeenCalledTimes(2);
-				expect(subHandler5).toHaveBeenCalledTimes(0);
-			});
+				it("should receive the published message on no-namespace handlers (broker4)", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker4.sendToChannel("test.ns.topic", msg);
+					await broker4.sendToChannel("test.ns.topic", msg);
+					await broker4.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subHandler1).toHaveBeenCalledTimes(2);
+					expect(subHandler2).toHaveBeenCalledTimes(0);
+					expect(subHandler3).toHaveBeenCalledTimes(0);
+					expect(subHandler4).toHaveBeenCalledTimes(2);
+					expect(subHandler5).toHaveBeenCalledTimes(0);
+				});
 
-			it("should receive the published message on namespace 'A'", async () => {
-				const msg = {
-					id: 1,
-					name: "John",
-					age: 25
-				};
-				// ---- ^ SETUP ^ ---
-				await broker2.sendToChannel("test.ns.topic", msg);
-				await broker2.sendToChannel("test.ns.topic", msg);
-				await broker2.Promise.delay(200);
-				// ---- ˇ ASSERTS ˇ ---
-				expect(subHandler1).toHaveBeenCalledTimes(0);
-				expect(subHandler2).toHaveBeenCalledTimes(2);
-				expect(subHandler3).toHaveBeenCalledTimes(0);
-				expect(subHandler4).toHaveBeenCalledTimes(0);
-				expect(subHandler5).toHaveBeenCalledTimes(0);
-			});
+				it("should receive the published message on namespace 'A'", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker2.sendToChannel("test.ns.topic", msg);
+					await broker2.sendToChannel("test.ns.topic", msg);
+					await broker2.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subHandler1).toHaveBeenCalledTimes(0);
+					expect(subHandler2).toHaveBeenCalledTimes(2);
+					expect(subHandler3).toHaveBeenCalledTimes(0);
+					expect(subHandler4).toHaveBeenCalledTimes(0);
+					expect(subHandler5).toHaveBeenCalledTimes(0);
+				});
 
-			it("should receive the published message on namespace 'B'", async () => {
-				const msg = {
-					id: 1,
-					name: "John",
-					age: 25
-				};
-				// ---- ^ SETUP ^ ---
-				await broker3.sendToChannel("test.ns.topic", msg);
-				await broker3.sendToChannel("test.ns.topic", msg);
-				await broker3.Promise.delay(200);
-				// ---- ˇ ASSERTS ˇ ---
-				expect(subHandler1).toHaveBeenCalledTimes(0);
-				expect(subHandler2).toHaveBeenCalledTimes(0);
-				expect(subHandler3).toHaveBeenCalledTimes(2);
-				expect(subHandler4).toHaveBeenCalledTimes(0);
-				expect(subHandler5).toHaveBeenCalledTimes(0);
-			});
+				it("should receive the published message on namespace 'B'", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker3.sendToChannel("test.ns.topic", msg);
+					await broker3.sendToChannel("test.ns.topic", msg);
+					await broker3.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subHandler1).toHaveBeenCalledTimes(0);
+					expect(subHandler2).toHaveBeenCalledTimes(0);
+					expect(subHandler3).toHaveBeenCalledTimes(2);
+					expect(subHandler4).toHaveBeenCalledTimes(0);
+					expect(subHandler5).toHaveBeenCalledTimes(0);
+				});
 
-			it("should receive the published message on namespace 'C'", async () => {
-				const msg = {
-					id: 1,
-					name: "John",
-					age: 25
-				};
-				// ---- ^ SETUP ^ ---
-				await broker5.sendToChannel("test.ns.topic", msg);
-				await broker5.sendToChannel("test.ns.topic", msg);
-				await broker5.Promise.delay(200);
-				// ---- ˇ ASSERTS ˇ ---
-				expect(subHandler1).toHaveBeenCalledTimes(0);
-				expect(subHandler2).toHaveBeenCalledTimes(0);
-				expect(subHandler3).toHaveBeenCalledTimes(0);
-				expect(subHandler4).toHaveBeenCalledTimes(0);
-				expect(subHandler5).toHaveBeenCalledTimes(2);
+				it("should receive the published message on namespace 'C'", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker5.sendToChannel("test.ns.topic", msg);
+					await broker5.sendToChannel("test.ns.topic", msg);
+					await broker5.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subHandler1).toHaveBeenCalledTimes(0);
+					expect(subHandler2).toHaveBeenCalledTimes(0);
+					expect(subHandler3).toHaveBeenCalledTimes(0);
+					expect(subHandler4).toHaveBeenCalledTimes(0);
+					expect(subHandler5).toHaveBeenCalledTimes(2);
+				});
 			});
 		});
 	}
