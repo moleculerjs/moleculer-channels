@@ -60,7 +60,7 @@ class AmqpAdapter extends BaseAdapter {
 		/** @type {AmqpDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			amqp: {
-				prefetch: 1,
+				prefetch: 10,
 				socketOptions: {},
 				queueOptions: {},
 				exchangeOptions: {},
@@ -276,6 +276,7 @@ class AmqpAdapter extends BaseAdapter {
 				this.opts.amqp.consumeOptions
 			);
 
+			this.initChannelActiveMessages(chan.id);
 			this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
 			const res = await this.channel.consume(
 				queueName,
@@ -303,11 +304,17 @@ class AmqpAdapter extends BaseAdapter {
 		return async msg => {
 			try {
 				this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
+				const id =
+					msg.properties.correlationId ||
+					`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
+				this.addChannelActiveMessages(chan.id, [id]);
 				const content = this.serializer.deserialize(msg.content);
 				//this.logger.debug("Content:", content);
 
 				await chan.handler(content);
 				this.channel.ack(msg);
+
+				this.removeChannelActiveMessages(chan.id, [id]);
 			} catch (err) {
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
 				if (!chan.maxRetries) {
@@ -376,6 +383,35 @@ class AmqpAdapter extends BaseAdapter {
 
 		const { consumerTag } = this.subscriptions.get(chan.id);
 		await this.channel.cancel(consumerTag);
+
+		await new Promise((resolve, reject) => {
+			const checkPendingMessages = () => {
+				try {
+					if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
+						this.logger.debug(
+							`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+						);
+
+						// Stop tracking channel's active messages
+						this.stopChannelActiveMessages(chan.id);
+
+						resolve();
+					} else {
+						this.logger.warn(
+							`Processing ${this.getNumberOfChannelActiveMessages(
+								chan.id
+							)} message(s) of '${chan.id}'...`
+						);
+
+						setTimeout(() => checkPendingMessages(), 1000);
+					}
+				} catch (err) {
+					reject(err);
+				}
+			};
+
+			checkPendingMessages();
+		});
 	}
 
 	/**

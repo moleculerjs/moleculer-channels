@@ -485,14 +485,14 @@ class RedisAdapter extends BaseAdapter {
 								this.logger.warn(
 									`Processing ${this.getNumberOfChannelActiveMessages(
 										chan.id
-									)} message(s) of ${chan.id}...`
+									)} message(s) of '${chan.id}'...`
 								);
 
-								setTimeout(checkPendingMessages, 100);
+								setTimeout(() => checkPendingMessages(), 1000);
 							}
 						};
 
-						setImmediate(checkPendingMessages);
+						checkPendingMessages();
 					});
 				})
 		);

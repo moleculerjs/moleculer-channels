@@ -159,7 +159,7 @@ class BaseAdapter {
 		const messageList = this.activeMessages.get(channelID);
 
 		IDs.forEach(id => {
-			let idx = messageList.indexOf(id);
+			const idx = messageList.indexOf(id);
 			if (idx != -1) {
 				messageList.splice(idx, 1);
 			}
