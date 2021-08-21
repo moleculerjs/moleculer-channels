@@ -302,11 +302,12 @@ class AmqpAdapter extends BaseAdapter {
 	 */
 	createConsumerHandler(chan) {
 		return async msg => {
+			this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
+			const id =
+				msg.properties.correlationId ||
+				`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
+
 			try {
-				this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
-				const id =
-					msg.properties.correlationId ||
-					`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
 				this.addChannelActiveMessages(chan.id, [id]);
 				const content = this.serializer.deserialize(msg.content);
 				//this.logger.debug("Content:", content);
@@ -316,6 +317,8 @@ class AmqpAdapter extends BaseAdapter {
 
 				this.removeChannelActiveMessages(chan.id, [id]);
 			} catch (err) {
+				this.removeChannelActiveMessages(chan.id, [id]);
+
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
 				if (!chan.maxRetries) {
 					// No retries, drop message

@@ -351,7 +351,7 @@ describe("Integration tests", () => {
 					await broker.Promise.delay(200);
 
 					// -> Service replica is starting <- //
-					const svc2 = broker.createService({
+					broker.createService({
 						name: "sub1",
 						channels: {
 							"test.delayed.connection.topic": {
