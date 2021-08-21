@@ -364,11 +364,6 @@ class RedisAdapter extends BaseAdapter {
 
 						this.addChannelActiveMessages(chan.id, ids);
 
-						this.logger.debug(
-							`Moving ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'...`,
-							ids
-						);
-
 						// https://redis.io/commands/xclaim
 						let messages = await nackedClient.xclaim(
 							chan.name,
@@ -379,6 +374,11 @@ class RedisAdapter extends BaseAdapter {
 						);
 
 						if (chan.deadLettering.enabled) {
+							this.logger.debug(
+								`Moving ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'...`,
+								ids
+							);
+
 							// Move the messages to a dedicated channel
 							await Promise.all(
 								messages.map(entry => {
@@ -394,17 +394,19 @@ class RedisAdapter extends BaseAdapter {
 									);
 								})
 							);
+
+							this.logger.warn(
+								`Moved ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'`,
+								ids
+							);
+						} else {
+							this.logger.error(`Dropped ${pendingMessages.length} message(s).`, ids);
 						}
 
 						// Acknowledge the messages and break the "reject-claim" loop
 						await nackedClient.xack(chan.name, chan.group, ids);
 
 						this.removeChannelActiveMessages(chan.id, ids);
-
-						this.logger.warn(
-							`Moved ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'`,
-							ids
-						);
 					}
 				} catch (error) {
 					this.logger.error(
