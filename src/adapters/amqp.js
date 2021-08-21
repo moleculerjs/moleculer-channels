@@ -402,6 +402,7 @@ class AmqpAdapter extends BaseAdapter {
 
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
 		const messageOptions = _.defaultsDeep(
+			{},
 			{
 				persistent: opts.persistent,
 				expiration: opts.ttl,

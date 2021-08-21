@@ -37,7 +37,7 @@ const Adapters = require("./adapters");
  */
 
 module.exports = function ChannelsMiddleware(mwOpts) {
-	mwOpts = _.defaultsDeep(mwOpts, {
+	mwOpts = _.defaultsDeep({}, mwOpts, {
 		adapter: null,
 		schemaProperty: "channels",
 		sendMethodName: "sendToChannel",
