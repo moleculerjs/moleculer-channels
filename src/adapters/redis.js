@@ -256,6 +256,10 @@ class RedisAdapter extends BaseAdapter {
 				// Adapter is stopping. Reading no longer is allowed
 				if (this.stopping) return;
 
+				if (chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) == 0) {
+					return setTimeout(() => chan.xreadgroup(), 10);
+				}
+
 				this.logger.debug(`Next xreadgroup...`, chan.id);
 
 				try {
@@ -270,7 +274,7 @@ class RedisAdapter extends BaseAdapter {
 							`BLOCK`,
 							chan.readTimeoutInternal, // Timeout interval while waiting for messages
 							`COUNT`,
-							chan.maxInFlight, // Max number of messages to fetch in a single read
+							chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id), // Max number of messages to fetch in a single read
 							`STREAMS`,
 							chan.name, // Channel name
 							`>` //  Read messages never delivered to other consumers so far
@@ -314,7 +318,7 @@ class RedisAdapter extends BaseAdapter {
 						chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
 						cursorID,
 						"COUNT",
-						chan.maxInFlight // Number of messages to claim at a time
+						chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) // Number of messages to claim at a time
 					);
 
 					if (message) {
@@ -374,30 +378,11 @@ class RedisAdapter extends BaseAdapter {
 						);
 
 						if (chan.deadLettering.enabled) {
-							this.logger.debug(
-								`Moving ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'...`,
-								ids
-							);
-
 							// Move the messages to a dedicated channel
 							await Promise.all(
-								messages.map(entry => {
-									return nackedClient.xadd(
-										chan.deadLettering.queueName,
-										"*", // Auto generate the ID
-										"channel",
-										chan.name, // Topic where failure occurred
-										"originalID",
-										entry[0], // Original ID (timestamp) of failed message
-										"payload",
-										entry[1][1] // Message contents
-									);
-								})
-							);
-
-							this.logger.warn(
-								`Moved ${pendingMessages.length} message(s) to '${chan.deadLettering.queueName}'`,
-								ids
+								messages.map(entry =>
+									this.moveToDeadLetter(chan, entry[0], entry[1][1])
+								)
 							);
 						} else {
 							this.logger.error(`Dropped ${pendingMessages.length} message(s).`, ids);
@@ -536,28 +521,7 @@ class RedisAdapter extends BaseAdapter {
 					// No retries
 
 					if (chan.deadLettering.enabled) {
-						this.logger.debug(
-							`Moving message to '${chan.deadLettering.queueName}'...`,
-							id
-						);
-
-						// Move the message to a dedicated channel
-						const nackedClient = this.clients.get(this.nackedName);
-						await nackedClient.xadd(
-							chan.deadLettering.queueName,
-							"*", // Auto generate the ID
-							"channel",
-							chan.name, // Topic where failure occurred
-							"originalID",
-							id, // Original ID (timestamp) of failed message
-							"payload",
-							rawMessages[i] // Message contents
-						);
-
-						this.logger.warn(
-							`Moved ${parsedMessages.length} message to '${chan.deadLettering.queueName}'`,
-							id
-						);
+						await this.moveToDeadLetter(chan, id, rawMessages[i]);
 					} else {
 						// Drop message
 						this.logger.error(`Drop message...`, id);
@@ -623,6 +587,32 @@ class RedisAdapter extends BaseAdapter {
 			this.logger.error(`Cannot publish to '${channelName}'`, err);
 			throw err;
 		}
+	}
+
+	/**
+	 * Moves message into dead letter
+	 *
+	 * @param {Channel} chan
+	 * @param {String} originalID ID of the dead message
+	 * @param {Object} message Raw (not serialized) message contents
+	 */
+	async moveToDeadLetter(chan, originalID, message) {
+		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
+
+		// Move the message to a dedicated channel
+		const nackedClient = this.clients.get(this.nackedName);
+		await nackedClient.xadd(
+			chan.deadLettering.queueName,
+			"*", // Auto generate the ID
+			"channel",
+			chan.name, // Topic where failure occurred
+			"originalID",
+			originalID, // Original ID (timestamp) of failed message
+			"payload",
+			message // Message contents
+		);
+
+		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
 	}
 }
 
