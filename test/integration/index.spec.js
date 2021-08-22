@@ -224,7 +224,7 @@ describe("Integration tests", () => {
 					await Promise.all(
 						_.times(6, () => broker.sendToChannel("test.balanced.topic", msg))
 					);
-					await broker.Promise.delay(200);
+					await broker.Promise.delay(500);
 
 					// ---- ˇ ASSERTS ˇ ---
 					expect(sub1Handler).toHaveBeenCalledTimes(2);
