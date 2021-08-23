@@ -60,7 +60,16 @@ broker.createService({
 		"test.mif.topic": {
 			maxInFlight: 1,
 			async handler(payload) {
-				this.logger.info(`----> Processing ${payload.id} <----`);
+				const consumerID = Array.from(this.broker.channelAdapter.activeMessages.keys())[0];
+
+				console.log(
+					`----> Processing ${
+						payload.id
+					} || Active messages ${this.broker.channelAdapter.getNumberOfChannelActiveMessages(
+						consumerID
+					)} <----`
+				);
+
 				FLOW.push(`BEGIN: ${payload.id}`);
 				await this.Promise.delay(300);
 				FLOW.push(`END: ${payload.id}`);

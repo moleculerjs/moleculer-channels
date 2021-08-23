@@ -311,7 +311,7 @@ class RedisAdapter extends BaseAdapter {
 
 				if (chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) <= 0) {
 					this.logger.debug(`MaxInFlight Limit Reached... Delaying xclaim`);
-					return setTimeout(() => chan.xreadgroup(), 10);
+					return setTimeout(() => chan.xclaim(), 10);
 				}
 
 				try {
