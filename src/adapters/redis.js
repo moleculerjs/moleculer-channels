@@ -256,7 +256,8 @@ class RedisAdapter extends BaseAdapter {
 				// Adapter is stopping. Reading no longer is allowed
 				if (this.stopping) return;
 
-				if (chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) == 0) {
+				if (chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) <= 0) {
+					this.logger.debug(`MaxInFlight Limit Reached... Delaying xreadgroup`);
 					return setTimeout(() => chan.xreadgroup(), 10);
 				}
 
@@ -307,6 +308,11 @@ class RedisAdapter extends BaseAdapter {
 
 				// xclaim is periodic. Generates too much logs
 				// this.logger.debug(`Next auto claim by ${chan.id}`);
+
+				if (chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) <= 0) {
+					this.logger.debug(`MaxInFlight Limit Reached... Delaying xclaim`);
+					return setTimeout(() => chan.xreadgroup(), 10);
+				}
 
 				try {
 					// Claim messages that were not NACKed

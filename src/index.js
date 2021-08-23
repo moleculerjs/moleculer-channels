@@ -30,7 +30,7 @@ const Adapters = require("./adapters");
  * @property {String} name Channel/Queue/Stream name
  * @property {String} group Consumer group name
  * @property {Boolean} unsubscribing Flag denoting if service is stopping
- * @property {Number?} maxInFlight Max number of messages to fetch in a single read
+ * @property {Number?} maxInFlight Maximum number of messages that can be processed simultaneously
  * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
  * @property {DeadLetteringOptions?} deadLettering Dead-letter-queue options
  * @property {Function} handler User defined handler
