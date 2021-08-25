@@ -677,10 +677,8 @@ describe("Integration tests", () => {
 						channels: {
 							"test.failed_messages.topic": {
 								group: "mygroup",
-								minIdleTime: 50,
 								claimInterval: 50,
 								maxRetries: 0,
-								processingAttemptsInterval: 10,
 								deadLettering: {
 									enabled: true,
 									queueName: "DEAD_LETTER"
@@ -725,6 +723,8 @@ describe("Integration tests", () => {
 						expect(subWrongHandler).toHaveBeenCalledTimes(1);
 
 						expect(deaLetterHandler).toHaveBeenCalledTimes(1);
+
+						await broker.Promise.delay(500);
 					});
 				});
 			}
