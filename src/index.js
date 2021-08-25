@@ -25,7 +25,7 @@ const Adapters = require("./adapters");
  */
 
 /**
- * @typedef {Object} Channel Consumer configuration
+ * @typedef {Object} Channel Base consumer configuration
  * @property {String} id Consumer ID
  * @property {String} name Channel/Queue/Stream name
  * @property {String} group Consumer group name

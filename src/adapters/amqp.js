@@ -21,7 +21,7 @@ let Amqplib;
  */
 
 /**
- * @typedef {Object} AmqpDefaultOptions Redis Adapter configuration
+ * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
  * @property {Object} amqp AMQP lib configuration
  * @property {Number} amqp.url Connection URI
  * @property {Number} amqp.prefetch Max-in-flight messages
@@ -225,7 +225,7 @@ class AmqpAdapter extends BaseAdapter {
 	/**
 	 * Subscribe to a channel.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & AmqpDefaultOptions} chan
 	 */
 	async subscribe(chan) {
 		this.logger.debug(
@@ -297,7 +297,7 @@ class AmqpAdapter extends BaseAdapter {
 	/**
 	 * Create a handler for the consumer.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & AmqpDefaultOptions} chan
 	 * @returns {Function}
 	 */
 	createConsumerHandler(chan) {
@@ -379,7 +379,7 @@ class AmqpAdapter extends BaseAdapter {
 	/**
 	 * Unsubscribe from a channel.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & AmqpDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);

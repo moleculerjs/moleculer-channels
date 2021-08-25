@@ -27,9 +27,15 @@ let Redis;
  * @property {Number} readTimeoutInternal Timeout interval (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout
  * @property {Number} minIdleTime Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
  * @property {Number} claimInterval Interval (in milliseconds) between message claims
- * @property {Number} maxInFlight Maximum number of messages to fetch in a single read
  * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
  * @property {Number} processingAttemptsInterval Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+ */
+
+/**
+ * @typedef {Object} RedisChannel Redis specific channel options
+ * @property {Function} xreadgroup Function for fetching new messages from redis stream
+ * @property {Function} xclaim Function for claiming pending messages
+ * @property {Function} failed_messages Function for checking NACKed messages and moving them into dead letter queue
  */
 
 /**
@@ -198,7 +204,7 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Subscribe to a channel with a handler.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 */
 	async subscribe(chan) {
 		this.logger.debug(
@@ -429,7 +435,7 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Unsubscribe from a channel.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
 		return (
@@ -492,7 +498,7 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Process incoming messages.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
@@ -598,7 +604,7 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Moves message into dead letter
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 * @param {String} originalID ID of the dead message
 	 * @param {Object} message Raw (not serialized) message contents
 	 */
