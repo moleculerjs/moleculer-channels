@@ -663,6 +663,71 @@ describe("Integration tests", () => {
 					expect(subHandler5).toHaveBeenCalledTimes(2);
 				});
 			});
+
+			if (adapter.type !== "AMQP") {
+				describe("Test Dead Letter logic", () => {
+					const broker = createBroker(adapter, { logLevel: "debug" });
+
+					const error = new Error("Something happened");
+					const deaLetterHandler = jest.fn(() => Promise.resolve());
+					const subWrongHandler = jest.fn(() => Promise.reject(error));
+
+					broker.createService({
+						name: "sub1",
+						channels: {
+							"test.failed_messages.topic": {
+								group: "mygroup",
+								minIdleTime: 50,
+								claimInterval: 50,
+								maxRetries: 0,
+								processingAttemptsInterval: 10,
+								deadLettering: {
+									enabled: true,
+									queueName: "DEAD_LETTER"
+								},
+								handler: subWrongHandler
+							}
+						}
+					});
+
+					broker.createService({
+						name: "sub2",
+						channels: {
+							DEAD_LETTER: {
+								isDeadLetterHandler: true,
+								handler: deaLetterHandler
+							}
+						}
+					});
+
+					beforeAll(() => broker.start());
+					afterAll(() => broker.stop());
+
+					beforeEach(() => {
+						deaLetterHandler.mockClear();
+						subWrongHandler.mockClear();
+					});
+
+					it("should transfer to FAILED_MESSAGES", async () => {
+						const msg = {
+							id: 1,
+							name: "John",
+							age: 2565
+						};
+						// ---- ^ SETUP ^ ---
+
+						await broker.Promise.delay(500);
+
+						broker.sendToChannel("test.failed_messages.topic", msg);
+						await broker.Promise.delay(500);
+
+						// ---- ˇ ASSERTS ˇ ---
+						expect(subWrongHandler).toHaveBeenCalledTimes(1);
+
+						expect(deaLetterHandler).toHaveBeenCalledTimes(1);
+					});
+				});
+			}
 		});
 	}
 });

@@ -46,12 +46,27 @@ broker.createService({
 			claimInterval: 500,
 			maxRetries: 2,
 			deadLettering: {
-				enabled: false,
+				enabled: true,
 				queueName: "DEAD_LETTER"
 			},
 			handler() {
 				this.logger.error("Ups! Something happened");
 				return Promise.reject(new Error("Something happened"));
+			}
+		}
+	}
+});
+
+broker.createService({
+	name: "sub2",
+	channels: {
+		DEAD_LETTER: {
+			group: "mygroup",
+			isDeadLetterHandler: true, // Message format is different from "regular messages"
+			handler(msg) {
+				this.logger.info("--> FAILED HANDLER <--");
+				this.logger.info(msg);
+				// Send a notification about the failure
 			}
 		}
 	}

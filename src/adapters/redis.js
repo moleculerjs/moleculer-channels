@@ -227,6 +227,7 @@ class RedisAdapter extends BaseAdapter {
 			if (chan.deadLettering.enabled) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 			}
+			if (chan.isDeadLetterHandler == null) chan.isDeadLetterHandler = false;
 
 			// Create a connection for current subscription
 			let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
@@ -501,7 +502,10 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, rawMessages } = this.parseMessage(message);
+		const { ids, parsedMessages, rawMessages } = this.parseMessage(
+			message,
+			chan.isDeadLetterHandler
+		);
 
 		this.addChannelActiveMessages(chan.id, ids);
 
@@ -551,14 +555,24 @@ class RedisAdapter extends BaseAdapter {
 	 * Parse the message(s).
 	 *
 	 * @param {Array} messages
+	 * @param {boolean} isDeadLetterMessage
 	 * @returns {Array}
 	 */
-	parseMessage(messages) {
+	parseMessage(messages, isDeadLetterMessage) {
 		return messages[0][1].reduce(
 			(accumulator, currentVal) => {
 				accumulator.ids.push(currentVal[0]);
 				accumulator.rawMessages.push(currentVal[1][1]);
-				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+
+				if (!isDeadLetterMessage) {
+					accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+				} else {
+					accumulator.parsedMessages.push({
+						channel: currentVal[1][1],
+						originalID: currentVal[1][3],
+						payload: this.serializer.deserialize(currentVal[1][5])
+					});
+				}
 
 				return accumulator;
 			},
