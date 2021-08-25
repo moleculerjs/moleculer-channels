@@ -13,11 +13,12 @@ const { MoleculerError } = require("moleculer").Errors;
 let Amqplib;
 
 /**
- * Type defs to add some IntelliSense
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker
- * @typedef {import("moleculer").LoggerInstance} Logger
- * @typedef {import("../index").Channel} Channel
- * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions
+ * @typedef {import('amqplib').Connection} AMQPLibConnection AMQP connection
+ * @typedef {import('amqplib').Channel} AMQPLibChannel AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../index").Channel} Channel Base channel definition
+ * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
@@ -30,6 +31,12 @@ let Amqplib;
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
  * @property {Object} amqp.messageOptions AMQP lib message configuration
  * @property {Object} amqp.consumeOptions AMQP lib consume configuration
+ */
+
+/**
+ * @typedef {Object} SubscriptionEntry
+ * @property {Channel & AmqpDefaultOptions} chan AMQP Channel
+ * @property {String} consumerTag AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
  */
 
 /**
@@ -76,9 +83,15 @@ class AmqpAdapter extends BaseAdapter {
 				.map(s => s.trim());
 		}
 
+		/** @type {AMQPLibConnection} */
 		this.connection = null;
+		/** @type {AMQPLibChannel} */
 		this.channel = null;
 
+		this.clients = new Map();
+		/**
+		 * @type {Map<string,SubscriptionEntry>}
+		 */
 		this.subscriptions = new Map();
 		this.connected = false;
 		this.stopping = false;

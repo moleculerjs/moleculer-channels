@@ -11,11 +11,10 @@ const { BrokerOptionsError, ServiceSchemaError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
 
 /**
- * Type defs to add some IntelliSense
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker
- * @typedef {import("moleculer").LoggerInstance} Logger
- * @typedef {import("moleculer").Service} Service
- * @typedef {import("./adapters/base")} BaseAdapter
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Service} Service Moleculer service
+ * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
  */
 
 /**
@@ -36,6 +35,13 @@ const Adapters = require("./adapters");
  * @property {Function} handler User defined handler
  */
 
+/**
+ * @typedef {Object} ChannelRegistryEntry Registry entry
+ * @property {Service} svc Service instance class
+ * @property {String} name Channel name
+ * @property {Channel} chan Channel object
+ */
+
 module.exports = function ChannelsMiddleware(mwOpts) {
 	mwOpts = _.defaultsDeep({}, mwOpts, {
 		adapter: null,
@@ -51,13 +57,24 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 	/** @type {BaseAdapter} */
 	let adapter;
 	let started = false;
+	/** @type {Array<ChannelRegistryEntry>}} */
 	let channelRegistry = [];
 
+	/**
+	 * Register cannel
+	 * @param {Service} svc
+	 * @param {Channel} chan
+	 */
 	function registerChannel(svc, chan) {
 		unregisterChannel(svc, chan);
 		channelRegistry.push({ svc, name: chan.name, chan });
 	}
 
+	/**
+	 * Remove channel from registry
+	 * @param {Service} svc
+	 * @param {Channel} chan
+	 */
 	function unregisterChannel(svc, chan) {
 		channelRegistry = channelRegistry.filter(
 			item => !(item.svc.fullName == svc.fullName && (chan == null || chan.name == item.name))
@@ -69,6 +86,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 		/**
 		 * Create lifecycle hook of service
+		 * @param {ServiceBroker} _broker
 		 */
 		created(_broker) {
 			broker = _broker;
