@@ -62,11 +62,13 @@ broker.createService({
 	channels: {
 		DEAD_LETTER: {
 			group: "mygroup",
-			isDeadLetterHandler: true, // Message format is different from "regular messages"
-			handler(msg) {
+			handler(msg, raw) {
 				this.logger.info("--> FAILED HANDLER <--");
 				this.logger.info(msg);
 				// Send a notification about the failure
+
+				this.logger.info("--> RAW (ENTIRE) MESSAGE <--");
+				this.logger.info(raw);
 			}
 		}
 	}

@@ -84,7 +84,7 @@ describe("Integration tests", () => {
 					await broker.Promise.delay(200);
 					// ---- ˇ ASSERTS ˇ ---
 					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
-					expect(subTestTopicHandler).toHaveBeenCalledWith(msg);
+					expect(subTestTopicHandler).toHaveBeenCalledWith(msg, expect.anything());
 				});
 			});
 
@@ -135,10 +135,10 @@ describe("Integration tests", () => {
 
 					// ---- ˇ ASSERTS ˇ ---
 					expect(sub1TestTopic1Handler).toHaveBeenCalledTimes(1);
-					expect(sub1TestTopic1Handler).toHaveBeenCalledWith(msg);
+					expect(sub1TestTopic1Handler).toHaveBeenCalledWith(msg, expect.anything());
 
 					expect(sub2TestTopic1Handler).toHaveBeenCalledTimes(1);
-					expect(sub2TestTopic1Handler).toHaveBeenCalledWith(msg);
+					expect(sub2TestTopic1Handler).toHaveBeenCalledWith(msg, expect.anything());
 
 					expect(sub1TestTopic2Handler).toHaveBeenCalledTimes(0);
 					expect(sub2TestTopic2Handler).toHaveBeenCalledTimes(0);
@@ -157,10 +157,10 @@ describe("Integration tests", () => {
 
 					// ---- ˇ ASSERTS ˇ ---
 					expect(sub1TestTopic2Handler).toHaveBeenCalledTimes(1);
-					expect(sub1TestTopic2Handler).toHaveBeenCalledWith(msg);
+					expect(sub1TestTopic2Handler).toHaveBeenCalledWith(msg, expect.anything());
 
 					expect(sub2TestTopic2Handler).toHaveBeenCalledTimes(1);
-					expect(sub2TestTopic2Handler).toHaveBeenCalledWith(msg);
+					expect(sub2TestTopic2Handler).toHaveBeenCalledWith(msg, expect.anything());
 
 					expect(sub1TestTopic1Handler).toHaveBeenCalledTimes(0);
 					expect(sub2TestTopic1Handler).toHaveBeenCalledTimes(0);
@@ -228,13 +228,13 @@ describe("Integration tests", () => {
 
 					// ---- ˇ ASSERTS ˇ ---
 					expect(sub1Handler.mock.calls.length).toBeGreaterThanOrEqual(1);
-					expect(sub1Handler).toHaveBeenCalledWith(msg);
+					expect(sub1Handler).toHaveBeenCalledWith(msg, expect.anything());
 
 					expect(sub2Handler.mock.calls.length).toBeGreaterThanOrEqual(1);
-					expect(sub2Handler).toHaveBeenCalledWith(msg);
+					expect(sub2Handler).toHaveBeenCalledWith(msg, expect.anything());
 
 					expect(sub3Handler.mock.calls.length).toBeGreaterThanOrEqual(1);
-					expect(sub3Handler).toHaveBeenCalledWith(msg);
+					expect(sub3Handler).toHaveBeenCalledWith(msg, expect.anything());
 				});
 			});
 
@@ -288,12 +288,12 @@ describe("Integration tests", () => {
 
 					// ---- ˇ ASSERTS ˇ ---
 					//expect(subGoodHandler).toHaveBeenCalledTimes(6);
-					expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 });
-					expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 });
-					expect(subGoodHandler).toHaveBeenCalledWith({ id: 2 });
-					expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 });
-					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 });
-					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 });
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 0 }, expect.anything());
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 1 }, expect.anything());
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 2 }, expect.anything());
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 3 }, expect.anything());
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 }, expect.anything());
+					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 }, expect.anything());
 
 					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
 				});
@@ -355,12 +355,12 @@ describe("Integration tests", () => {
 
 					// ---- ˇ ASSERT ˇ ---
 					expect(sub1Handler).toHaveBeenCalledTimes(6);
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 0 });
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 1 });
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 2 });
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 3 });
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 4 });
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 5 });
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 0 }, expect.anything());
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 1 }, expect.anything());
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 2 }, expect.anything());
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 3 }, expect.anything());
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 4 }, expect.anything());
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 5 }, expect.anything());
 
 					// -> Server is going down <- //
 					await broker.destroyService(svc1);
@@ -389,12 +389,12 @@ describe("Integration tests", () => {
 
 					// ---- ˇ ASSERT ˇ ---
 					expect(sub2Handler).toHaveBeenCalledTimes(6);
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 6 });
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 7 });
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 8 });
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 9 });
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 10 });
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 11 });
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 6 }, expect.anything());
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 7 }, expect.anything());
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 8 }, expect.anything());
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 9 }, expect.anything());
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 10 }, expect.anything());
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 11 }, expect.anything());
 				});
 			});
 
@@ -692,7 +692,6 @@ describe("Integration tests", () => {
 						name: "sub2",
 						channels: {
 							DEAD_LETTER: {
-								isDeadLetterHandler: true,
 								handler: deaLetterHandler
 							}
 						}
@@ -783,7 +782,7 @@ describe("Multiple Adapters", () => {
 	beforeAll(() => broker.start());
 	afterAll(() => broker.stop());
 
-	it("should work with both adapters", async () => {
+	it("should work with multiple adapters", async () => {
 		const msgDefault = { test: "default" };
 		const msgRedis = { test: 123 };
 		const msgAMQP = { test: 456 };
@@ -796,13 +795,13 @@ describe("Multiple Adapters", () => {
 
 		// ---- ˇ ASSERT ˇ ---
 		expect(defaultChannelHandler).toHaveBeenCalledTimes(1);
-		expect(defaultChannelHandler).toHaveBeenCalledWith(msgDefault);
+		expect(defaultChannelHandler).toHaveBeenCalledWith(msgDefault, expect.anything());
 
 		expect(redisChannelHandler).toHaveBeenCalledTimes(1);
-		expect(redisChannelHandler).toHaveBeenCalledWith(msgRedis);
+		expect(redisChannelHandler).toHaveBeenCalledWith(msgRedis, expect.anything());
 
 		expect(amqpChannelHandler).toHaveBeenCalledTimes(1);
-		expect(amqpChannelHandler).toHaveBeenCalledWith(msgAMQP);
+		expect(amqpChannelHandler).toHaveBeenCalledWith(msgAMQP, expect.anything());
 
 		expect(broker.channelAdapter).toBeDefined();
 		expect(broker.redisAdapter).toBeDefined();
