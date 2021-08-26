@@ -227,7 +227,6 @@ class RedisAdapter extends BaseAdapter {
 			if (chan.deadLettering.enabled) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 			}
-			if (chan.isDeadLetterHandler == null) chan.isDeadLetterHandler = false;
 
 			// Create a connection for current subscription
 			let chanSub = await this.createRedisClient(chan.id, this.opts.redis);
@@ -502,10 +501,8 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, serializedMessages, fullMessages } = this.parseMessage(
-			message,
-			chan.isDeadLetterHandler
-		);
+		const { ids, parsedMessages, serializedMessages, fullMessages } =
+			this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
 
