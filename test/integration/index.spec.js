@@ -295,7 +295,7 @@ describe("Integration tests", () => {
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 }, expect.anything());
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 }, expect.anything());
 
-					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(2);
+					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(1);
 				});
 			});
 

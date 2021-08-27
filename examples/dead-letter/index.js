@@ -47,7 +47,8 @@ broker.createService({
 			maxRetries: 2,
 			deadLettering: {
 				enabled: true,
-				queueName: "DEAD_LETTER"
+				queueName: "DEAD_LETTER",
+				exchangeName: "DEAD_LETTER"
 			},
 			handler() {
 				this.logger.error("Ups! Something happened");
