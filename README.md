@@ -206,7 +206,7 @@ module.exports = {
 | `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
 | `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
 | `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
-| `handler` | `Function(payload: any)` | `null` | Channel handler function. |
+| `handler` | `Function(payload: any, rawMessage: any)` | `null` | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter. |
 TODO: adapter-specific options
 
 ## Failed message
@@ -318,13 +318,68 @@ module.exports = {
 };
 ```
 
+### RabbitMQ
+
+The RabbitMQ adapter uses the exchange-queue logic of RabbitMQ for creating consumer groups.
+
+**Example**
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "amqp://localhost:5672"
+        })
+    ]
+};
+```
+
+**Example with options**
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "AMQP",
+                options: {
+                    amqp: {
+                        url: "amqp://localhost:5672",
+                        prefetch: 10,
+                        // Options for `Amqplib.connect`
+                        socketOptions: {},
+                        // Options for `assertQueue()`
+                        queueOptions: {},
+                        // Options for `assertExchange()`
+                        exchangeOptions: {},
+                        // Options for `channel.publish()`
+                        messageOptions: {},
+                        // Options for `channel.consume()`
+                        consumeOptions: {}
+                    },
+                    maxRetries: 3,
+                    deadLettering: {
+                        enabled: false,
+                        //queueName: "DEAD_LETTER",
+                        //exchangeName: "DEAD_LETTER"
+                    }
+                }
+            }
+        })
+    ]
+};
+```
+
 ### Kafka
 
 Coming soon.
 
-### RabbitMQ
-
-TODO: examples
 
 ### NATS JetStream
 

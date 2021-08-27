@@ -501,13 +501,14 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, rawMessages } = this.parseMessage(message);
+		const { ids, parsedMessages, serializedMessages, fullMessages } =
+			this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
 
-		const promises = parsedMessages.map(entry => {
+		const promises = parsedMessages.map((entry, index) => {
 			// Call the actual user defined handler
-			return chan.handler(entry);
+			return chan.handler(entry, fullMessages[index]);
 		});
 
 		const promiseResults = await Promise.allSettled(promises);
@@ -532,7 +533,7 @@ class RedisAdapter extends BaseAdapter {
 					// No retries
 
 					if (chan.deadLettering.enabled) {
-						await this.moveToDeadLetter(chan, id, rawMessages[i]);
+						await this.moveToDeadLetter(chan, id, serializedMessages[i]);
 					} else {
 						// Drop message
 						this.logger.error(`Drop message...`, id);
@@ -557,15 +558,18 @@ class RedisAdapter extends BaseAdapter {
 		return messages[0][1].reduce(
 			(accumulator, currentVal) => {
 				accumulator.ids.push(currentVal[0]);
-				accumulator.rawMessages.push(currentVal[1][1]);
+
+				accumulator.fullMessages.push(currentVal[1]);
+				accumulator.serializedMessages.push(currentVal[1][1]);
 				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
 				return accumulator;
 			},
 			{
 				ids: [], // for XACK
-				parsedMessages: [],
-				rawMessages: []
+				parsedMessages: [], // Deserialized payload
+				serializedMessages: [], // Serialized payload
+				fullMessages: [] // Entire message
 			}
 		);
 	}
@@ -615,12 +619,12 @@ class RedisAdapter extends BaseAdapter {
 		await nackedClient.xadd(
 			chan.deadLettering.queueName,
 			"*", // Auto generate the ID
+			"payload",
+			message, // Message contents
 			"channel",
 			chan.name, // Topic where failure occurred
 			"originalID",
-			originalID, // Original ID (timestamp) of failed message
-			"payload",
-			message // Message contents
+			originalID // Original ID (timestamp) of failed message
 		);
 
 		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
