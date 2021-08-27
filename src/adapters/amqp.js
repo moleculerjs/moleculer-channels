@@ -325,7 +325,7 @@ class AmqpAdapter extends BaseAdapter {
 				const content = this.serializer.deserialize(msg.content);
 				//this.logger.debug("Content:", content);
 
-				await chan.handler(content);
+				await chan.handler(content, msg);
 				this.channel.ack(msg);
 
 				this.removeChannelActiveMessages(chan.id, [id]);
