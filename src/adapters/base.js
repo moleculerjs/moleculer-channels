@@ -192,7 +192,7 @@ class BaseAdapter {
 	 * @returns {String} New topic name
 	 */
 	addPrefixTopic(topicName) {
-		if (this.opts.prefix != null && topicName) {
+		if (this.opts.prefix != null && this.opts.prefix != "" && topicName) {
 			return `${this.opts.prefix}.${topicName}`;
 		}
 
