@@ -15,7 +15,7 @@ Reliable messages for Moleculer services.
 
 -   reliable messages with acknowledgement
 -   multiple adapters
--   pluggable adapters
+-   plugable adapters
 -   max-in-flight option
 
 ## Install
@@ -47,8 +47,7 @@ module.exports = {
 };
 ```
 
-By default, the middleware will add a `sendToChannel(<topic-name>, { payload })` method and `channelAdapter` property to the `broker` instance.
-Moreover, it will register handlers located in `channels` of a service schema.
+By default, the middleware will add a `sendToChannel(<topic-name>, { payload })` method and `channelAdapter` property to the `broker` instance. Moreover, it will register handlers located in `channels` of a service schema.
 
 ### Consuming messages in Moleculer services
 
@@ -198,6 +197,36 @@ module.exports = {
 };
 ```
 
+## Adapters
+
+### Adapter default options
+
+| Name | Type | Default value | Description |
+| ---- | ---- | ------------- | ----------- |
+| `consumerName` | `String` | ServiceBroker nodeID | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
+| `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
+| `serializer` | `String\|Object\|Serializer` | `JSON` | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
+| `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
+| `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
+| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
+
+TODO: adapter-specific options
+
+### Redis-specific default options
+
+| Name | Type | Default value | Description |
+| ---- | ---- | ------------- | ----------- |
+| `readTimeoutInternal` | `Number`| `0` | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
+| `minIdleTime` | `Number` | `60 * 60 * 1000` | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+| `claimInterval` | `Number` | `100` | Interval (in milliseconds) between message claims
+| `startID` | `String` | `$` | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP)
+| `processingAttemptsInterval` | `Number` | `0` | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel
+
+## Failed message
+If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
+When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
+Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
+
 ## Channel options
 
 | Name | Type | Default value | Description |
@@ -207,27 +236,19 @@ module.exports = {
 | `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
 | `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
 | `handler` | `Function(payload: any, rawMessage: any)` | `null` | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter. |
+
 TODO: adapter-specific options
 
-## Failed message
-If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
-When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
-Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
-
-## Adapters
-
-### Adapter options
+### Redis specific channel options
+It is possible to overwrite [redis default options](#redis-specific-default-options) at channel level.
 
 | Name | Type | Default value | Description |
 | ---- | ---- | ------------- | ----------- |
-| `consumerName` | `String` | ServiceBroker nodeID | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
-| `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
-| `serializer` | `String\|Object\|Serializer` | `JSON` | Serializer for messages. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
-| `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
-| `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
-| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
-
-TODO: adapter-specific options
+| `readTimeoutInternal` | `Number`| `0` | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
+| `minIdleTime` | `Number` | `60 * 60 * 1000` | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+| `claimInterval` | `Number` | `100` | Interval (in milliseconds) between message claims
+| `startID` | `String` | `$` | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP)
+| `processingAttemptsInterval` | `Number` | `0` | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel
 
 ### Redis Streams
 
@@ -273,13 +294,36 @@ module.exports = {
                     minIdleTime: 60 * 60 * 1000,
                     // Interval (in milliseconds) between two claims
                     claimInterval: 100,
-                    // Max number of messages to fetch in a single read
+                    // Maximum number of messages that can be processed simultaneously
                     maxInFlight: 1,
                     // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
                     // More info: https://redis.io/commands/XGROUP
                     startID: "$",
                     // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
                     processingAttemptsInterval: 1000,
+                }
+            }
+        })
+    ]
+};
+```
+
+**Redis Cluster**
+```js
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {
+					cluster: {
+						nodes: [
+							{ port: 6380, host: "127.0.0.1" },
+							{ port: 6381, host: "127.0.0.1" },
+							{ port: 6382, host: "127.0.0.1" }
+						],
+						options: { /* More information: https://github.com/luin/ioredis#cluster */ }
+					}
                 }
             }
         })
