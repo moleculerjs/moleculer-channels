@@ -44,7 +44,7 @@ broker.createService({
 			group: "mygroup",
 			minIdleTime: 1000,
 			claimInterval: 500,
-			maxRetries: 2,
+			maxRetries: 3,
 			deadLettering: {
 				enabled: true,
 				queueName: "DEAD_LETTER",

@@ -334,9 +334,18 @@ class AmqpAdapter extends BaseAdapter {
 
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
 				if (!chan.maxRetries) {
-					// No retries, drop message
-					this.logger.error(`Drop message...`);
-					this.channel.nack(msg, false, false);
+					if (chan.deadLettering.enabled) {
+						// Reached max retries and has dead-letter topic, move message
+						this.logger.debug(
+							`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
+						);
+						await this.moveToDeadLetter(chan, msg);
+					} else {
+						// No retries, drop message
+						this.logger.error(`No retries, drop message...`);
+						this.channel.nack(msg, false, false);
+					}
+					return;
 				}
 
 				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
@@ -344,22 +353,9 @@ class AmqpAdapter extends BaseAdapter {
 					if (chan.deadLettering.enabled) {
 						// Reached max retries and has dead-letter topic, move message
 						this.logger.debug(
-							`Message redelivered too many times (${redeliveryCount}). Moving a message to '${chan.deadLettering.queueName}' queue...`
+							`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						const res = this.channel.publish(
-							chan.deadLettering.exchangeName || "",
-							chan.deadLettering.queueName,
-							msg.content,
-							{
-								headers: {
-									"x-original-channel": chan.name
-								}
-							}
-						);
-						if (res === false)
-							throw new MoleculerError("AMQP publish error. Write buffer is full.");
-
-						this.channel.ack(msg);
+						await this.moveToDeadLetter(chan, msg);
 					} else {
 						// Reached max retries and no dead-letter topic, drop message
 						this.logger.error(
@@ -389,6 +385,22 @@ class AmqpAdapter extends BaseAdapter {
 		};
 	}
 
+	async moveToDeadLetter(chan, msg) {
+		const res = this.channel.publish(
+			chan.deadLettering.exchangeName || "",
+			chan.deadLettering.queueName,
+			msg.content,
+			{
+				headers: {
+					"x-original-channel": chan.name
+				}
+			}
+		);
+		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
+
+		this.channel.ack(msg);
+	}
+
 	/**
 	 * Unsubscribe from a channel.
 	 *
@@ -397,8 +409,10 @@ class AmqpAdapter extends BaseAdapter {
 	async unsubscribe(chan) {
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
-		const { consumerTag } = this.subscriptions.get(chan.id);
-		await this.channel.cancel(consumerTag);
+		const sub = this.subscriptions.get(chan.id);
+		if (!sub) return;
+
+		await this.channel.cancel(sub.consumerTag);
 
 		await new Promise((resolve, reject) => {
 			const checkPendingMessages = () => {

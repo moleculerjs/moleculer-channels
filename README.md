@@ -308,29 +308,6 @@ module.exports = {
 };
 ```
 
-**Redis Cluster**
-```js
-module.exports = {
-    middlewares: [
-        ChannelsMiddleware({
-            adapter: {
-                type: "Redis",
-                options: {
-					cluster: {
-						nodes: [
-							{ port: 6380, host: "127.0.0.1" },
-							{ port: 6381, host: "127.0.0.1" },
-							{ port: 6382, host: "127.0.0.1" }
-						],
-						options: { /* More information: https://github.com/luin/ioredis#cluster */ }
-					}
-                }
-            }
-        })
-    ]
-};
-```
-
 You can overwrite the default values in the handler definition.
 
 **Overwrite default options in service**
@@ -359,6 +336,29 @@ module.exports = {
             }
         }
     }
+};
+```
+
+**Redis Cluster**
+```js
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {
+					cluster: {
+						nodes: [
+							{ port: 6380, host: "127.0.0.1" },
+							{ port: 6381, host: "127.0.0.1" },
+							{ port: 6382, host: "127.0.0.1" }
+						],
+						options: { /* More information: https://github.com/luin/ioredis#cluster */ }
+					}
+                }
+            }
+        })
+    ]
 };
 ```
 

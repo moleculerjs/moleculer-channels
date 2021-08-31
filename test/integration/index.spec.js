@@ -11,6 +11,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "Redis", options: {} },
 		{
 			type: "Redis",
+			name: "Redis-Cluster",
 			options: {
 				cluster: {
 					nodes: [
@@ -29,6 +30,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "Redis", options: {} },
 		{
 			type: "Redis",
+			name: "Redis-Cluster",
 			options: {
 				cluster: {
 					nodes: [
@@ -664,69 +666,133 @@ describe("Integration tests", () => {
 				});
 			});
 
-			if (adapter.type !== "AMQP") {
-				describe("Test Dead Letter logic", () => {
-					const broker = createBroker(adapter, { logLevel: "debug" });
+			describe("Test Dead Letter logic without retries", () => {
+				const broker = createBroker(adapter, { logLevel: "debug" });
 
-					const error = new Error("Something happened");
-					const deaLetterHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+				const error = new Error("Something happened");
+				const deaLetterHandler = jest.fn(() => Promise.resolve());
+				const subWrongHandler = jest.fn(() => Promise.reject(error));
 
-					broker.createService({
-						name: "sub1",
-						channels: {
-							"test.failed_messages.topic": {
-								group: "mygroup",
-								claimInterval: 50,
-								maxRetries: 0,
-								deadLettering: {
-									enabled: true,
-									queueName: "DEAD_LETTER"
-								},
-								handler: subWrongHandler
-							}
+				broker.createService({
+					name: "sub1",
+					channels: {
+						"test.failed_messages.topic": {
+							group: "mygroup",
+							claimInterval: 50,
+							maxRetries: 0,
+							deadLettering: {
+								enabled: true,
+								queueName: "DEAD_LETTER",
+								exchangeName: "DEAD_LETTER"
+							},
+							handler: subWrongHandler
 						}
-					});
-
-					broker.createService({
-						name: "sub2",
-						channels: {
-							DEAD_LETTER: {
-								handler: deaLetterHandler
-							}
-						}
-					});
-
-					beforeAll(() => broker.start());
-					afterAll(() => broker.stop());
-
-					beforeEach(() => {
-						deaLetterHandler.mockClear();
-						subWrongHandler.mockClear();
-					});
-
-					it("should transfer to FAILED_MESSAGES", async () => {
-						const msg = {
-							id: 1,
-							name: "John",
-							age: 2565
-						};
-						// ---- ^ SETUP ^ ---
-
-						await broker.Promise.delay(500);
-
-						broker.sendToChannel("test.failed_messages.topic", msg);
-						await broker.Promise.delay(500);
-
-						// ---- ˇ ASSERTS ˇ ---
-						expect(subWrongHandler).toHaveBeenCalledTimes(1);
-
-						expect(deaLetterHandler).toHaveBeenCalledTimes(1);
-
-						await broker.Promise.delay(500);
-					});
+					}
 				});
-			}
+
+				broker.createService({
+					name: "sub2",
+					channels: {
+						DEAD_LETTER: {
+							handler: deaLetterHandler
+						}
+					}
+				});
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					deaLetterHandler.mockClear();
+					subWrongHandler.mockClear();
+				});
+
+				it("should transfer to FAILED_MESSAGES", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 2565
+					};
+					// ---- ^ SETUP ^ ---
+
+					await broker.Promise.delay(500);
+
+					broker.sendToChannel("test.failed_messages.topic", msg);
+					await broker.Promise.delay(500);
+
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subWrongHandler).toHaveBeenCalledTimes(1);
+
+					expect(deaLetterHandler).toHaveBeenCalledTimes(1);
+
+					await broker.Promise.delay(500);
+				});
+			});
+
+			describe("Test Dead Letter logic with retries", () => {
+				const broker = createBroker(adapter, { logLevel: "debug" });
+
+				const error = new Error("Something happened");
+				const deaLetterHandler = jest.fn(() => Promise.resolve());
+				const subWrongHandler = jest.fn(() => Promise.reject(error));
+
+				broker.createService({
+					name: "sub1",
+					channels: {
+						"test.failed_messages.topic": {
+							group: "mygroup",
+							maxRetries: 2,
+							minIdleTime: 50,
+							claimInterval: 50,
+							processingAttemptsInterval: 10,
+							deadLettering: {
+								enabled: true,
+								queueName: "DEAD_LETTER",
+								exchangeName: "DEAD_LETTER"
+							},
+							handler: subWrongHandler
+						}
+					}
+				});
+
+				broker.createService({
+					name: "sub2",
+					channels: {
+						DEAD_LETTER: {
+							handler: deaLetterHandler
+						}
+					}
+				});
+
+				beforeAll(() => broker.start());
+				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					deaLetterHandler.mockClear();
+					subWrongHandler.mockClear();
+				});
+
+				it("should transfer to FAILED_MESSAGES", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 2565
+					};
+					// ---- ^ SETUP ^ ---
+
+					await broker.Promise.delay(500);
+
+					broker.sendToChannel("test.failed_messages.topic", msg);
+					await broker.Promise.delay(1000);
+
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subWrongHandler).toHaveBeenCalledTimes(2);
+
+					expect(deaLetterHandler).toHaveBeenCalledTimes(1);
+
+					await broker.Promise.delay(500);
+				});
+			});
 		});
 	}
 });
