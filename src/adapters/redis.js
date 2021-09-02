@@ -103,7 +103,7 @@ class RedisAdapter extends BaseAdapter {
 			);
 		}
 
-		this.checkClientLibVersion("ioredis", "^4.27.6");
+		this.checkClientLibVersion("ioredis", "^4.27.9");
 	}
 
 	/**
