@@ -23,9 +23,9 @@ let Amqplib;
 
 /**
  * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
+ * @property {Number} maxInFlight Max-in-flight messages
  * @property {Object} amqp AMQP lib configuration
  * @property {Number} amqp.url Connection URI
- * @property {Number} amqp.prefetch Max-in-flight messages
  * @property {Object} amqp.socketOptions AMQP lib socket configuration
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
@@ -66,8 +66,8 @@ class AmqpAdapter extends BaseAdapter {
 
 		/** @type {AmqpDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
+			maxInFlight: 1,
 			amqp: {
-				prefetch: 10,
 				socketOptions: {},
 				queueOptions: {},
 				exchangeOptions: {},
@@ -202,8 +202,8 @@ class AmqpAdapter extends BaseAdapter {
 				this.logger.warn("AMQP channel returned a message.", msg);
 			});
 
-		if (this.opts.amqp.prefetch != null) {
-			this.channel.prefetch(this.opts.amqp.prefetch);
+		if (this.opts.maxInFlight != null) {
+			this.channel.prefetch(this.opts.maxInFlight);
 		}
 
 		this.logger.info("AMQP channel created.");
@@ -480,10 +480,14 @@ class AmqpAdapter extends BaseAdapter {
 			this.opts.amqp.messageOptions
 		);
 
-		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
+		this.logger.debug(
+			`Publish a message to '${channelName || opts.routingKey}' channel...`,
+			payload,
+			opts
+		);
 
 		const data = opts.raw ? payload : this.serializer.serialize(payload);
-		const res = this.channel.publish(channelName, "", data, messageOptions);
+		const res = this.channel.publish(channelName, opts.routingKey || "", data, messageOptions);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 		this.logger.debug(`Message was published at '${channelName}'`);
 	}
