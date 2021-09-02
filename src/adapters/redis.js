@@ -575,6 +575,32 @@ class RedisAdapter extends BaseAdapter {
 	}
 
 	/**
+	 * Moves message into dead letter
+	 *
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
+	 * @param {String} originalID ID of the dead message
+	 * @param {Object} message Raw (not serialized) message contents
+	 */
+	async moveToDeadLetter(chan, originalID, message) {
+		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
+
+		// Move the message to a dedicated channel
+		const nackedClient = this.clients.get(this.nackedName);
+		await nackedClient.xadd(
+			chan.deadLettering.queueName,
+			"*", // Auto generate the ID
+			"payload",
+			message, // Message contents
+			"channel",
+			chan.name, // Topic where failure occurred
+			"originalID",
+			originalID // Original ID (timestamp) of failed message
+		);
+
+		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
+	}
+
+	/**
 	 * Publish a payload to a channel.
 	 *
 	 * @param {String} channelName
@@ -602,32 +628,6 @@ class RedisAdapter extends BaseAdapter {
 			this.logger.error(`Cannot publish to '${channelName}'`, err);
 			throw err;
 		}
-	}
-
-	/**
-	 * Moves message into dead letter
-	 *
-	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
-	 * @param {String} originalID ID of the dead message
-	 * @param {Object} message Raw (not serialized) message contents
-	 */
-	async moveToDeadLetter(chan, originalID, message) {
-		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
-
-		// Move the message to a dedicated channel
-		const nackedClient = this.clients.get(this.nackedName);
-		await nackedClient.xadd(
-			chan.deadLettering.queueName,
-			"*", // Auto generate the ID
-			"payload",
-			message, // Message contents
-			"channel",
-			chan.name, // Topic where failure occurred
-			"originalID",
-			originalID // Original ID (timestamp) of failed message
-		);
-
-		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
 	}
 }
 

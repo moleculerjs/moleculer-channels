@@ -197,58 +197,76 @@ module.exports = {
 };
 ```
 
-## Adapters
+## Channel options
 
-### Adapter default options
-
-| Name | Type | Default value | Description |
-| ---- | ---- | ------------- | ----------- |
-| `consumerName` | `String` | ServiceBroker nodeID | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
-| `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
-| `serializer` | `String\|Object\|Serializer` | `JSON` | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
-| `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
-| `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
-| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
-
-TODO: adapter-specific options
-
-### Redis-specific default options
-
-| Name | Type | Default value | Description |
-| ---- | ---- | ------------- | ----------- |
-| `readTimeoutInternal` | `Number`| `0` | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
-| `minIdleTime` | `Number` | `60 * 60 * 1000` | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-| `claimInterval` | `Number` | `100` | Interval (in milliseconds) between message claims
-| `startID` | `String` | `$` | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP)
-| `processingAttemptsInterval` | `Number` | `0` | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel
+| Name | Type | Supported adapters | Description |
+| ---- | ---- | ------------------ | ----------- |
+| `group` | `String` | * | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version) |
+| `maxInFlight` | `Number` | Redis | Max number of messages under processing at the same time.
+| `maxRetries` | `Number` | * | Maximum number of retries before sending the message to dead-letter-queue or drop. |
+| `deadLettering.enabled` | `Boolean` | * | Enable "Dead-lettering" feature. |
+| `deadLettering.queueName` | `String` | * | Name of dead-letter queue. |
+| `handler` | `Function(payload: any, rawMessage: any)` | * | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter. |
+| `startID` | `String` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
+| `minIdleTime` | `Number` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour. |
+| `claimInterval` | `Number` | Redis | Interval (in milliseconds) between message claims
+| `readTimeoutInternal` | `Number`| Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup) |
+| `processingAttemptsInterval` | `Number` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel |
+| `amqp.queueOptions` | `Object` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
+| `amqp.exchangeOptions` | `Object` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
+| `amqp.consumeOptions` | `Object` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
 
 ## Failed message
 If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
 When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
 Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
 
-## Channel options
+## Graceful stopping
+The adapters tracks the messages under processing. It means when a service or the broker is stopping the adapter blocking the process and waits until all active messages are not finished.
 
-| Name | Type | Default value | Description |
-| ---- | ---- | ------------- | ----------- |
-| `group` | `String` | Full name of service | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version) |
-| `maxRetries` | `Number` | `3` | Maximum number of retries before sending the message to dead-letter-queue or drop. |
-| `deadLettering.enabled` | `Boolean` | `false` | Enable "Dead-lettering" feature. |
-| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | Name of dead-letter queue. |
-| `handler` | `Function(payload: any, rawMessage: any)` | `null` | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter. |
+## Publishing
+Use the `broker.sendToChannel(channelName, payload, opts)` method to send a message to a channel. The `payload` should be a serializable data.
 
-TODO: adapter-specific options
+### Method options
 
-### Redis specific channel options
-It is possible to overwrite [redis default options](#redis-specific-default-options) at channel level.
+| Name | Type | Default value | Supported adapters | Description |
+| ---- | ---- | ------------- | ------------------ | ----------- |
+| `raw` | `Boolean` | Redis, AMQP | If truthy, the payload won't be serialized. |
+| `persistent` | `Boolean` | AMQP | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts. |
+| `ttl` | `Number` | AMQP | if supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds. |
+| `priority` | `Number` | AMQP | Priority of the message. |
+| `correlationId` | `String` | AMQP | Request identifier. |
+| `headers` | `Object` | AMQP | Application specific headers to be carried along with the message content. |
+| `routingKey` | `Object` | AMQP | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
 
-| Name | Type | Default value | Description |
-| ---- | ---- | ------------- | ----------- |
-| `readTimeoutInternal` | `Number`| `0` | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
-| `minIdleTime` | `Number` | `60 * 60 * 1000` | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-| `claimInterval` | `Number` | `100` | Interval (in milliseconds) between message claims
-| `startID` | `String` | `$` | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP)
-| `processingAttemptsInterval` | `Number` | `0` | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel
+
+## Adapters
+
+### Adapter options
+
+| Name | Type | Default value | Supported adapters | Description |
+| ---- | ---- | ------------- | ------------------ | ----------- |
+| `consumerName` | `String` | ServiceBroker nodeID | * | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
+| `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
+| `serializer` | `String\|Object\|Serializer` | `JSON` | * | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
+| `maxRetries` | `Number` | `3` | * | Maximum number of retries before sending the message to dead-letter-queue or drop. |
+| `deadLettering.enabled` | `Boolean` | `false` | * | Enable "Dead-lettering" feature. |
+| `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | * | Name of dead-letter queue. |
+| `redis` | `Object\|String\|Number` | `null` | Redis | Redis connection options. More info [here](https://github.com/luin/ioredis#connect-to-redis)
+| `cluster.nodes` | `Array` | `null` | Redis | Redis Cluster nodes list. More info [here](https://github.com/luin/ioredis#cluster)
+| `cluster.clusterOptions` | `Object` | `null` | Redis | Redis Cluster options. More info [here](https://github.com/luin/ioredis#cluster)
+| `readTimeoutInternal` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
+| `minIdleTime` | `Number` | `60 * 60 * 1000` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+| `claimInterval` | `Number` | `100` | Redis | Interval (in milliseconds) between message claims.
+| `maxInFlight` | `Number` | `1` | Redis, AMQP | Max number of messages under processing at the same time.
+| `startID` | `String` | `$` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).
+| `processingAttemptsInterval` | `Number` | `0` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.
+| `amqp.url` | `String` | `null` | AMQP | Connection URI.
+| `amqp.socketOptions` | `Object` | `null` | AMQP | AMQP lib socket configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#connect).
+| `amqp.queueOptions` | `Object` | `null` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
+| `amqp.exchangeOptions` | `Object` | `null` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
+| `amqp.messageOptions` | `Object` | `null` | AMQP | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).
+| `amqp.consumeOptions` | `Object` | `null` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
 
 ### Redis Streams
 
@@ -353,7 +371,12 @@ module.exports = {
 							{ port: 6381, host: "127.0.0.1" },
 							{ port: 6382, host: "127.0.0.1" }
 						],
-						options: { /* More information: https://github.com/luin/ioredis#cluster */ }
+						options: { 
+                            /* More information: https://github.com/luin/ioredis#cluster */ 
+                            redisOptions: {
+                                password: "fallback-password",
+                            },                            
+                        }
 					}
                 }
             }
@@ -364,7 +387,7 @@ module.exports = {
 
 ### RabbitMQ
 
-The RabbitMQ adapter uses the exchange-queue logic of RabbitMQ for creating consumer groups.
+The RabbitMQ adapter uses the exchange-queue logic of RabbitMQ for creating consumer groups. It means the `sendToChannel` method sends the message to the exchange and not for a queue. 
 
 **Example**
 
@@ -395,7 +418,6 @@ module.exports = {
                 options: {
                     amqp: {
                         url: "amqp://localhost:5672",
-                        prefetch: 10,
                         // Options for `Amqplib.connect`
                         socketOptions: {},
                         // Options for `assertQueue()`
@@ -407,6 +429,7 @@ module.exports = {
                         // Options for `channel.consume()`
                         consumeOptions: {}
                     },
+                    maxInFlight: 10,
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
@@ -428,6 +451,7 @@ Coming soon.
 ### NATS JetStream
 
 Coming soon.
+
 
 <!-- ## Benchmark
 There is some benchmark with all adapters. [You can find the results here.](benchmark/results/common/README.md) -->

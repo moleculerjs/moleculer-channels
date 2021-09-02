@@ -45,6 +45,24 @@ const broker = new ServiceBroker({
 					pid: process.pid
 				});
 			}
+		},
+		{
+			command: "publish3",
+			alias: ["p3"],
+			async action(broker, args) {
+				const { options } = args;
+				//console.log(options);
+				await broker.sendToChannel(
+					"",
+					{
+						id: 2,
+						name: "Jane Doe",
+						status: true,
+						pid: process.pid
+					},
+					{ routingKey: "demoo" }
+				);
+			}
 		}
 	]
 });
