@@ -248,7 +248,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | Name | Type | Default value | Supported adapters | Description |
 | ---- | ---- | ------------- | ------------------ | ----------- |
 | `consumerName` | `String` | ServiceBroker nodeID | * | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
-| `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
+| `prefix` | `String` | ServiceBroker namespace | * | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
 | `serializer` | `String`, `Object`, `Serializer` | `JSON` | * | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
 | `maxRetries` | `Number` | `3` | * | Maximum number of retries before sending the message to dead-letter-queue or drop. |
 | `deadLettering.enabled` | `Boolean` | `false` | * | Enable "Dead-lettering" feature. |
