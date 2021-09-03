@@ -174,11 +174,12 @@ module.exports = {
 
 | Name | Type | Default value | Description |
 | ---- | ---- | ------------- | ----------- |
-| `adapter` | `String\|Object` | `null` | Adapter definition. It can be a `String` as name of the adapter or a connection string or an adapter definition `Object`. [More info](#adapters) |
+| `adapter` | `String`, `Object` | `null` | Adapter definition. It can be a `String` as name of the adapter or a connection string or an adapter definition `Object`. [More info](#adapters) |
 | `schemaProperty` | `String` | `"channels"` | Name of the property in service schema. |
 | `sendMethodName` | `String` | `"sendToChannel"` | Name of the method in ServiceBroker to send message to the channels. |
 | `adapterPropertyName` | `String` | `"channelAdapter"` | Name of the property in ServiceBroker to access the `Adapter` instance directly. |
 
+**Example**s
 ```js
 // moleculer.config.js
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
@@ -229,8 +230,8 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 
 ### Method options
 
-| Name | Type | Default value | Supported adapters | Description |
-| ---- | ---- | ------------- | ------------------ | ----------- |
+| Name | Type | Supported adapters | Description |
+| ---- | ---- | ------------------ | ----------- |
 | `raw` | `Boolean` | Redis, AMQP | If truthy, the payload won't be serialized. |
 | `persistent` | `Boolean` | AMQP | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts. |
 | `ttl` | `Number` | AMQP | if supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds. |
@@ -248,11 +249,11 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | ---- | ---- | ------------- | ------------------ | ----------- |
 | `consumerName` | `String` | ServiceBroker nodeID | * | Consumer name used by adapters. By default it's the nodeID of ServiceBroker. |
 | `prefix` | `String` | ServiceBroker namespace | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
-| `serializer` | `String\|Object\|Serializer` | `JSON` | * | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
+| `serializer` | `String`, `Object`, `Serializer` | `JSON` | * | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
 | `maxRetries` | `Number` | `3` | * | Maximum number of retries before sending the message to dead-letter-queue or drop. |
 | `deadLettering.enabled` | `Boolean` | `false` | * | Enable "Dead-lettering" feature. |
 | `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | * | Name of dead-letter queue. |
-| `redis` | `Object\|String\|Number` | `null` | Redis | Redis connection options. More info [here](https://github.com/luin/ioredis#connect-to-redis)
+| `redis` | `Object`, `String`, `Number` | `null` | Redis | Redis connection options. More info [here](https://github.com/luin/ioredis#connect-to-redis)
 | `cluster.nodes` | `Array` | `null` | Redis | Redis Cluster nodes list. More info [here](https://github.com/luin/ioredis#cluster)
 | `cluster.clusterOptions` | `Object` | `null` | Redis | Redis Cluster options. More info [here](https://github.com/luin/ioredis#cluster)
 | `readTimeoutInternal` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
@@ -365,19 +366,19 @@ module.exports = {
             adapter: {
                 type: "Redis",
                 options: {
-					cluster: {
-						nodes: [
-							{ port: 6380, host: "127.0.0.1" },
-							{ port: 6381, host: "127.0.0.1" },
-							{ port: 6382, host: "127.0.0.1" }
-						],
-						options: { 
+                    cluster: {
+                        nodes: [
+                            { port: 6380, host: "127.0.0.1" },
+                            { port: 6381, host: "127.0.0.1" },
+                            { port: 6382, host: "127.0.0.1" }
+                        ],
+                        options: { 
                             /* More information: https://github.com/luin/ioredis#cluster */ 
                             redisOptions: {
                                 password: "fallback-password",
                             },                            
                         }
-					}
+                    }
                 }
             }
         })
