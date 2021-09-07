@@ -11,8 +11,6 @@ Reliable messages for Moleculer services via external queue/channel/topic. Unlik
 
 **This project is in work-in-progress. Don't use it in production.**
 
-![Communication diagram](assets/communication.png)
-
 ## Features
 
 - reliable messages with acknowledgement.
@@ -175,6 +173,10 @@ module.exports = {
     }
 };
 ```
+
+## Communication diagram
+![Communication diagram](assets/communication.png)
+
 
 ## Middleware options
 
