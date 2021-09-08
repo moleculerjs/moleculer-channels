@@ -236,6 +236,7 @@ When the number of redelivering reaches the `maxRetries`, it will drop the messa
 Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
 
 **Dead-Letter Logic**
+
 ![Dead-Letter](assets/dead_letter.png)
 
 ## Graceful stopping
@@ -290,6 +291,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 [Redis Streams](https://redis.io/topics/streams-intro) was introduced in Redis 5.0. Hoverer, since this module relies on the [XAUTOCLAIM](https://redis.io/commands/xautoclaim) command, Redis >= 6.2.0 is required.
 
 **Redis Adapter Overview**
+
 ![Dead-Letter](assets/redis_queue.png)
 
 **Example**
