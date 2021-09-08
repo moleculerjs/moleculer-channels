@@ -89,7 +89,7 @@ jobs:
       working-directory: ./test
 
     - name: Upload code coverage
-     run: npm run coverall
-     if: success() && github.ref == 'refs/heads/master'
-     env:
-       COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+      run: npm run coverall
+      if: success() && github.ref == 'refs/heads/master'
+      env:
+        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
