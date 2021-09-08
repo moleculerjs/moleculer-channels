@@ -35,7 +35,7 @@ npm i @moleculer/channels
 ## Communication diagram
 
 **Native Communication**
-![Communication diagram](assets/communication.png)
+![Communication Overview diagram](assets/overview.png)
 
 
 **Integration With A Third-Party System**
