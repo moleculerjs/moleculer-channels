@@ -32,6 +32,15 @@ npm i moleculerjs/moleculer-channels#master
 npm i @moleculer/channels
 ``` -->
 
+## Communication diagram
+
+**Native Communication**
+![Communication diagram](assets/communication.png)
+
+
+**Integration With A Third-Party System**
+![Third-Party](assets/legacy.png)
+
 ## Usage
 
 ### Register middleware in broker options
@@ -174,10 +183,6 @@ module.exports = {
 };
 ```
 
-## Communication diagram
-![Communication diagram](assets/communication.png)
-
-
 ## Middleware options
 
 | Name | Type | Default value | Description |
@@ -230,6 +235,9 @@ If the service is not able to process a message, it should throw an `Error` insi
 When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
 Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
 
+**Dead-Letter Logic**
+![Dead-Letter](assets/dead_letter.png)
+
 ## Graceful stopping
 The adapters tracks the messages under processing. It means when a service or the broker is stopping the adapter blocking the process and waits until all active messages are not finished.
 
@@ -280,6 +288,9 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 ### Redis Streams
 
 [Redis Streams](https://redis.io/topics/streams-intro) was introduced in Redis 5.0. Hoverer, since this module relies on the [XAUTOCLAIM](https://redis.io/commands/xautoclaim) command, Redis >= 6.2.0 is required.
+
+**Redis Adapter Overview**
+![Dead-Letter](assets/redis_queue.png)
 
 **Example**
 
