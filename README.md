@@ -15,12 +15,12 @@ Reliable messages for Moleculer services via external queue/channel/topic. Unlik
 
 - reliable messages with acknowledgement.
 - multiple adapters (Redis, RabbitMQ).
-- pluggable adapters.
+- plugable adapters.
 - configurable max-in-flight.
 - retry messages.
 - dead-letter topic function.
-- received messages from 3rd party services.
-- graceful stopping with tracking.
+- can receive messages from 3rd party services.
+- graceful stopping with active message tracking.
 
 ## Install
 Until the first version is published on NPM:
@@ -233,14 +233,14 @@ module.exports = {
 ## Failed message
 If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
 When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
-Unless the dead-lettering feature is enabled with `deadLettering.enabled: true` option. In this case, the adapter moves the message into the `deadLettering.queueName` queue/topic.
+If the dead-lettering feature is enabled with `deadLettering.enabled: true` option then the adapter will move the message into the `deadLettering.queueName` queue/topic.
 
 **Dead-Letter Logic**
 
 ![Dead-Letter](assets/dead_letter.png)
 
 ## Graceful stopping
-The adapters tracks the messages under processing. It means when a service or the broker is stopping the adapter blocking the process and waits until all active messages are not finished.
+The adapters tracks the messages that are being processed. This means that when a service or the broker is stopping the adapter will block the process and wait until all active messages are processed.
 
 ## Publishing
 Use the `broker.sendToChannel(channelName, payload, opts)` method to send a message to a channel. The `payload` should be a serializable data.
@@ -251,7 +251,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | ---- | ---- | ------------------ | ----------- |
 | `raw` | `Boolean` | Redis, AMQP | If truthy, the payload won't be serialized. |
 | `persistent` | `Boolean` | AMQP | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts. |
-| `ttl` | `Number` | AMQP | if supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds. |
+| `ttl` | `Number` | AMQP | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds. |
 | `priority` | `Number` | AMQP | Priority of the message. |
 | `correlationId` | `String` | AMQP | Request identifier. |
 | `headers` | `Object` | AMQP | Application specific headers to be carried along with the message content. |
