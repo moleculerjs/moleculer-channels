@@ -4,7 +4,7 @@
 const _ = require("lodash");
 const kleur = require("kleur");
 const { ServiceBroker } = require("moleculer");
-const { polyfillPromise } = require("moleculer").Utils;
+const { polyfillPromise, humanize } = require("moleculer").Utils;
 const ChannelsMiddleware = require("../..").Middleware;
 //const { writeResult } = require("../utils");
 //const { generateMarkdown } = require("../generate-result");
@@ -91,6 +91,8 @@ Promise.mapSeries(Adapters, async adapterDef => {
 			.magenta()
 			.bold(`Average: ${avg.toLocaleString("hu-HU", { maximumFractionDigits: 0 })} msg/s`)
 	);
+	console.log("");
+	console.log(kleur.magenta().bold(`Latency: ${humanize(1000 / avg)}`));
 	console.log("");
 	adapterDef.avg = avg;
 

@@ -475,8 +475,49 @@ Coming soon.
 Coming soon.
 
 
-<!-- ## Benchmark
-There is some benchmark with all adapters. [You can find the results here.](benchmark/results/common/README.md) -->
+## Benchmark
+>Tests are running on Intel i7 4770K, 32GB RAM on Windows 10 with WSL.
+
+### Tested adapters
+| Name | Adapter | Description |
+| ---- | ------- | ------- |
+| Redis | Redis | Simple Redis Stream adapter. |
+| RedisCluster | Redis | Clustered Redis Stream adapter with 3 nodes. |
+| AMQP | AMQP | AMQP adapter with RabbitMQ 3.8. |
+
+### Latency test
+In this test, we send only one message. If the sent message processed, we will send the next one. This test measures the latency of processing a message. The `maxInFlight` is `1`.
+
+| Adapter | Time | msg/sec |
+| -------------- | ----:| -------:|
+| Redis | 3ms | 283 |
+| RedisCluster | 2ms | 360 |
+| AMQP | 46ms | 22 |
+
+![chart](https://image-charts.com/chart?chd=a%3A3%2C2%2C22&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Latency%20test%20%28milliseconds%29%7Clower%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
+
+### Throughtput test (maxInFligth: 10)
+In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `10`.
+
+| Adapter | msg/sec |
+| -------------- | -------:|
+| Redis | 1164 |
+| RedisCluster | 1275 |
+| AMQP | 10431 |
+
+![chart](https://image-charts.com/chart?chd=a%3A1164%2C1275%2C10431&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%2010%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
+
+### Throughtput test (maxInFligth: 100)
+In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `100`.
+
+| Adapter | msg/sec |
+| -------------- | -------:|
+| Redis | 6260 |
+| RedisCluster | 4071 |
+| AMQP | 20988 |
+
+![chart](https://image-charts.com/chart?chd=a%3A6260%2C4071%2C20988&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%20100%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
+
 
 ## License
 
