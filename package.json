@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "amqplib": "^0.8.0",
+    "benchmarkify": "^3.0.0",
     "coveralls": "^3.1.1",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
