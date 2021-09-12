@@ -267,25 +267,25 @@ It is available to wrap the handlers and send method in a Moleculer middlewares.
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 const MyMiddleware = {
-	name: "MyMiddleware",
+    name: "MyMiddleware",
 
-	// Wrap the channel handlers
-	localChannel(next, chan) {
-		return async msg => {
-			this.logger.info(kleur.magenta(`  Before localChannel for '${chan.name}'`), msg);
-			await next(msg);
-			this.logger.info(kleur.magenta(`  After localChannel for '${chan.name}'`), msg);
-		};
-	},
+    // Wrap the channel handlers
+    localChannel(next, chan) {
+        return async msg => {
+            this.logger.info(kleur.magenta(`  Before localChannel for '${chan.name}'`), msg);
+            await next(msg);
+            this.logger.info(kleur.magenta(`  After localChannel for '${chan.name}'`), msg);
+        };
+    },
 
-	// Wrap the `broker.sendToChannel` method
-	sendToChannel(next) {
-		return async (channelName, payload, opts) => {
-			this.logger.info(kleur.yellow(`Before sendToChannel for '${channelName}'`), payload);
-			await next(channelName, payload, opts);
-			this.logger.info(kleur.yellow(`After sendToChannel for '${channelName}'`), payload);
-		};
-	}
+    // Wrap the `broker.sendToChannel` method
+    sendToChannel(next) {
+        return async (channelName, payload, opts) => {
+            this.logger.info(kleur.yellow(`Before sendToChannel for '${channelName}'`), payload);
+            await next(channelName, payload, opts);
+            this.logger.info(kleur.yellow(`After sendToChannel for '${channelName}'`), payload);
+        };
+    }
 };
 
 module.exports = {
