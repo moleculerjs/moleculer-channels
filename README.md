@@ -257,6 +257,48 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | `headers` | `Object` | AMQP | Application specific headers to be carried along with the message content. |
 | `routingKey` | `Object` | AMQP | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
 
+## Middleware hooks
+It is available to wrap the handlers and send method in a Moleculer middlewares. The module defines two hooks to cover it. The `localChannel` hook is similar to `localAction` but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to `emit` or `broadcast` but it wraps the `broker.sendToChannel` publisher method.
+
+**Example**
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+const MyMiddleware = {
+	name: "MyMiddleware",
+
+	// Wrap the channel handlers
+	localChannel(next, chan) {
+		return async msg => {
+			this.logger.info(kleur.magenta(`  Before localChannel for '${chan.name}'`), msg);
+			await next(msg);
+			this.logger.info(kleur.magenta(`  After localChannel for '${chan.name}'`), msg);
+		};
+	},
+
+	// Wrap the `broker.sendToChannel` method
+	sendToChannel(next) {
+		return async (channelName, payload, opts) => {
+			this.logger.info(kleur.yellow(`Before sendToChannel for '${channelName}'`), payload);
+			await next(channelName, payload, opts);
+			this.logger.info(kleur.yellow(`After sendToChannel for '${channelName}'`), payload);
+		};
+	}
+};
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        MyMiddleware,
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
+};
+```
 
 ## Adapters
 

@@ -101,9 +101,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 			// Populate broker with new methods
 			if (!broker[mwOpts.sendMethodName]) {
-				broker[mwOpts.sendMethodName] = (channelName, payload, opts) => {
-					return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
-				};
+				broker[mwOpts.sendMethodName] = broker.wrapMethod(
+					"sendToChannel",
+					(channelName, payload, opts) => {
+						return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
+					}
+				);
 			} else {
 				throw new BrokerOptionsError(
 					`broker.${mwOpts.sendMethodName} method is already in use by another Channel middleware`
@@ -163,8 +166,16 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						chan.unsubscribing = false;
 
 						// Wrap the original handler
-						const handler = chan.handler;
-						chan.handler = broker.Promise.method(handler).bind(svc);
+						let handler = chan.handler;
+						handler = broker.Promise.method(handler).bind(svc);
+
+						// Wrap the handler with middleware
+						const wrappedHandler = broker.middlewares.wrapHandler(
+							"localChannel",
+							handler,
+							chan
+						);
+						chan.handler = wrappedHandler;
 
 						//svc.$channels[name] = chan;
 						logger.debug(
