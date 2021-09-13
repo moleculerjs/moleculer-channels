@@ -9,7 +9,7 @@
 
 Reliable messages for Moleculer services via external queue/channel/topic. Unlike moleculer built-in events, this is **not** a fire-and-forget solution. It's a persistent, durable and reliable message sending solution. The module uses an external message queue/streaming server that stores messages until they are successfully processed. It supports consumer groups, which means that you can run multiple instances of consumer services, incoming messages will be balanced between them.
 
-**This project is in work-in-progress. Don't use it in production.**
+**This project is a work-in-progress. Don't use it in production.**
 
 ## Features
 
@@ -240,7 +240,7 @@ If the dead-lettering feature is enabled with `deadLettering.enabled: true` opti
 ![Dead-Letter](assets/dead_letter.png)
 
 ## Graceful stopping
-The adapters tracks the messages that are being processed. This means that when a service or the broker is stopping the adapter will block the process and wait until all active messages are processed.
+The adapters track the messages that are being processed. This means that when a service or the broker is stopping the adapter will block the process and wait until all active messages are processed.
 
 ## Publishing
 Use the `broker.sendToChannel(channelName, payload, opts)` method to send a message to a channel. The `payload` should be a serializable data.
@@ -258,7 +258,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | `routingKey` | `Object` | AMQP | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
 
 ## Middleware hooks
-It is available to wrap the handlers and send method in a Moleculer middlewares. The module defines two hooks to cover it. The `localChannel` hook is similar to `localAction` but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to `emit` or `broadcast` but it wraps the `broker.sendToChannel` publisher method.
+It is possible to wrap the handlers and the send method in Moleculer middleware. The module defines two hooks to cover it. The `localChannel` hook is similar to [`localAction`](https://moleculer.services/docs/0.14/middlewares.html#localAction-next-action) but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to [`emit`](https://moleculer.services/docs/0.14/middlewares.html#emit-next) or [`broadcast`](https://moleculer.services/docs/0.14/middlewares.html#broadcast-next) but it wraps the `broker.sendToChannel` publisher method.
 
 **Example**
 
@@ -412,7 +412,10 @@ module.exports = {
         "payment.processed": {
             minIdleTime: 10,
             claimInterval: 10,
-            failedMessagesTopic: "CUSTOM_TOPIC_NAME",
+            deadLettering: {
+				enabled: true,
+				queueName: "DEAD_LETTER"
+			},
             async handler(payload) {
                 /*...*/
             }
@@ -528,7 +531,7 @@ Coming soon.
 | AMQP | AMQP | AMQP adapter with RabbitMQ 3.8. |
 
 ### Latency test
-In this test, we send only one message. If the sent message processed, we will send the next one. This test measures the latency of processing a message. The `maxInFlight` is `1`.
+In this test, we send one message at a time. After processing the current message, another one is sent. This test measures the latency of processing a message. The `maxInFlight` is `1`.
 
 | Adapter | Time | msg/sec |
 | -------------- | ----:| -------:|
