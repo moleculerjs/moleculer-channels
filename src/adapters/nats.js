@@ -14,8 +14,8 @@ let NATS;
 
 /**
  * @typedef {import("nats").NatsConnection} NatsConnection NATS Connection
- * @typedef {import("nats").JetStreamManager} NatsJetStreamManager NATS Jet Stream Manager
- * @typedef {import("nats").JetStreamClient} NatsJetStreamClient NATS JetStream Client
+ * @typedef {import("nats").JetStreamManager} JetStreamManager NATS Jet Stream Manager
+ * @typedef {import("nats").JetStreamClient} JetStreamClient NATS JetStream Client
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -42,8 +42,14 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {NatsConnection} */
 		this.connection = null;
 
-		/** @type {NatsJetStreamManager} */
+		/** @type {JetStreamManager} */
 		this.manager = null;
+
+		/**
+		 * @type {Map<string,JetStreamClient>}
+		 */
+		this.clients = new Map();
+		this.pubName = "Pub"; // Static name of the Publish client
 	}
 
 	/**
@@ -76,12 +82,10 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {NatsConnection} */
 		this.connection = await NATS.connect();
 
-		/** @type {NatsJetStreamManager} */
+		/** @type {JetStreamManager} */
 		this.manager = await this.connection.jetstreamManager();
 
-		// await this.manager.streams.add({ name: "a", subjects: ["a.*"] });
-
-		// const client = await this.createNATSClient("t", this.opts.nats);
+		this.clients.set(this.pubName, await this.createNATSClient(this.pubName, {}));
 	}
 
 	/**
@@ -90,7 +94,7 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {any} opts
 	 *
 	 * @memberof NatsAdapter
-	 * @returns {NatsJetStreamClient}
+	 * @returns {JetStreamClient}
 	 */
 	async createNATSClient(name, opts) {
 		try {
@@ -132,6 +136,8 @@ class NatsAdapter extends BaseAdapter {
 	 */
 	async publish(channelName, payload, opts = {}) {
 		this.logger.info(`${channelName} -- NATS out =>`);
+
+		const clientPub = this.clients.get(this.pubName);
 	}
 }
 
