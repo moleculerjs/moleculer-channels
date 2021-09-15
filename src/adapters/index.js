@@ -12,7 +12,8 @@ const { ServiceSchemaError } = require("moleculer").Errors;
 const Adapters = {
 	Base: require("./base"),
 	AMQP: require("./amqp"),
-	Redis: require("./redis")
+	Redis: require("./redis"),
+	NATS: require("./nats")
 };
 
 function getByName(name) {
@@ -39,6 +40,8 @@ function resolve(opt) {
 			return new Adapters.Redis(opt);
 		} else if (opt.startsWith("amqp://") || opt.startsWith("amqps://")) {
 			return new Adapters.AMQP(opt);
+		} else if (opt.startsWith("nats://")) {
+			return new Adapters.NATS(opt);
 		} else {
 			throw new ServiceSchemaError(`Invalid Adapter type '${opt}'.`, { type: opt });
 		}
