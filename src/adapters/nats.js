@@ -21,6 +21,7 @@ let NATS;
  * @typedef {import("nats").ConsumerOpts} ConsumerOpts Jet Stream Consumer Opts
  * @typedef {import("nats").JetStreamOptions} JetStreamOptions Jet Stream Options
  * @typedef {import("nats").JsMsg} JsMsg Jet Stream Message
+ * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -50,11 +51,11 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {JetStreamManager} */
 		this.manager = null;
 
-		/**
-		 * @type {Map<string,JetStreamClient>}
-		 */
-		this.clients = new Map();
-		this.pubName = "Pub"; // Static name of the Publish client
+		/** @type {JetStreamClient} */
+		this.client = null;
+
+		/** @type {Map<string,JetStreamSubscription>} */
+		this.subscriptions = new Map();
 	}
 
 	/**
@@ -84,38 +85,31 @@ class NatsAdapter extends BaseAdapter {
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		/** @type {NatsConnection} */
 		this.connection = await NATS.connect();
 
-		/** @type {JetStreamManager} */
 		this.manager = await this.connection.jetstreamManager();
 
-		this.clients.set(this.pubName, await this.createNATSClient(this.pubName, {}));
-	}
-
-	/**
-	 * Returns an Jet Stream client instance
-	 *
-	 * @param {String} name Client name
-	 * @param {JetStreamOptions} opts Jet Stream Opts
-	 *
-	 * @memberof NatsAdapter
-	 * @returns {JetStreamClient}
-	 */
-	async createNATSClient(name, opts) {
-		try {
-			const client = await this.connection.jetstream(opts);
-			this.logger.info(`NATS-Channel-Client-${name} adapter is connected.`);
-			return client;
-		} catch (error) {
-			this.logger.error(`NATS-Channel-Client-${name} adapter error`, err.message);
-		}
+		this.client = await this.connection.jetstream(); // JetStreamOptions
 	}
 
 	/**
 	 * Disconnect from adapter
 	 */
-	async disconnect() {}
+	async disconnect() {
+		this.stopping = true;
+
+		try {
+			if (this.connection) {
+				this.logger.info("Closing NATS JetStream connection...");
+				// await this.connection.drain();
+				await this.connection.close();
+
+				this.logger.info("NATS JetStream connection closed.");
+			}
+		} catch (error) {
+			this.logger.error("Error while closing NATS JetStream connection.", error);
+		}
+	}
 
 	/**
 	 * Subscribe to a channel with a handler.
@@ -144,24 +138,25 @@ class NatsAdapter extends BaseAdapter {
 			}
 		}
 
-		// 2. Create Client for current consumer
-		const chanSub = await this.createNATSClient(this.pubName, {});
-		this.clients.set(this.pubName, chanSub);
+		// 2. Configure NATS consumer
+		this.initChannelActiveMessages(chan.id);
 
-		// 3. Configure NATS consumer
+		// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
 		/** @type {ConsumerOptsBuilder} */
 		const consumerOpts = NATS.consumerOpts();
 		consumerOpts.queue(streamName);
 		consumerOpts.durable(chan.name.split(".").join("_"));
 		consumerOpts.deliverTo(chan.id);
 		consumerOpts.manualAck();
+		consumerOpts.deliverNew();
+		consumerOpts.maxAckPending(chan.maxInFlight);
 		// Register the actual handler
 		consumerOpts.callback(this.createConsumerHandler(chan));
 
-		// console.log(consumerOpts);
-
+		// 3. Create a subscription
 		try {
-			await chanSub.subscribe(chan.name, consumerOpts);
+			const sub = await this.client.subscribe(chan.name, consumerOpts);
+			this.subscriptions.set(chan.id, sub);
 		} catch (error) {
 			this.logger.error(`An error ocurred when subscribing to a ${chan.name}`, error);
 		}
@@ -190,6 +185,8 @@ class NatsAdapter extends BaseAdapter {
 			}
 
 			if (message) {
+				this.addChannelActiveMessages(chan.id, [message.seq]);
+
 				try {
 					// Working on the message and thus prevent receiving the message again as a redelivery.
 					message.working();
@@ -219,6 +216,8 @@ class NatsAdapter extends BaseAdapter {
 						}
 					}
 				}
+
+				this.removeChannelActiveMessages(chan.id, [message.seq]);
 			}
 		};
 	}
@@ -227,7 +226,7 @@ class NatsAdapter extends BaseAdapter {
 	 * Moves message into dead letter
 	 *
 	 * @param {Channel} chan
-	 * @param {JsMsg} message
+	 * @param {JsMsg} message JetStream message
 	 */
 	async moveToDeadLetter(chan, message) {
 		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
@@ -238,7 +237,45 @@ class NatsAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel} chan
 	 */
-	async unsubscribe(chan) {}
+	async unsubscribe(chan) {
+		chan.unsubscribing = true;
+		const sub = this.subscriptions.get(chan.id);
+		if (!sub) return;
+
+		await new Promise((resolve, reject) => {
+			const checkPendingMessages = () => {
+				try {
+					if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
+						return sub
+							.drain()
+							.then(() => sub.destroy())
+							.then(() => {
+								this.logger.debug(
+									`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+								);
+
+								// Stop tracking channel's active messages
+								this.stopChannelActiveMessages(chan.id);
+
+								resolve();
+							});
+					} else {
+						this.logger.warn(
+							`Processing ${this.getNumberOfChannelActiveMessages(
+								chan.id
+							)} message(s) of '${chan.id}'...`
+						);
+
+						setTimeout(() => checkPendingMessages(), 1000);
+					}
+				} catch (err) {
+					reject(err);
+				}
+			};
+
+			checkPendingMessages();
+		});
+	}
 
 	/**
 	 * Publish a payload to a channel.
@@ -250,10 +287,8 @@ class NatsAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		this.logger.info(`${channelName} -- NATS out =>`);
 
-		const clientPub = this.clients.get(this.pubName);
-
 		try {
-			const response = await clientPub.publish(
+			const response = await this.client.publish(
 				channelName,
 				this.serializer.serialize(payload),
 				opts
