@@ -19,6 +19,8 @@ let NATS;
  * @typedef {import("nats").JetStreamPublishOptions} JetStreamPublishOptions JetStream Publish Options
  * @typedef {import("nats").ConsumerOptsBuilder} ConsumerOptsBuilder NATS JetStream ConsumerOptsBuilder
  * @typedef {import("nats").ConsumerOpts} ConsumerOpts Jet Stream Consumer Opts
+ * @typedef {import("nats").JetStreamOptions} JetStreamOptions Jet Stream Options
+ * @typedef {import("nats").JsMsg} JsMsg Jet Stream Message
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -92,9 +94,10 @@ class NatsAdapter extends BaseAdapter {
 	}
 
 	/**
+	 * Returns an Jet Stream client instance
 	 *
-	 * @param {name} name
-	 * @param {any} opts
+	 * @param {String} name Client name
+	 * @param {JetStreamOptions} opts Jet Stream Opts
 	 *
 	 * @memberof NatsAdapter
 	 * @returns {JetStreamClient}
@@ -146,23 +149,14 @@ class NatsAdapter extends BaseAdapter {
 		this.clients.set(this.pubName, chanSub);
 
 		// 3. Configure NATS consumer
-		/** @type {ConsumerOptsBuilder | ConsumerOpts} */
+		/** @type {ConsumerOptsBuilder} */
 		const consumerOpts = NATS.consumerOpts();
 		consumerOpts.queue(streamName);
 		consumerOpts.durable(chan.name.split(".").join("_"));
 		consumerOpts.deliverTo(chan.id);
-		consumerOpts.callback((err, message) => {
-			if (err) {
-				this.logger.error(err);
-				return;
-			}
-
-			if (message) {
-				chan.handler(this.serializer.deserialize(message.data), message);
-			}
-
-			message.ack();
-		});
+		consumerOpts.manualAck();
+		// Register the actual handler
+		consumerOpts.callback(this.createConsumerHandler(chan));
 
 		// console.log(consumerOpts);
 
@@ -171,6 +165,72 @@ class NatsAdapter extends BaseAdapter {
 		} catch (error) {
 			this.logger.error(`An error ocurred when subscribing to a ${chan.name}`, error);
 		}
+	}
+
+	/**
+	 * Creates the callback handler
+	 *
+	 * @param {Channel} chan
+	 * @returns
+	 */
+	createConsumerHandler(chan) {
+		/**
+		 * @param {import("nats").NatsError} err
+		 * @param {JsMsg} message
+		 */
+		return async (err, message) => {
+			// NATS "regular" message with stats. Not a JetStream message
+			// Both err and message are "null"
+			// More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md#callbacks
+			if (err === null && message === null) return;
+
+			if (err) {
+				this.logger.error(err);
+				return;
+			}
+
+			if (message) {
+				try {
+					// Working on the message and thus prevent receiving the message again as a redelivery.
+					message.working();
+					await chan.handler(this.serializer.deserialize(message.data), message);
+					message.ack();
+				} catch (error) {
+					this.logger.error(error);
+
+					// Message rejected
+					if (!chan.maxRetries) {
+						// No retries
+
+						if (chan.deadLettering.enabled) {
+							await this.moveToDeadLetter(chan, message);
+						} else {
+							// Drop message
+							this.logger.error(`Drop message...`, message.seq);
+						}
+
+						message.ack();
+					} else {
+						if (message.info.redeliveryCount < chan.maxRetries) {
+							message.nak();
+						} else {
+							await this.moveToDeadLetter(chan, message);
+							message.ack();
+						}
+					}
+				}
+			}
+		};
+	}
+
+	/**
+	 * Moves message into dead letter
+	 *
+	 * @param {Channel} chan
+	 * @param {JsMsg} message
+	 */
+	async moveToDeadLetter(chan, message) {
+		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
 	}
 
 	/**
