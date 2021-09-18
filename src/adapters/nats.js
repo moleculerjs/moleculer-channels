@@ -119,23 +119,15 @@ class NatsAdapter extends BaseAdapter {
 	async subscribe(chan) {
 		this.logger.info(`NATS --- ${chan.id} --- in <=`);
 
-		// 1. Check if Stream already exists
+		// 1. Create stream
 		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
 		// More info: https://docs.nats.io/jetstream/administration/naming
 		const streamName = chan.name.split(".").join("_");
-		try {
-			const streamInfo = await this.manager.streams.add({
-				name: streamName,
-				subjects: [chan.name]
-			});
-			this.logger.debug(streamInfo);
-		} catch (error) {
-			if (error.message === "stream name already in use") {
-				// Silently ignore the error. Channel or Consumer Group already exists
-				this.logger.debug(`NATS Stream with name: '${streamName}' already exists.`);
-			} else {
-				this.logger.error(error.message);
-			}
+		this.createStream(streamName, [chan.name]);
+
+		if (chan.deadLettering && chan.deadLettering.enabled) {
+			const deadLetteringStreamName = chan.deadLettering.queueName.split(".").join("_");
+			this.createStream(deadLetteringStreamName, [chan.deadLettering.queueName]);
 		}
 
 		// 2. Configure NATS consumer
@@ -145,7 +137,7 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {ConsumerOptsBuilder} */
 		const consumerOpts = NATS.consumerOpts();
 		consumerOpts.queue(streamName);
-		consumerOpts.durable(chan.name.split(".").join("_"));
+		consumerOpts.durable(streamName);
 		consumerOpts.deliverTo(chan.id);
 		consumerOpts.manualAck();
 		consumerOpts.deliverNew();
@@ -223,13 +215,48 @@ class NatsAdapter extends BaseAdapter {
 	}
 
 	/**
+	 * Create a NATS Stream
+	 *
+	 * More info: https://docs.nats.io/jetstream/concepts/streams
+	 *
+	 * @param {String} streamName Name of the Stream
+	 * @param {Array<String>} subjects A list of subjects/topics to store in a stream
+	 */
+	async createStream(streamName, subjects) {
+		// ToDo: Add the possibility to configure all Stream opts
+
+		try {
+			const streamInfo = await this.manager.streams.add({
+				name: streamName,
+				subjects: subjects
+			});
+			this.logger.debug(streamInfo);
+		} catch (error) {
+			if (error.message === "stream name already in use") {
+				// Silently ignore the error. Channel or Consumer Group already exists
+				this.logger.debug(`NATS Stream with name: '${streamName}' already exists.`);
+			} else {
+				this.logger.error("An error ocurred while create NATS Stream", error);
+			}
+		}
+	}
+
+	/**
 	 * Moves message into dead letter
 	 *
 	 * @param {Channel} chan
 	 * @param {JsMsg} message JetStream message
 	 */
 	async moveToDeadLetter(chan, message) {
-		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
+		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
+
+		try {
+			await this.publish(chan.deadLettering.queueName, message.data, { raw: true });
+
+			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.seq);
+		} catch (error) {
+			this.logger.info("An error occurred while moving", error);
+		}
 	}
 
 	/**
@@ -246,19 +273,22 @@ class NatsAdapter extends BaseAdapter {
 			const checkPendingMessages = () => {
 				try {
 					if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
-						return sub
-							.drain()
-							.then(() => sub.destroy())
-							.then(() => {
-								this.logger.debug(
-									`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
-								);
+						return (
+							sub
+								.drain()
+								// .then(() => sub.destroy())
+								.then(() => {
+									this.logger.debug(
+										`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+									);
 
-								// Stop tracking channel's active messages
-								this.stopChannelActiveMessages(chan.id);
+									// Stop tracking channel's active messages
+									this.stopChannelActiveMessages(chan.id);
 
-								resolve();
-							});
+									resolve();
+								})
+								.catch(err => reject(err))
+						);
 					} else {
 						this.logger.warn(
 							`Processing ${this.getNumberOfChannelActiveMessages(
@@ -285,12 +315,15 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {Partial<JetStreamPublishOptions>?} opts
 	 */
 	async publish(channelName, payload, opts = {}) {
+		// Adapter is stopping. Publishing no longer is allowed
+		if (this.stopping) return;
+
 		this.logger.info(`${channelName} -- NATS out =>`);
 
 		try {
 			const response = await this.client.publish(
 				channelName,
-				this.serializer.serialize(payload),
+				opts.raw ? payload : this.serializer.serialize(payload),
 				opts
 			);
 
