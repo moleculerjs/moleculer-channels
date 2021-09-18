@@ -137,7 +137,8 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {ConsumerOptsBuilder} */
 		const consumerOpts = NATS.consumerOpts();
 		consumerOpts.queue(streamName);
-		consumerOpts.durable(streamName);
+		// consumerOpts.durable(streamName);
+		consumerOpts.durable(chan.group.split(".").join("_"));
 		consumerOpts.deliverTo(chan.id);
 		consumerOpts.manualAck();
 		consumerOpts.deliverNew();
