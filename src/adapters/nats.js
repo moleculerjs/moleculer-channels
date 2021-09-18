@@ -119,6 +119,14 @@ class NatsAdapter extends BaseAdapter {
 	async subscribe(chan) {
 		this.logger.info(`NATS --- ${chan.id} --- in <=`);
 
+		if (chan.maxInFlight == null) chan.maxInFlight = this.opts.maxInFlight;
+		if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
+
+		chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
+		if (chan.deadLettering.enabled) {
+			chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
+		}
+
 		// 1. Create stream
 		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
 		// More info: https://docs.nats.io/jetstream/administration/naming
@@ -186,27 +194,47 @@ class NatsAdapter extends BaseAdapter {
 					await chan.handler(this.serializer.deserialize(message.data), message);
 					message.ack();
 				} catch (error) {
-					this.logger.error(error);
+					// this.logger.error(error);
 
 					// Message rejected
 					if (!chan.maxRetries) {
 						// No retries
 
 						if (chan.deadLettering.enabled) {
+							this.logger.debug(
+								`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
+							);
 							await this.moveToDeadLetter(chan, message);
 						} else {
 							// Drop message
+							this.logger.error(`No retries, drop message...`, message.seq);
+						}
+
+						message.ack();
+					} else if (
+						chan.maxRetries > 0 &&
+						message.info.redeliveryCount >= chan.maxRetries
+					) {
+						// Retries enabled and limit reached
+
+						if (chan.deadLettering.enabled) {
+							this.logger.debug(
+								`Message redelivered too many times (${message.info.redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
+							);
+							await this.moveToDeadLetter(chan, message);
+						} else {
+							// Drop message
+							this.logger.error(
+								`Message redelivered too many times (${message.info.redeliveryCount}). Drop message...`
+							);
 							this.logger.error(`Drop message...`, message.seq);
 						}
 
 						message.ack();
 					} else {
-						if (message.info.redeliveryCount < chan.maxRetries) {
-							message.nak();
-						} else {
-							await this.moveToDeadLetter(chan, message);
-							message.ack();
-						}
+						// Retries enabled but limit NOT reached
+						// NACK the message for redelivery
+						message.nak();
 					}
 				}
 
