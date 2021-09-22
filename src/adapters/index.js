@@ -12,6 +12,7 @@ const { ServiceSchemaError } = require("moleculer").Errors;
 const Adapters = {
 	Base: require("./base"),
 	AMQP: require("./amqp"),
+	Kafka: require("./kafka"),
 	Redis: require("./redis")
 };
 
@@ -39,6 +40,8 @@ function resolve(opt) {
 			return new Adapters.Redis(opt);
 		} else if (opt.startsWith("amqp://") || opt.startsWith("amqps://")) {
 			return new Adapters.AMQP(opt);
+		} else if (opt.startsWith("kafka://")) {
+			return new Adapters.Kafka(opt);
 		} else {
 			throw new ServiceSchemaError(`Invalid Adapter type '${opt}'.`, { type: opt });
 		}

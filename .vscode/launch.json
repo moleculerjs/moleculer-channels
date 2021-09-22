@@ -9,11 +9,14 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch selected demo",
-			"program": "${file}",
+			"program": "examples/index.js",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"multi-adapter"
-			]
+				"simple"
+			],
+			"env": {
+				"ADAPTER": "kafka://localhost:9093"
+			}
 		},
 		{
 			"name": "Attach by Process ID",

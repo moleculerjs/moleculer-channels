@@ -10,11 +10,13 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
 
-let Amqplib;
-
 /**
- * @typedef {import('amqplib').Connection} AMQPLibConnection AMQP connection
- * @typedef {import('amqplib').Channel} AMQPLibChannel AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
+ * @typedef {import('kafkajs').Kafka} KafkaClient Kafka Client
+ * @typedef {import('kafkajs').Producer} KafkaProducer Kafka Producer
+ * @typedef {import('kafkajs').Consumer} KafkaConsumer Kafka Consumer
+ * @typedef {import('kafkajs').KafkaConfig} KafkaConfig Kafka configuration
+ * @typedef {import('kafkajs').ProducerConfig} ProducerConfig Kafka producer configuration
+ * @typedef {import('kafkajs').ProducerConfig} ConsumerConfig Kafka consumer configuration
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -22,81 +24,72 @@ let Amqplib;
  */
 
 /**
- * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
+ * @typedef {Object} KafkaDefaultOptions AMQP Adapter configuration
  * @property {Number} maxInFlight Max-in-flight messages
- * @property {Object} amqp AMQP lib configuration
- * @property {String} amqp.url Connection URI
- * @property {Object} amqp.socketOptions AMQP lib socket configuration
- * @property {Object} amqp.queueOptions AMQP lib queue configuration
- * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
- * @property {Object} amqp.messageOptions AMQP lib message configuration
- * @property {Object} amqp.consumeOptions AMQP lib consume configuration
+ * @property {KafkaConfig} kafka Kafka config
  */
 
 /**
  * @typedef {Object} SubscriptionEntry
- * @property {Channel & AmqpDefaultOptions} chan AMQP Channel
+ * @property {Channel & KafkaDefaultOptions} chan AMQP Channel
  * @property {String} consumerTag AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
  */
 
+/** @type {KafkaClient} */
+let Kafka;
+
 /**
- * AMQP adapter for RabbitMQ
+ * Kafka adapter
  *
- * TODO: rewrite to using RabbitMQ Streams
- * https://www.rabbitmq.com/streams.html
+ * TODO:
+ * 	- [ ] implement infinite connecting at starting
+ * 	- [ ] implement auto-reconnecting
+ * 	- [ ] create consumers for every channel because no unsubscribe method
+ * 	- [ ] manual acknowledge
+ * 	- [ ] implement maxInFlight
+ * 	- [ ] implement message retries
+ * 	- [ ] implement dead-letter-topic
+ * 	- [ ] add log creator
  *
- * @class AmqpAdapter
+ * @class KafkaAdapter
  * @extends {BaseAdapter}
  */
-class AmqpAdapter extends BaseAdapter {
+class KafkaAdapter extends BaseAdapter {
 	/**
 	 * Constructor of adapter
-	 * @param  {Object?} opts
+	 * @param  {KafkaDefaultOptions|String?} opts
 	 */
 	constructor(opts) {
 		if (_.isString(opts)) {
 			opts = {
-				amqp: {
-					url: opts
+				kafka: {
+					brokers: [opts.replace("kafka://", "")]
 				}
 			};
 		}
 
 		super(opts);
 
-		/** @type {AmqpDefaultOptions & BaseDefaultOptions} */
+		/** @type {KafkaDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
-			maxInFlight: 1,
-			amqp: {
-				socketOptions: {},
-				queueOptions: {},
-				exchangeOptions: {},
-				messageOptions: {},
-				consumeOptions: {}
+			maxInFlight: 1, // TODO
+			kafka: {
+				clientId: null, // set to nodeID in `init`
+				brokers: ["localhost:9092"]
 			}
 		});
 
-		if (typeof this.opts.amqp.url == "string") {
-			this.opts.amqp.url = this.opts.amqp.url
-				.split(";")
-				.filter(s => !!s)
-				.map(s => s.trim());
-		}
+		/** @type {KafkaClient} */
+		this.client = null;
 
-		/** @type {AMQPLibConnection} */
-		this.connection = null;
-		/** @type {AMQPLibChannel} */
-		this.channel = null;
+		/** @type {KafkaProducer} */
+		this.producer = null;
 
-		this.clients = new Map();
-		/**
-		 * @type {Map<string,SubscriptionEntry>}
-		 */
-		this.subscriptions = new Map();
+		/** @type {KafkaConsumer} */
+		this.consumer = null;
+
 		this.connected = false;
 		this.stopping = false;
-		this.connectAttempt = 0;
-		this.connectionCount = 0; // To detect reconnections
 	}
 
 	/**
@@ -109,110 +102,39 @@ class AmqpAdapter extends BaseAdapter {
 		super.init(broker, logger);
 
 		try {
-			Amqplib = require("amqplib");
+			Kafka = require("kafkajs").Kafka;
 		} catch (err) {
 			/* istanbul ignore next */
 			this.broker.fatal(
-				"The 'amqplib' package is missing! Please install it with 'npm install amqplib --save' command.",
+				"The 'kafkajs' package is missing! Please install it with 'npm install kafkajs --save' command.",
 				err,
 				true
 			);
 		}
 
-		this.checkClientLibVersion("amqplib", "^0.8.0");
+		this.checkClientLibVersion("kafkajs", "^1.15.0");
+
+		this.opts.kafka.clientId = this.broker.nodeID;
 	}
 
 	/**
 	 * Connect to the adapter with reconnecting logic
 	 */
-	connect() {
-		return new Promise(resolve => {
-			const doConnect = () => {
-				this.tryConnect()
-					.then(resolve)
-					.catch(err => {
-						this.logger.error("Unable to connect AMQP server.", err);
-						setTimeout(() => {
-							this.logger.info("Reconnecting...");
-							doConnect();
-						}, 2000);
-					});
-			};
+	async connect() {
+		this.logger.debug("Connecting to Kafka brokers...", this.opts.kafka.brokers);
 
-			doConnect();
-		});
-	}
+		this.client = new Kafka(this.opts.kafka);
 
-	/**
-	 * Trying connect to the adapter.
-	 */
-	async tryConnect() {
-		let uri = this.opts.amqp.url;
-		if (Array.isArray(uri)) {
-			this.connectAttempt = (this.connectAttempt || 0) + 1;
-			const urlIndex = (this.connectAttempt - 1) % uri.length;
-			uri = uri[urlIndex];
-		}
+		this.producer = this.client.producer(/*TODO: */);
+		this.consumer = this.client.consumer({ groupId: this.broker.nodeID /*TODO: */ });
 
-		this.logger.debug("Connecting to AMQP server...", uri);
-		this.connection = await Amqplib.connect(uri, this.opts.amqp.socketOptions);
-		this.connected = true;
+		await this.producer.connect();
+		await this.consumer.connect();
 
-		this.connection
-			.on("error", err => {
-				// No need to reject here since close event will be fired after
-				// if not connected at all connection promise will be rejected
-				this.logger.error("AMQP connection error.", err);
-			})
-			.on("close", err => {
-				this.connected = false;
-				if (!this.stopping) {
-					this.logger.error("AMQP connection is closed.", err);
-					setTimeout(() => {
-						this.logger.info("Reconnecting...");
-						this.connect();
-					}, 2000);
-				} else {
-					this.logger.info("AMQP connection is closed gracefully.");
-				}
-			})
-			.on("blocked", reason => {
-				this.logger.warn("AMQP connection is blocked.", reason);
-			})
-			.on("unblocked", () => {
-				this.logger.info("AMQP connection is unblocked.");
-			});
-		this.logger.info("AMQP is connected.");
+		// TODO: subscribe to events (disconnect, error, ...)
+		// https://kafka.js.org/docs/instrumentation-events
 
-		this.logger.debug(`Creating AMQP channel...`);
-		this.channel = await this.connection.createChannel();
-		this.channel
-			.on("close", () => {
-				if (!this.stopping) {
-					this.logger.error("AMQP channel closed.");
-				}
-			})
-			.on("error", err => {
-				this.logger.error("AMQP channel error", err);
-			})
-			.on("drain", () => {
-				this.logger.info("AMQP channel is drained.");
-			})
-			.on("return", msg => {
-				this.logger.warn("AMQP channel returned a message.", msg);
-			});
-
-		if (this.opts.maxInFlight != null) {
-			this.channel.prefetch(this.opts.maxInFlight);
-		}
-
-		this.logger.info("AMQP channel created.");
-		this.connectionCount++;
-
-		const isReconnect = this.connectionCount > 1;
-		if (isReconnect) {
-			await this.resubscribeAllChannels();
-		}
+		this.logger.info("Kafka adapter is connected.");
 	}
 
 	/**
@@ -223,14 +145,17 @@ class AmqpAdapter extends BaseAdapter {
 
 		this.stopping = true;
 		try {
-			if (this.connection) {
-				this.logger.info("Closing AMQP connection...");
-				await this.connection.close();
-				this.connection = null;
-				this.channel = null;
+			this.logger.info("Closing Kafka connection...");
+			if (this.producer) {
+				await this.producer.disconnect();
+				this.producer = null;
+			}
+			if (this.consumer) {
+				await this.consumer.disconnect();
+				this.consumer = null;
 			}
 		} catch (err) {
-			this.logger.error("Error while closing AMQP connection.", err);
+			this.logger.error("Error while closing Kafka connection.", err);
 		}
 		this.stopping = false;
 	}
@@ -245,7 +170,7 @@ class AmqpAdapter extends BaseAdapter {
 			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
 			chan.id
 		);
-
+		/*
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
 			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
@@ -304,7 +229,7 @@ class AmqpAdapter extends BaseAdapter {
 				err
 			);
 			throw err;
-		}
+		}*/
 	}
 
 	/**
@@ -313,7 +238,7 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 * @returns {Function}
 	 */
-	createConsumerHandler(chan) {
+	/*createConsumerHandler(chan) {
 		return async msg => {
 			this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
 			const id =
@@ -383,8 +308,9 @@ class AmqpAdapter extends BaseAdapter {
 				}
 			}
 		};
-	}
+	}*/
 
+	/*
 	async moveToDeadLetter(chan, msg) {
 		const res = this.channel.publish(
 			chan.deadLettering.exchangeName || "",
@@ -400,14 +326,14 @@ class AmqpAdapter extends BaseAdapter {
 
 		this.channel.ack(msg);
 	}
-
+*/
 	/**
 	 * Unsubscribe from a channel.
 	 *
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
-		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
+		/*this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
 		const sub = this.subscriptions.get(chan.id);
 		if (!sub) return;
@@ -441,7 +367,7 @@ class AmqpAdapter extends BaseAdapter {
 			};
 
 			checkPendingMessages();
-		});
+		});*/
 	}
 
 	/**
@@ -449,10 +375,12 @@ class AmqpAdapter extends BaseAdapter {
 	 * @returns {Promise<void>
 	 */
 	async resubscribeAllChannels() {
+		/*
 		this.logger.info("Resubscribing to all channels...");
 		for (const { chan } of Array.from(this.subscriptions.values())) {
 			await this.subscribe(chan);
 		}
+		*/
 	}
 
 	/**
@@ -461,36 +389,28 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {String} channelName
 	 * @param {any} payload
 	 * @param {Object?} opts
+	 * @param {Boolean?} opts.raw
+	 * @param {Buffer?|string?} opts.key
+	 * @param {Number?} opts.partition
+	 * @param {Object?} opts.headers
 	 */
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
 
-		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
-		const messageOptions = _.defaultsDeep(
-			{},
-			{
-				persistent: opts.persistent,
-				expiration: opts.ttl,
-				priority: opts.priority,
-				correlationId: opts.correlationId,
-				headers: opts.headers
-				// ? mandatory: opts.mandatory
-			},
-			this.opts.amqp.messageOptions
-		);
-
-		this.logger.debug(
-			`Publish a message to '${channelName || opts.routingKey}' channel...`,
-			payload,
-			opts
-		);
+		this.logger.debug(`Publish a message to '${channelName}' topic...`, payload, opts);
 
 		const data = opts.raw ? payload : this.serializer.serialize(payload);
-		const res = this.channel.publish(channelName, opts.routingKey || "", data, messageOptions);
-		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
-		this.logger.debug(`Message was published at '${channelName}'`);
+		const res = await this.producer.send({
+			topic: channelName,
+			messages: [{ key: opts.key, value: data, partition: opts.partition }],
+			acks: opts.acks,
+			timeout: opts.timeout,
+			compression: opts.compression
+		});
+
+		this.logger.debug(`Message was published at '${channelName}'`, res);
 	}
 }
 
-module.exports = AmqpAdapter;
+module.exports = KafkaAdapter;
