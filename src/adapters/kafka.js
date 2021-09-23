@@ -16,7 +16,8 @@ const { MoleculerError } = require("moleculer").Errors;
  * @typedef {import('kafkajs').Consumer} KafkaConsumer Kafka Consumer
  * @typedef {import('kafkajs').KafkaConfig} KafkaConfig Kafka configuration
  * @typedef {import('kafkajs').ProducerConfig} ProducerConfig Kafka producer configuration
- * @typedef {import('kafkajs').ProducerConfig} ConsumerConfig Kafka consumer configuration
+ * @typedef {import('kafkajs').ConsumerConfig} ConsumerConfig Kafka consumer configuration
+ * @typedef {import('kafkajs').EachMessagePayload} EachMessagePayload Incoming message payload
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -85,8 +86,10 @@ class KafkaAdapter extends BaseAdapter {
 		/** @type {KafkaProducer} */
 		this.producer = null;
 
-		/** @type {KafkaConsumer} */
-		this.consumer = null;
+		/**
+		 * @type {Map<string,KafkaConsumer>}
+		 */
+		this.consumers = new Map();
 
 		this.connected = false;
 		this.stopping = false;
@@ -126,10 +129,8 @@ class KafkaAdapter extends BaseAdapter {
 		this.client = new Kafka(this.opts.kafka);
 
 		this.producer = this.client.producer(/*TODO: */);
-		this.consumer = this.client.consumer({ groupId: this.broker.nodeID /*TODO: */ });
 
 		await this.producer.connect();
-		await this.consumer.connect();
 
 		// TODO: subscribe to events (disconnect, error, ...)
 		// https://kafka.js.org/docs/instrumentation-events
@@ -150,10 +151,10 @@ class KafkaAdapter extends BaseAdapter {
 				await this.producer.disconnect();
 				this.producer = null;
 			}
-			if (this.consumer) {
+			/*if (this.consumer) {
 				await this.consumer.disconnect();
 				this.consumer = null;
-			}
+			}*/
 		} catch (err) {
 			this.logger.error("Error while closing Kafka connection.", err);
 		}
@@ -170,8 +171,9 @@ class KafkaAdapter extends BaseAdapter {
 			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
 			chan.id
 		);
-		/*
+
 		try {
+			if (chan.maxInFlight == null) chan.maxInFlight = this.opts.maxInFlight;
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
 			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
 			if (chan.deadLettering.enabled) {
@@ -181,82 +183,65 @@ class KafkaAdapter extends BaseAdapter {
 				);
 			}
 
-			// --- CREATE EXCHANGE ---
-			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
-			const exchangeOptions = _.defaultsDeep(
-				{},
-				chan.amqp ? chan.amqp.exchangeOptions : {},
-				this.opts.amqp.exchangeOptions
-			);
-			this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
-			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
-
-			// --- CREATE QUEUE ---
-			const queueName = `${chan.group}.${chan.name}`;
-
-			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
-			const queueOptions = _.defaultsDeep(
-				{},
-				chan.amqp ? chan.amqp.queueOptions : {},
-				this.opts.amqp.queueOptions
-			);
-			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
-			await this.channel.assertQueue(queueName, queueOptions);
-
-			// --- BIND QUEUE TO EXCHANGE ---
-			this.logger.debug(`Binding '${chan.name}' -> '${queueName}'...`);
-			this.channel.bindQueue(queueName, chan.name, "");
-
-			// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
-			const consumeOptions = _.defaultsDeep(
-				{},
-				chan.amqp ? chan.amqp.consumeOptions : {},
-				this.opts.amqp.consumeOptions
-			);
+			let consumer = this.client.consumer({
+				groupId: chan.group,
+				maxInFlightRequests: chan.maxInFlight,
+				...(chan.kafka || {})
+			});
+			this.consumers.set(chan.id, consumer);
+			await consumer.connect();
 
 			this.initChannelActiveMessages(chan.id);
-			this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
-			const res = await this.channel.consume(
-				queueName,
-				this.createConsumerHandler(chan),
-				consumeOptions
-			);
 
-			this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });
+			await consumer.subscribe({ topic: chan.name, fromBeginning: chan.fromBeginning });
+
+			await consumer.run({
+				autoCommit: false,
+				eachMessage: payload => this.processMessage(chan, consumer, payload)
+			});
 		} catch (err) {
 			this.logger.error(
 				`Error while subscribing to '${chan.name}' chan with '${chan.group}' group`,
 				err
 			);
 			throw err;
-		}*/
+		}
 	}
 
 	/**
-	 * Create a handler for the consumer.
+	 * Process a message
 	 *
 	 * @param {Channel & AmqpDefaultOptions} chan
-	 * @returns {Function}
+	 * @param {Consumer} consumer
+	 * @param {EachMessagePayload} payload
+	 * @returns {Promise<void>}
 	 */
-	/*createConsumerHandler(chan) {
-		return async msg => {
-			this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
-			const id =
-				msg.properties.correlationId ||
-				`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
+	async processMessage(chan, consumer, { topic, partition, message }) {
+		this.logger.debug(
+			`Kafka consumer received a message in '${chan.name}' queue.` /*, {
+			topic,
+			partition,
+			message
+		}*/
+		);
 
-			try {
-				this.addChannelActiveMessages(chan.id, [id]);
-				const content = this.serializer.deserialize(msg.content);
-				//this.logger.debug("Content:", content);
+		const id = `${topic}:${partition}:${message.offset}`;
 
-				await chan.handler(content, msg);
-				this.channel.ack(msg);
+		try {
+			this.addChannelActiveMessages(chan.id, [id]);
 
-				this.removeChannelActiveMessages(chan.id, [id]);
-			} catch (err) {
-				this.removeChannelActiveMessages(chan.id, [id]);
+			const content = this.serializer.deserialize(message.value);
+			//this.logger.debug("Content:", content);
 
+			await chan.handler(content, message);
+
+			// Acknowledge
+			consumer.commitOffsets([{ topic, partition, offset: message.offset + 1 }]);
+
+			this.removeChannelActiveMessages(chan.id, [id]);
+		} catch (err) {
+			this.removeChannelActiveMessages(chan.id, [id]);
+			/*
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
 				if (!chan.maxRetries) {
 					if (chan.deadLettering.enabled) {
@@ -306,9 +291,9 @@ class KafkaAdapter extends BaseAdapter {
 
 					this.channel.ack(msg);
 				}
-			}
-		};
-	}*/
+				*/
+		}
+	}
 
 	/*
 	async moveToDeadLetter(chan, msg) {
@@ -333,12 +318,10 @@ class KafkaAdapter extends BaseAdapter {
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
-		/*this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
+		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
-		const sub = this.subscriptions.get(chan.id);
-		if (!sub) return;
-
-		await this.channel.cancel(sub.consumerTag);
+		const consumer = this.consumers.get(chan.id);
+		if (!consumer) return;
 
 		await new Promise((resolve, reject) => {
 			const checkPendingMessages = () => {
@@ -367,7 +350,13 @@ class KafkaAdapter extends BaseAdapter {
 			};
 
 			checkPendingMessages();
-		});*/
+		});
+
+		// Disconnect consumer
+		await consumer.disconnect();
+
+		// Remove consumer
+		this.consumers.delete(chan.id);
 	}
 
 	/**
@@ -409,6 +398,14 @@ class KafkaAdapter extends BaseAdapter {
 			compression: opts.compression
 		});
 
+		if (res.length == 0 || res[0].errorCode != 0) {
+			throw new MoleculerError(
+				`Unable to publish message to '${channelName}'. Error code: ${res[0].errorCode}`,
+				500,
+				"UNABLE_PUBLISH",
+				{ channelName, result: res }
+			);
+		}
 		this.logger.debug(`Message was published at '${channelName}'`, res);
 	}
 }
