@@ -151,6 +151,7 @@ class NatsAdapter extends BaseAdapter {
 		consumerOpts.manualAck();
 		consumerOpts.deliverNew();
 		consumerOpts.maxAckPending(chan.maxInFlight);
+		consumerOpts.maxDeliver(5);
 		// Register the actual handler
 		consumerOpts.callback(this.createConsumerHandler(chan));
 
@@ -225,15 +226,17 @@ class NatsAdapter extends BaseAdapter {
 						} else {
 							// Drop message
 							this.logger.error(
-								`Message redelivered too many times (${message.info.redeliveryCount}). Drop message...`
+								`Message redelivered too many times (${message.info.redeliveryCount}). Drop message...`,
+								message.seq
 							);
-							this.logger.error(`Drop message...`, message.seq);
+							// this.logger.error(`Drop message...`, message.seq);
 						}
 
 						message.ack();
 					} else {
 						// Retries enabled but limit NOT reached
 						// NACK the message for redelivery
+						this.logger.debug(`NACKing message...`, message.seq);
 						message.nak();
 					}
 				}
@@ -347,7 +350,7 @@ class NatsAdapter extends BaseAdapter {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
 
-		this.logger.info(`${channelName} -- NATS out =>`);
+		// this.logger.info(`NATS out => topic:${channelName} || messageID:${payload.id}`);
 
 		try {
 			const response = await this.client.publish(
@@ -356,7 +359,11 @@ class NatsAdapter extends BaseAdapter {
 				opts
 			);
 
-			this.logger.info(response);
+			// this.logger.info(response);
+
+			this.logger.info(
+				`NATS out => topic:${channelName} || messageID:${payload.id} || JS_SequenceID:${response.seq}`
+			);
 		} catch (error) {
 			this.logger.error(`An error ocurred while publishing message to ${channelName}`, error);
 		}

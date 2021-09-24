@@ -34,7 +34,7 @@ const broker = new ServiceBroker({
 				// await broker.sendToChannel("test.unstable.topic", payload);
 
 				await Promise.all(
-					_.times(6, id => broker.sendToChannel("test.unstable.topic", { id }))
+					_.times(10, id => broker.sendToChannel("test.unstable.topic", { id }))
 				);
 			}
 		}
@@ -46,9 +46,11 @@ broker.createService({
 	channels: {
 		"test.unstable.topic": {
 			group: "mygroup",
-			maxRetries: 1,
-			handler() {
-				this.logger.error("Ups! Something happened");
+			maxRetries: 5,
+			handler(payload, raw) {
+				this.logger.error(
+					`Ups! Something happened messageID:${payload.id} || JS_SequenceID:${raw.seq}`
+				);
 				return Promise.reject(new Error("Something happened"));
 			}
 		}
@@ -63,7 +65,7 @@ broker.createService({
 			// Defaults to 1 hour. Decrease for unit tests
 			minIdleTime: 10,
 			claimInterval: 10,
-			maxRetries: 1,
+			maxRetries: 5,
 			handler(msg) {
 				this.logger.info(msg);
 			}
