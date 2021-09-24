@@ -43,6 +43,22 @@ const broker = new ServiceBroker({
 
 broker.createService({
 	name: "sub1",
+	actions: {
+		consumer: {
+			async handler() {
+				return this.broker.channelAdapter.manager.consumers.info(
+					"test_unstable_topic",
+					"mygroup"
+				);
+			}
+		},
+
+		stream: {
+			async handler() {
+				return this.broker.channelAdapter.manager.streams.info("test_unstable_topic");
+			}
+		}
+	},
 	channels: {
 		"test.unstable.topic": {
 			group: "mygroup",

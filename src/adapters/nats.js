@@ -150,8 +150,9 @@ class NatsAdapter extends BaseAdapter {
 		consumerOpts.deliverTo(chan.id);
 		consumerOpts.manualAck();
 		consumerOpts.deliverNew();
+		consumerOpts.ackExplicit();
 		consumerOpts.maxAckPending(chan.maxInFlight);
-		consumerOpts.maxDeliver(5);
+		// consumerOpts.maxDeliver(chan.maxRetries);
 		// Register the actual handler
 		consumerOpts.callback(this.createConsumerHandler(chan));
 
