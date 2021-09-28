@@ -4,7 +4,11 @@ const _ = require("lodash");
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
 
-let c = 1;
+let numMessages = 100;
+let ids;
+let sub1Counter = 0;
+let sub2Counter = 0;
+const maxRetries = 10;
 
 const broker = new ServiceBroker({
 	logLevel: {
@@ -22,19 +26,20 @@ const broker = new ServiceBroker({
 			alias: ["p"],
 			async action(broker, args) {
 				const { options } = args;
-				//console.log(options);
-				const payload = {
-					id: 2,
-					name: "Jane Doe",
-					status: false,
-					count: ++c,
-					pid: process.pid
-				};
 
-				// await broker.sendToChannel("test.unstable.topic", payload);
+				await broker.call("sub1.resetIDs");
 
 				await Promise.all(
-					_.times(10, id => broker.sendToChannel("test.unstable.topic", { id }))
+					_.times(numMessages, id => broker.sendToChannel("test.unstable.topic", { id }))
+				);
+
+				await broker.Promise.delay(1000);
+
+				const { remainingIDs, sub1Calls, sub2Calls } = await broker.call("sub1.checkIDs");
+
+				broker.logger.info(` ===>> Remaining IDs : ${remainingIDs} <<=== `);
+				broker.logger.info(
+					` ===>> Error Handler : ${sub1Calls} || Good Handler : ${sub2Calls} <<=== `
 				);
 			}
 		}
@@ -44,26 +49,31 @@ const broker = new ServiceBroker({
 broker.createService({
 	name: "sub1",
 	actions: {
-		consumer: {
-			async handler() {
-				return this.broker.channelAdapter.manager.consumers.info(
-					"test_unstable_topic",
-					"mygroup"
-				);
+		resetIDs: {
+			handler() {
+				ids = new Set(Array.from(Array(numMessages).keys()));
+
+				sub1Counter = 0;
+				sub2Counter = 0;
 			}
 		},
 
-		stream: {
-			async handler() {
-				return this.broker.channelAdapter.manager.streams.info("test_unstable_topic");
+		checkIDs: {
+			handler() {
+				return {
+					remainingIDs: ids.size,
+					sub1Calls: sub1Counter,
+					sub2Calls: sub2Counter
+				};
 			}
 		}
 	},
 	channels: {
 		"test.unstable.topic": {
 			group: "mygroup",
-			maxRetries: 5,
+			maxRetries: maxRetries,
 			handler(payload, raw) {
+				sub1Counter++;
 				this.logger.error(
 					`Ups! Something happened messageID:${payload.id} || JS_SequenceID:${raw.seq}`
 				);
@@ -81,8 +91,12 @@ broker.createService({
 			// Defaults to 1 hour. Decrease for unit tests
 			minIdleTime: 10,
 			claimInterval: 10,
-			maxRetries: 5,
+			maxRetries: maxRetries,
 			handler(msg) {
+				sub2Counter++;
+
+				ids.delete(msg.id);
+
 				this.logger.info(msg);
 			}
 		}

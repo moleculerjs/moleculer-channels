@@ -89,7 +89,7 @@ class NatsAdapter extends BaseAdapter {
 
 		this.manager = await this.connection.jetstreamManager();
 
-		this.client = await this.connection.jetstream(); // JetStreamOptions
+		this.client = this.connection.jetstream(); // JetStreamOptions
 	}
 
 	/**
@@ -306,22 +306,21 @@ class NatsAdapter extends BaseAdapter {
 			const checkPendingMessages = () => {
 				try {
 					if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
-						return (
-							sub
-								.drain()
-								// .then(() => sub.destroy())
-								.then(() => {
-									this.logger.debug(
-										`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
-									);
+						// More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md#push-subscriptions
+						return sub
+							.drain()
+							.then(() => sub.unsubscribe())
+							.then(() => {
+								this.logger.debug(
+									`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`
+								);
 
-									// Stop tracking channel's active messages
-									this.stopChannelActiveMessages(chan.id);
+								// Stop tracking channel's active messages
+								this.stopChannelActiveMessages(chan.id);
 
-									resolve();
-								})
-								.catch(err => reject(err))
-						);
+								resolve();
+							})
+							.catch(err => reject(err));
 					} else {
 						this.logger.warn(
 							`Processing ${this.getNumberOfChannelActiveMessages(
