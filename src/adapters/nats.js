@@ -101,7 +101,7 @@ class NatsAdapter extends BaseAdapter {
 		try {
 			if (this.connection) {
 				this.logger.info("Closing NATS JetStream connection...");
-				// await this.connection.drain();
+				await this.connection.drain();
 				await this.connection.close();
 
 				this.logger.info("NATS JetStream connection closed.");
