@@ -14,6 +14,8 @@ let NATS;
 
 /**
  * @typedef {import("nats").NatsConnection} NatsConnection NATS Connection
+ * @typedef {import("nats").ConnectionOptions} ConnectionOptions NATS Connection Opts
+ * @typedef {import("nats").StreamConfig} StreamConfig NATS Configuration Options
  * @typedef {import("nats").JetStreamManager} JetStreamManager NATS Jet Stream Manager
  * @typedef {import("nats").JetStreamClient} JetStreamClient NATS JetStream Client
  * @typedef {import("nats").JetStreamPublishOptions} JetStreamPublishOptions JetStream Publish Options
@@ -29,6 +31,14 @@ let NATS;
  */
 
 /**
+ * @typedef {Object} NATSOpts
+ * @property {Object} nats NATS lib configuration
+ * @property {ConnectionOptions} nats.connectionOpts
+ * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
+ * @property {ConsumerOpts} nats.consumerOpts More info: https://docs.nats.io/jetstream/concepts/consumers
+ */
+
+/**
  * NATS JetStream adapter
  *
  * More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md
@@ -38,12 +48,38 @@ let NATS;
  */
 class NatsAdapter extends BaseAdapter {
 	constructor(opts) {
-		if (_.isString(opts)) opts = { nats: opts };
+		if (_.isString(opts)) opts = { url: opts };
 
 		super(opts);
 
-		/** @type { BaseDefaultOptions } */
-		this.opts = _.defaultsDeep(this.opts, {});
+		/** @type { BaseDefaultOptions & NATSOpts } */
+		this.opts = _.defaultsDeep(this.opts, {
+			nats: {
+				/** @type {ConnectionOptions} */
+				connectionOpts: {},
+				/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
+				streamConfig: {},
+				/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+				consumerOpts: {
+					// Manual ACK
+					mack: true,
+					config: {
+						// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+						deliver_policy: "new",
+						// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+						ack_policy: "explicit",
+						// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+						max_ack_pending: this.opts.maxInFlight
+					}
+				}
+			}
+		});
+
+		// Adapter from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
+		if (this.opts.url)
+			this.opts.nats.connectionOpts.servers = this.opts.url
+				.split(",")
+				.map(server => new URL(server).host);
 
 		/** @type {NatsConnection} */
 		this.connection = null;
@@ -114,7 +150,7 @@ class NatsAdapter extends BaseAdapter {
 	/**
 	 * Subscribe to a channel with a handler.
 	 *
-	 * @param {Channel} chan
+	 * @param {Channel & NATSOpts} chan
 	 */
 	async subscribe(chan) {
 		this.logger.info(`NATS --- ${chan.id} --- in <=`);
@@ -131,18 +167,21 @@ class NatsAdapter extends BaseAdapter {
 		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
 		// More info: https://docs.nats.io/jetstream/administration/naming
 		const streamName = chan.name.split(".").join("_");
-		this.createStream(streamName, [chan.name]);
+		this.createStream(streamName, [chan.name], chan.nats ? chan.nats.streamConfig : {});
 
 		if (chan.deadLettering && chan.deadLettering.enabled) {
 			const deadLetteringStreamName = chan.deadLettering.queueName.split(".").join("_");
-			this.createStream(deadLetteringStreamName, [chan.deadLettering.queueName]);
+			this.createStream(
+				deadLetteringStreamName,
+				[chan.deadLettering.queueName],
+				chan.nats ? chan.nats.streamConfig : {}
+			);
 		}
 
 		// 2. Configure NATS consumer
 		this.initChannelActiveMessages(chan.id);
 
-		// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
-		/** @type {ConsumerOptsBuilder} */
+		/** @type {ConsumerOptsBuilder} 
 		const consumerOpts = NATS.consumerOpts();
 		consumerOpts.queue(streamName);
 		// consumerOpts.durable(streamName);
@@ -155,6 +194,22 @@ class NatsAdapter extends BaseAdapter {
 		// consumerOpts.maxDeliver(chan.maxRetries);
 		// Register the actual handler
 		consumerOpts.callback(this.createConsumerHandler(chan));
+		*/
+
+		/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+		const consumerOpts = _.defaultsDeep(
+			{},
+			chan.nats ? chan.nats.consumerOpts : {},
+			this.opts.nats.consumerOpts
+		);
+
+		consumerOpts.queue = streamName;
+		consumerOpts.config.deliver_group = streamName;
+		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
+		// More info: https://docs.nats.io/jetstream/administration/naming
+		consumerOpts.config.durable_name = chan.group.split(".").join("_");
+		consumerOpts.config.deliver_subject = chan.id;
+		consumerOpts.callbackFn = this.createConsumerHandler(chan);
 
 		// 3. Create a subscription
 		try {
@@ -254,15 +309,20 @@ class NatsAdapter extends BaseAdapter {
 	 *
 	 * @param {String} streamName Name of the Stream
 	 * @param {Array<String>} subjects A list of subjects/topics to store in a stream
+	 * @param {StreamConfig} streamOpts JetStream stream configs
 	 */
-	async createStream(streamName, subjects) {
-		// ToDo: Add the possibility to configure all Stream opts
-
-		try {
-			const streamInfo = await this.manager.streams.add({
+	async createStream(streamName, subjects, streamOpts) {
+		const streamConfig = _.defaultsDeep(
+			{
 				name: streamName,
 				subjects: subjects
-			});
+			},
+			streamOpts,
+			this.opts.nats.streamConfig
+		);
+
+		try {
+			const streamInfo = await this.manager.streams.add(streamConfig);
 			this.logger.debug(streamInfo);
 		} catch (error) {
 			if (error.message === "stream name already in use") {
