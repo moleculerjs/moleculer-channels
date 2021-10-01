@@ -33,6 +33,7 @@ let NATS;
 /**
  * @typedef {Object} NATSOpts
  * @property {Object} nats NATS lib configuration
+ * @property {String} url String containing the URL to NATS server
  * @property {ConnectionOptions} nats.connectionOpts
  * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
  * @property {ConsumerOpts} nats.consumerOpts More info: https://docs.nats.io/jetstream/concepts/consumers
@@ -42,6 +43,8 @@ let NATS;
  * NATS JetStream adapter
  *
  * More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md
+ * More info: https://github.com/nats-io/nats-architecture-and-design#jetstream
+ * More info: https://docs.nats.io/jetstream/concepts/
  *
  * @class NatsAdapter
  * @extends {BaseAdapter}
@@ -75,7 +78,7 @@ class NatsAdapter extends BaseAdapter {
 			}
 		});
 
-		// Adapter from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
+		// Adapted from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
 		if (this.opts.url)
 			this.opts.nats.connectionOpts.servers = this.opts.url
 				.split(",")
