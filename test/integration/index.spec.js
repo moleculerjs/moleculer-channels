@@ -22,12 +22,13 @@ if (process.env.GITHUB_ACTIONS_CI) {
 				}
 			}
 		},
-		{ type: "AMQP", options: {} }
+		{ type: "AMQP", options: {} },
+		{ type: "NATS", options: {} }
 	];
 } else {
 	// Local development tests
 	Adapters = [
-		/*{ type: "Redis", options: {} },
+		{ type: "Redis", options: {} },
 		{
 			type: "Redis",
 			name: "Redis-Cluster",
@@ -41,7 +42,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 				}
 			}
 		},
-		{ type: "AMQP", options: {} }*/
+		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} }
 	];
 }
@@ -225,7 +226,7 @@ describe("Integration tests", () => {
 					// ---- ^ SETUP ^ ---
 
 					await Promise.all(
-						_.times(6, () => broker.sendToChannel("test.balanced.topic", msg))
+						_.times(10, () => broker.sendToChannel("test.balanced.topic", msg))
 					);
 					await broker.Promise.delay(500);
 
@@ -238,6 +239,13 @@ describe("Integration tests", () => {
 
 					expect(sub3Handler.mock.calls.length).toBeGreaterThanOrEqual(1);
 					expect(sub3Handler).toHaveBeenCalledWith(msg, expect.anything());
+
+					// All messages must be processed by the consumers
+					expect(
+						sub1Handler.mock.calls.length +
+							sub2Handler.mock.calls.length +
+							sub3Handler.mock.calls.length
+					).toEqual(10);
 				});
 			});
 
@@ -253,7 +261,7 @@ describe("Integration tests", () => {
 					channels: {
 						"test.unstable.topic": {
 							group: "mygroup",
-							maxRetries: 5,
+							maxRetries: 10,
 							handler: subWrongHandler
 						}
 					}
@@ -267,7 +275,7 @@ describe("Integration tests", () => {
 							// Defaults to 1 hour. Decrease for unit tests
 							minIdleTime: 10,
 							claimInterval: 10,
-							maxRetries: 5,
+							maxRetries: 10,
 							handler: subGoodHandler
 						}
 					}
@@ -298,7 +306,7 @@ describe("Integration tests", () => {
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 4 }, expect.anything());
 					expect(subGoodHandler).toHaveBeenCalledWith({ id: 5 }, expect.anything());
 
-					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(1);
+					expect(subWrongHandler.mock.calls.length).toBeGreaterThanOrEqual(1);
 				});
 			});
 
@@ -587,11 +595,20 @@ describe("Integration tests", () => {
 					await broker1.sendToChannel("test.ns.topic", msg);
 					await broker1.Promise.delay(200);
 					// ---- ˇ ASSERTS ˇ ---
-					expect(subHandler1).toHaveBeenCalledTimes(2);
+					// Because of NATS JetStream balancing this test is more flexible
+					// Idea copied from NATS JetStream repo
+					// More info: https://github.com/nats-io/nats.deno/blob/df44a494a2d19284e80e8ae9baddff1fb15f6897/tests/jetstream_test.ts#L1729-L1762
+					expect(subHandler1.mock.calls.length).toBeGreaterThanOrEqual(0);
+					// expect(subHandler1).toHaveBeenCalledTimes(2);
 					expect(subHandler2).toHaveBeenCalledTimes(0);
 					expect(subHandler3).toHaveBeenCalledTimes(0);
-					expect(subHandler4).toHaveBeenCalledTimes(2);
+					expect(subHandler4.mock.calls.length).toBeGreaterThanOrEqual(0);
+					// expect(subHandler4).toHaveBeenCalledTimes(2);
 					expect(subHandler5).toHaveBeenCalledTimes(0);
+
+					expect(subHandler1.mock.calls.length + subHandler4.mock.calls.length).toEqual(
+						4
+					);
 				});
 
 				it("should receive the published message on no-namespace handlers (broker4)", async () => {
@@ -605,11 +622,20 @@ describe("Integration tests", () => {
 					await broker4.sendToChannel("test.ns.topic", msg);
 					await broker4.Promise.delay(200);
 					// ---- ˇ ASSERTS ˇ ---
-					expect(subHandler1).toHaveBeenCalledTimes(2);
+					// Because of NATS JetStream balancing this test is more flexible
+					// Idea copied from NATS JetStream repo
+					// More info: https://github.com/nats-io/nats.deno/blob/df44a494a2d19284e80e8ae9baddff1fb15f6897/tests/jetstream_test.ts#L1729-L1762
+					expect(subHandler1.mock.calls.length).toBeGreaterThanOrEqual(0);
+					// expect(subHandler1).toHaveBeenCalledTimes(2);
 					expect(subHandler2).toHaveBeenCalledTimes(0);
 					expect(subHandler3).toHaveBeenCalledTimes(0);
-					expect(subHandler4).toHaveBeenCalledTimes(2);
+					expect(subHandler4.mock.calls.length).toBeGreaterThanOrEqual(0);
+					// expect(subHandler4).toHaveBeenCalledTimes(2);
 					expect(subHandler5).toHaveBeenCalledTimes(0);
+
+					expect(subHandler1.mock.calls.length + subHandler4.mock.calls.length).toEqual(
+						4
+					);
 				});
 
 				it("should receive the published message on namespace 'A'", async () => {
