@@ -172,7 +172,8 @@ class BaseAdapter {
 	 */
 	getNumberOfChannelActiveMessages(channelID) {
 		if (!this.activeMessages.has(channelID)) {
-			throw new MoleculerError(`Not tracking active messages of channel ${channelID}`);
+			//throw new MoleculerError(`Not tracking active messages of channel ${channelID}`);
+			return 0;
 		}
 
 		return this.activeMessages.get(channelID).length;
