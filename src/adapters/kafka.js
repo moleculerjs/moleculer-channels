@@ -33,18 +33,36 @@ const { MoleculerError } = require("moleculer").Errors;
 /** @type {KafkaClient} */
 let Kafka;
 
+/** @type {import('kafkajs').logLevel} */
+let KafkaJsLogLevel;
+
+function convertLogLevel(level) {
+	switch (level) {
+		case KafkaJsLogLevel.NOTHING:
+		case KafkaJsLogLevel.ERROR:
+			return "error";
+		case KafkaJsLogLevel.WARN:
+			return "warn";
+		case KafkaJsLogLevel.DEBUG:
+			return "debug";
+		default:
+			return "info";
+	}
+}
+
 /**
  * Kafka adapter
  *
  * TODO:
  * 	- [ ] implement infinite connecting at starting
  * 	- [ ] implement auto-reconnecting
- * 	- [ ] create consumers for every channel because no unsubscribe method
- * 	- [ ] manual acknowledge
- * 	- [ ] implement maxInFlight
- * 	- [ ] implement message retries
- * 	- [ ] implement dead-letter-topic
- * 	- [ ] add log creator
+ * 	- [x] create consumers for every channel because no unsubscribe method
+ * 	- [x] manual acknowledge
+ * 	- [?] implement maxInFlight
+ * 	- [ ] implement message retries (rework due to consumer groups)
+ * 	- [x] implement dead-letter-topic
+ * 	- [x] add log creator
+ * 	- [x] unable to connect different topics with the same group name.
  *
  * @class KafkaAdapter
  * @extends {BaseAdapter}
@@ -65,12 +83,22 @@ class KafkaAdapter extends BaseAdapter {
 
 		super(opts);
 
+		this.kafkaLogger = null;
+
 		/** @type {KafkaDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
-			maxInFlight: 1, // TODO
+			maxInFlight: 1,
 			kafka: {
 				clientId: null, // set to nodeID in `init`
-				brokers: ["localhost:9092"]
+				brokers: ["localhost:9092"],
+				logCreator:
+					() =>
+					({ namespace, level, log }) => {
+						this.kafkaLogger[convertLogLevel(level)](
+							`[${namespace}${log.groupId != null ? ":" + log.groupId : ""}]`,
+							log.message
+						);
+					}
 			}
 		});
 
@@ -100,6 +128,7 @@ class KafkaAdapter extends BaseAdapter {
 
 		try {
 			Kafka = require("kafkajs").Kafka;
+			KafkaJsLogLevel = require("kafkajs").logLevel;
 		} catch (err) {
 			/* istanbul ignore next */
 			this.broker.fatal(
@@ -112,6 +141,8 @@ class KafkaAdapter extends BaseAdapter {
 		this.checkClientLibVersion("kafkajs", "^1.15.0");
 
 		this.opts.kafka.clientId = this.broker.nodeID;
+
+		this.kafkaLogger = this.broker.getLogger("Channels.KafkaJs");
 	}
 
 	/**
@@ -202,7 +233,7 @@ class KafkaAdapter extends BaseAdapter {
 			}
 
 			let consumer = this.client.consumer({
-				groupId: chan.group,
+				groupId: `${chan.group}:${chan.name}`,
 				maxInFlightRequests: chan.maxInFlight,
 				...(chan.kafka || {})
 			});
@@ -259,77 +290,76 @@ class KafkaAdapter extends BaseAdapter {
 			this.removeChannelActiveMessages(chan.id, [id]);
 		} catch (err) {
 			this.removeChannelActiveMessages(chan.id, [id]);
-			/*
-				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
-				if (!chan.maxRetries) {
-					if (chan.deadLettering.enabled) {
-						// Reached max retries and has dead-letter topic, move message
-						this.logger.debug(
-							`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
-						);
-						await this.moveToDeadLetter(chan, msg);
-					} else {
-						// No retries, drop message
-						this.logger.error(`No retries, drop message...`);
-						this.channel.nack(msg, false, false);
-					}
-					return;
-				}
 
-				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
-				if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
-					if (chan.deadLettering.enabled) {
-						// Reached max retries and has dead-letter topic, move message
-						this.logger.debug(
-							`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
-						);
-						await this.moveToDeadLetter(chan, msg);
-					} else {
-						// Reached max retries and no dead-letter topic, drop message
-						this.logger.error(
-							`Message redelivered too many times (${redeliveryCount}). Drop message...`
-						);
-						this.channel.nack(msg, false, false);
-					}
-				} else {
-					// Redeliver the message directly to the queue instead of exchange
-					const queueName = `${chan.group}.${chan.name}`;
-					this.logger.warn(
-						`Redeliver message into '${queueName}' queue.`,
-						redeliveryCount
+			this.logger.warn(`Kafka message processing error in '${chan.name}' queue.`, err);
+			if (!chan.maxRetries) {
+				if (chan.deadLettering.enabled) {
+					// Reached max retries and has dead-letter topic, move message
+					this.logger.debug(
+						`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 					);
-
-					const res = this.channel.publish("", queueName, msg.content, {
-						headers: Object.assign({}, msg.properties.headers, {
-							"x-redelivered-count": redeliveryCount + 1
-						})
-					});
-					if (res === false)
-						throw new MoleculerError("AMQP publish error. Write buffer is full.");
-
-					this.channel.ack(msg);
+					await this.moveToDeadLetter(chan, { topic, partition, message });
+				} else {
+					// No retries, drop message
+					this.logger.error(`No retries, drop message...`);
 				}
-				*/
+				consumer.commitOffsets([{ topic, partition, offset: message.offset + 1 }]);
+				return;
+			}
+
+			const redeliveryCount =
+				message.headers["x-redelivered-count"] != null
+					? Number(message.headers["x-redelivered-count"])
+					: 1;
+			if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
+				if (chan.deadLettering.enabled) {
+					// Reached max retries and has dead-letter topic, move message
+					this.logger.debug(
+						`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
+					);
+					await this.moveToDeadLetter(chan, { topic, partition, message });
+				} else {
+					// Reached max retries and no dead-letter topic, drop message
+					this.logger.error(
+						`Message redelivered too many times (${redeliveryCount}). Drop message...`
+					);
+				}
+			} else {
+				// Redeliver the message
+				this.logger.warn(`Redeliver message into '${chan.name}' topic.`, redeliveryCount);
+
+				await this.publish(chan.name, message.value, {
+					raw: true,
+					key: message.key,
+					headers: Object.assign({}, message.headers, {
+						"x-redelivered-count": (redeliveryCount + 1).toString()
+					})
+				});
+			}
+			consumer.commitOffsets([{ topic, partition, offset: message.offset + 1 }]);
 		}
 	}
 
-	/*
-	async moveToDeadLetter(chan, msg) {
-		const res = this.channel.publish(
-			chan.deadLettering.exchangeName || "",
-			chan.deadLettering.queueName,
-			msg.content,
-			{
+	async moveToDeadLetter(chan, { topic, partition, message }) {
+		try {
+			const opts = {
+				raw: true,
+				key: message.key,
 				headers: {
-					"x-original-channel": chan.name
+					...(message.headers || {}),
+					"x-original-channel": chan.name,
+					"x-original-partition": "" + partition
 				}
-			}
-		);
-		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
+			};
 
-		this.channel.ack(msg);
+			await this.publish(chan.deadLettering.queueName, message.value, opts);
+
+			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.key);
+		} catch (error) {
+			this.logger.info("An error occurred while moving", error);
+		}
 	}
-*/
+
 	/**
 	 * Unsubscribe from a channel.
 	 *
