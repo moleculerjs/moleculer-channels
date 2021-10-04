@@ -24,6 +24,7 @@ let NATS;
  * @typedef {import("nats").JetStreamOptions} JetStreamOptions Jet Stream Options
  * @typedef {import("nats").JsMsg} JsMsg Jet Stream Message
  * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
+ * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -156,7 +157,10 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {Channel & NATSOpts} chan
 	 */
 	async subscribe(chan) {
-		this.logger.info(`NATS --- ${chan.id} --- in <=`);
+		this.logger.debug(
+			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
+			chan.id
+		);
 
 		if (chan.maxInFlight == null) chan.maxInFlight = this.opts.maxInFlight;
 		if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
@@ -184,21 +188,6 @@ class NatsAdapter extends BaseAdapter {
 		// 2. Configure NATS consumer
 		this.initChannelActiveMessages(chan.id);
 
-		/** @type {ConsumerOptsBuilder} 
-		const consumerOpts = NATS.consumerOpts();
-		consumerOpts.queue(streamName);
-		// consumerOpts.durable(streamName);
-		consumerOpts.durable(chan.group.split(".").join("_"));
-		consumerOpts.deliverTo(chan.id);
-		consumerOpts.manualAck();
-		consumerOpts.deliverNew();
-		consumerOpts.ackExplicit();
-		consumerOpts.maxAckPending(chan.maxInFlight);
-		// consumerOpts.maxDeliver(chan.maxRetries);
-		// Register the actual handler
-		consumerOpts.callback(this.createConsumerHandler(chan));
-		*/
-
 		/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
 		const consumerOpts = _.defaultsDeep(
 			{},
@@ -212,14 +201,19 @@ class NatsAdapter extends BaseAdapter {
 		// More info: https://docs.nats.io/jetstream/administration/naming
 		consumerOpts.config.durable_name = chan.group.split(".").join("_");
 		consumerOpts.config.deliver_subject = chan.id;
+		consumerOpts.config.max_ack_pending = chan.maxInFlight;
 		consumerOpts.callbackFn = this.createConsumerHandler(chan);
 
 		// 3. Create a subscription
 		try {
 			const sub = await this.client.subscribe(chan.name, consumerOpts);
 			this.subscriptions.set(chan.id, sub);
-		} catch (error) {
-			this.logger.error(`An error ocurred when subscribing to a ${chan.name}`, error);
+		} catch (err) {
+			this.logger.error(
+				`Error while subscribing to '${chan.name}' chan with '${chan.group}' group`,
+				err
+			);
+			throw err;
 		}
 	}
 
@@ -347,7 +341,17 @@ class NatsAdapter extends BaseAdapter {
 		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
 
 		try {
-			await this.publish(chan.deadLettering.queueName, message.data, { raw: true });
+			/** @type {MsgHdrs} */
+			let msgHdrs = NATS.headers();
+			msgHdrs.set("x-original-channel", chan.name);
+
+			/** @type {JetStreamPublishOptions} */
+			const opts = {
+				raw: true,
+				headers: msgHdrs
+			};
+
+			await this.publish(chan.deadLettering.queueName, message.data, opts);
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.seq);
 		} catch (error) {
@@ -413,8 +417,6 @@ class NatsAdapter extends BaseAdapter {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
 
-		// this.logger.info(`NATS out => topic:${channelName} || messageID:${payload.id}`);
-
 		try {
 			const response = await this.client.publish(
 				channelName,
@@ -422,13 +424,10 @@ class NatsAdapter extends BaseAdapter {
 				opts
 			);
 
-			// this.logger.info(response);
-
-			this.logger.info(
-				`NATS out => topic:${channelName} || messageID:${payload.id} || JS_SequenceID:${response.seq}`
-			);
+			this.logger.debug(`Message ${response.seq} was published at '${channelName}'`);
 		} catch (error) {
 			this.logger.error(`An error ocurred while publishing message to ${channelName}`, error);
+			throw error;
 		}
 	}
 }
