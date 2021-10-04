@@ -30,12 +30,6 @@ const { MoleculerError } = require("moleculer").Errors;
  * @property {KafkaConfig} kafka Kafka config
  */
 
-/**
- * @typedef {Object} SubscriptionEntry
- * @property {Channel & KafkaDefaultOptions} chan AMQP Channel
- * @property {String} consumerTag AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
- */
-
 /** @type {KafkaClient} */
 let Kafka;
 
@@ -121,7 +115,7 @@ class KafkaAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Connect to the adapter with reconnecting logic
+	 * Connect to the adapter
 	 */
 	async connect() {
 		this.logger.debug("Connecting to Kafka brokers...", this.opts.kafka.brokers);
@@ -151,10 +145,34 @@ class KafkaAdapter extends BaseAdapter {
 				await this.producer.disconnect();
 				this.producer = null;
 			}
-			/*if (this.consumer) {
-				await this.consumer.disconnect();
-				this.consumer = null;
-			}*/
+
+			await new Promise((resolve, reject) => {
+				const checkPendingMessages = () => {
+					if (this.getNumberOfTrackedChannels() === 0) {
+						// Stop the publisher client
+						// The subscriber clients are stopped in unsubscribe() method, which is called in serviceStopping()
+						const promises = Array.from(this.consumers.values()).map(consumer =>
+							consumer.disconnect()
+						);
+
+						return Promise.all(promises)
+							.then(() => {
+								// Release the pointers
+								this.consumers = new Map();
+							})
+							.then(() => resolve())
+							.catch(err => reject(err));
+					} else {
+						this.logger.warn(
+							`Processing ${this.getNumberOfTrackedChannels()} active connections(s)...`
+						);
+
+						setTimeout(checkPendingMessages, 1000);
+					}
+				};
+
+				setImmediate(checkPendingMessages);
+			});
 		} catch (err) {
 			this.logger.error("Error while closing Kafka connection.", err);
 		}
@@ -225,7 +243,7 @@ class KafkaAdapter extends BaseAdapter {
 		}*/
 		);
 
-		const id = `${topic}:${partition}:${message.offset}`;
+		const id = `${partition}:${message.offset}`;
 
 		try {
 			this.addChannelActiveMessages(chan.id, [id]);
@@ -360,19 +378,6 @@ class KafkaAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Resubscribe to all channels.
-	 * @returns {Promise<void>
-	 */
-	async resubscribeAllChannels() {
-		/*
-		this.logger.info("Resubscribing to all channels...");
-		for (const { chan } of Array.from(this.subscriptions.values())) {
-			await this.subscribe(chan);
-		}
-		*/
-	}
-
-	/**
 	 * Publish a payload to a channel.
 	 *
 	 * @param {String} channelName
@@ -392,7 +397,9 @@ class KafkaAdapter extends BaseAdapter {
 		const data = opts.raw ? payload : this.serializer.serialize(payload);
 		const res = await this.producer.send({
 			topic: channelName,
-			messages: [{ key: opts.key, value: data, partition: opts.partition }],
+			messages: [
+				{ key: opts.key, value: data, partition: opts.partition, headers: opts.headers }
+			],
 			acks: opts.acks,
 			timeout: opts.timeout,
 			compression: opts.compression

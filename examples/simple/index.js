@@ -32,7 +32,7 @@ const broker = new ServiceBroker({
 						count: ++c,
 						pid: process.pid
 					},
-					{ key: "" + c }
+					{ key: "" + c, headers: { a: "something" } }
 				);
 			}
 		},
@@ -75,8 +75,8 @@ broker.createService({
 	name: "posts",
 	version: 1,
 	channels: {
-		async "my.first.topic"(msg) {
-			this.logger.info("[POSTS] Channel One msg received", msg);
+		async "my.first.topic"(msg, raw) {
+			this.logger.info("[POSTS] Channel One msg received", msg, raw.key, raw.headers);
 			/*if (Math.random() > 0.7) {
 				this.logger.warn("Throwing some error...");
 				throw new Error("Something happened");
