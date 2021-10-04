@@ -150,7 +150,7 @@ class RedisAdapter extends BaseAdapter {
 						`Processing ${this.getNumberOfTrackedChannels()} active connections(s)...`
 					);
 
-					setTimeout(checkPendingMessages, 100);
+					setTimeout(checkPendingMessages, 1000);
 				}
 			};
 
