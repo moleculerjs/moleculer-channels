@@ -540,27 +540,38 @@ const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
     middlewares: [
-        ChannelsMiddleware(adapter: {
-                type: "NATS",
-                options: {
-                    amqp: {
-                        url: "nats://localhost:4222",
-                       /** @type {ConnectionOptions} */
-				        connectionOpts: {},
-                        /** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
-				        streamConfig: {},
-                        /** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-				        consumerOpts: {},
-                    },
-                    maxInFlight: 10,
-                    maxRetries: 3,
-                    deadLettering: {
-                        enabled: false,
-                        //queueName: "DEAD_LETTER",
-                    }
-                }
-            })
-    ]
+		ChannelsMiddleware({
+			adapter: {
+				type: "NATS",
+				options: {
+					nats: {
+						url: "nats://localhost:4222",
+						/** @type {ConnectionOptions} */
+						connectionOpts: {},
+						/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
+						streamConfig: {},
+						/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+						consumerOpts: {
+							config: {
+								// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+								deliver_policy: "new",
+								// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+								ack_policy: "explicit",
+								// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+								max_ack_pending: 1
+							}
+						}
+					},
+					maxInFlight: 10,
+					maxRetries: 3,
+					deadLettering: {
+						enabled: false,
+						queueName: "DEAD_LETTER"
+					}
+				}
+			}
+		})
+	]
 };
 ```
 
