@@ -341,14 +341,13 @@ class NatsAdapter extends BaseAdapter {
 		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
 
 		try {
-			/** @type {MsgHdrs} */
-			let msgHdrs = NATS.headers();
-			msgHdrs.set("x-original-channel", chan.name);
-
 			/** @type {JetStreamPublishOptions} */
 			const opts = {
 				raw: true,
-				headers: msgHdrs
+				headers: {
+					// Add info about original channel where error occurred
+					"x-original-channel": chan.name
+				}
 			};
 
 			await this.publish(chan.deadLettering.queueName, message.data, opts);
@@ -418,6 +417,18 @@ class NatsAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		try {
+			// Remap headers into JetStream format
+			if (opts.headers) {
+				/** @type {MsgHdrs} */
+				let msgHdrs = NATS.headers();
+
+				Object.keys(opts.headers).forEach(key => {
+					msgHdrs.set(key, opts.headers[key]);
+				});
+
+				opts.headers = msgHdrs;
+			}
+
 			const response = await this.client.publish(
 				channelName,
 				opts.raw ? payload : this.serializer.serialize(payload),
