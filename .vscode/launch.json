@@ -12,8 +12,11 @@
 			"program": "${file}",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"multi-adapter"
-			]
+				"dead-letter"
+			],
+			"env": {
+				"ADAPTER": "nats://localhost:4222"
+			}
 		},
 		{
 			"name": "Attach by Process ID",

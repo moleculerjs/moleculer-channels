@@ -3,6 +3,8 @@
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
 
+const deadServiceSchema = require("./dead.service");
+
 let c = 1;
 
 // Create broker
@@ -58,22 +60,7 @@ broker.createService({
 	}
 });
 
-broker.createService({
-	name: "sub2",
-	channels: {
-		DEAD_LETTER: {
-			group: "mygroup",
-			handler(msg, raw) {
-				this.logger.info("--> FAILED HANDLER <--");
-				this.logger.info(msg);
-				// Send a notification about the failure
-
-				this.logger.info("--> RAW (ENTIRE) MESSAGE <--");
-				this.logger.info(raw);
-			}
-		}
-	}
-});
+broker.createService(deadServiceSchema);
 
 broker
 	.start()

@@ -14,7 +14,7 @@ Reliable messages for Moleculer services via external queue/channel/topic. Unlik
 ## Features
 
 - reliable messages with acknowledgement.
-- multiple adapters (Redis, RabbitMQ).
+- multiple adapters (Redis, RabbitMQ, NATS JetStream).
 - plugable adapters.
 - configurable max-in-flight.
 - retry messages.
@@ -327,6 +327,9 @@ module.exports = {
 | `amqp.exchangeOptions` | `Object` | `null` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
 | `amqp.messageOptions` | `Object` | `null` | AMQP | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).
 | `amqp.consumeOptions` | `Object` | `null` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
+| `nats.streamConfig` | `Object` | `null` | NATS | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).
+| `nats.consumerOpts` | `Object` | `null` | NATS | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).
+
 
 ### Redis Streams
 
@@ -517,8 +520,60 @@ Coming soon.
 
 ### NATS JetStream
 
-Coming soon.
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "nats://localhost:4222"
+        })
+    ]
+};
+```
+
+**Example with options**
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    middlewares: [
+		ChannelsMiddleware({
+			adapter: {
+				type: "NATS",
+				options: {
+					nats: {
+						url: "nats://localhost:4222",
+						/** @type {ConnectionOptions} */
+						connectionOpts: {},
+						/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
+						streamConfig: {},
+						/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+						consumerOpts: {
+							config: {
+								// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+								deliver_policy: "new",
+								// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+								ack_policy: "explicit",
+								// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+								max_ack_pending: 1
+							}
+						}
+					},
+					maxInFlight: 10,
+					maxRetries: 3,
+					deadLettering: {
+						enabled: false,
+						queueName: "DEAD_LETTER"
+					}
+				}
+			}
+		})
+	]
+};
+```
 
 ## Benchmark
 >Tests are running on Intel i7 4770K, 32GB RAM on Windows 10 with WSL.
@@ -541,7 +596,7 @@ In this test, we send one message at a time. After processing the current messag
 
 ![chart](https://image-charts.com/chart?chd=a%3A3%2C2%2C22&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Latency%20test%20%28milliseconds%29%7Clower%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
-### Throughtput test (maxInFligth: 10)
+### Throughput test (maxInFligth: 10)
 In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `10`.
 
 | Adapter | msg/sec |
@@ -552,7 +607,7 @@ In this test, we send 10k messages and wait for all be processed. This test meas
 
 ![chart](https://image-charts.com/chart?chd=a%3A1164%2C1275%2C10431&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%2010%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
-### Throughtput test (maxInFligth: 100)
+### Throughput test (maxInFligth: 100)
 In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `100`.
 
 | Adapter | msg/sec |

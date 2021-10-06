@@ -24,6 +24,7 @@ const { Serializers } = require("moleculer");
  * @property {String} consumerName Name of the consumer
  * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
  * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue or drop
+ * @property {Number} maxInFlight Maximum number of messages that can be processed in parallel.
  * @property {DeadLetteringOptions} deadLettering Dead-letter-queue options
  */
 
@@ -39,6 +40,7 @@ class BaseAdapter {
 			prefix: null,
 			serializer: "JSON",
 			maxRetries: 3,
+			maxInFlight: 1,
 			deadLettering: {
 				enabled: false,
 				queueName: "FAILED_MESSAGES"
