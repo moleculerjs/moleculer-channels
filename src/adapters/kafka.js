@@ -240,6 +240,9 @@ class KafkaAdapter extends BaseAdapter {
 			});
 			this.consumers.set(chan.id, consumer);
 			await consumer.connect();
+			/*consumer.on(consumer.events.GROUP_JOIN, data => {
+				this.logger.info("Consumer joined to group", data, data.payload.memberAssignment);
+			});*/
 
 			this.initChannelActiveMessages(chan.id);
 

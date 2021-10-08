@@ -48,13 +48,14 @@ if (process.env.GITHUB_ACTIONS_CI) {
 	];
 }
 
-jest.setTimeout(30000);
+jest.setTimeout(60000);
 
 describe("Integration tests", () => {
 	function createBroker(adapter, opts) {
 		return new ServiceBroker(
 			_.defaultsDeep(opts, {
-				logger: false,
+				nodeID: "int-test",
+				logger: true,
 				logLevel: "debug",
 				middlewares: [ChannelMiddleware({ adapter })]
 			})
@@ -76,6 +77,11 @@ describe("Integration tests", () => {
 					if (!topics.includes("test.balanced.topic")) {
 						await admin.createTopics({
 							topics: [{ topic: "test.balanced.topic", numPartitions: 3 }]
+						});
+					}
+					if (!topics.includes("test.unstable.topic")) {
+						await admin.createTopics({
+							topics: [{ topic: "test.unstable.topic", numPartitions: 2 }]
 						});
 					}
 					await admin.disconnect();
@@ -193,7 +199,7 @@ describe("Integration tests", () => {
 					expect(sub2TestTopic1Handler).toHaveBeenCalledTimes(0);
 				});
 			});
-*/
+
 			describe("Test balanced subscription logic", () => {
 				const broker = createBroker(adapter);
 
@@ -270,7 +276,7 @@ describe("Integration tests", () => {
 					expect(sub3Handler).toHaveBeenCalledWith(msg, expect.anything());
 				});
 			});
-			/*
+
 			describe("Test retried messages logic", () => {
 				const broker = createBroker(adapter);
 
@@ -331,7 +337,7 @@ describe("Integration tests", () => {
 					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(1);
 				});
 			});
-
+*/
 			describe("Test Connection/Reconnection logic", () => {
 				const broker = createBroker(adapter);
 
@@ -363,6 +369,7 @@ describe("Integration tests", () => {
 					await broker.Promise.delay(500);
 					await broker.destroyService(svc0);
 					await broker.Promise.delay(200);
+
 					// ---- ^ SETUP ^ ---
 
 					// -> Publish the messages while no listeners are running <- //
@@ -385,6 +392,7 @@ describe("Integration tests", () => {
 						}
 					});
 					await broker.Promise.delay(1000);
+					if (adapter.type == "Kafka") await broker.Promise.delay(10 * 1000);
 
 					// ---- ˇ ASSERT ˇ ---
 					expect(sub1Handler).toHaveBeenCalledTimes(6);
@@ -398,6 +406,7 @@ describe("Integration tests", () => {
 					// -> Server is going down <- //
 					await broker.destroyService(svc1);
 					await broker.Promise.delay(200);
+					if (adapter.type == "Kafka") await broker.Promise.delay(10 * 1000);
 
 					// -> In mean time, more messages are being published <- //
 					await Promise.all(
@@ -419,6 +428,7 @@ describe("Integration tests", () => {
 						}
 					});
 					await broker.Promise.delay(1000);
+					if (adapter.type == "Kafka") await broker.Promise.delay(10 * 1000);
 
 					// ---- ˇ ASSERT ˇ ---
 					expect(sub2Handler).toHaveBeenCalledTimes(6);
@@ -430,7 +440,7 @@ describe("Integration tests", () => {
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 11 }, expect.anything());
 				});
 			});
-
+			/*
 			describe("Test Failed Message logic", () => {
 				const broker = createBroker(adapter);
 
@@ -537,7 +547,7 @@ describe("Integration tests", () => {
 
 			describe("Test namespaces logic", () => {
 				// --- NO NAMESPACE ---
-				const broker1 = createBroker(adapter, {});
+				const broker1 = createBroker(adapter, { nodeID: "int-test-1" });
 				const subHandler1 = jest.fn(() => Promise.resolve());
 				broker1.createService({
 					name: "sub",
@@ -545,7 +555,7 @@ describe("Integration tests", () => {
 				});
 
 				// --- NAMESPACE A ---
-				const broker2 = createBroker(adapter, { namespace: "A" });
+				const broker2 = createBroker(adapter, { nodeID: "int-test-2", namespace: "A" });
 				const subHandler2 = jest.fn(() => Promise.resolve());
 				broker2.createService({
 					name: "sub",
@@ -553,7 +563,7 @@ describe("Integration tests", () => {
 				});
 
 				// --- NAMESPACE B ---
-				const broker3 = createBroker(adapter, { namespace: "B" });
+				const broker3 = createBroker(adapter, { nodeID: "int-test-3", namespace: "B" });
 				const subHandler3 = jest.fn(() => Promise.resolve());
 				broker3.createService({
 					name: "sub",
@@ -563,7 +573,7 @@ describe("Integration tests", () => {
 				// --- NAMESPACE BUT NO PREFIX ---
 				const broker4 = createBroker(
 					{ ...adapter, options: { prefix: "" } },
-					{ namespace: "C" }
+					{ nodeID: "int-test-4", namespace: "C" }
 				);
 				const subHandler4 = jest.fn(() => Promise.resolve());
 				broker4.createService({
@@ -572,7 +582,7 @@ describe("Integration tests", () => {
 				});
 
 				// --- NO NAMESPACE BUT PREFIX ---
-				const broker5 = createBroker({ ...adapter, options: { prefix: "C" } });
+				const broker5 = createBroker({ ...adapter, options: { prefix: "C" } }, { nodeID: "int-test-5" });
 				const subHandler5 = jest.fn(() => Promise.resolve());
 				broker5.createService({
 					name: "sub",
