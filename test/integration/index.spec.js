@@ -4,6 +4,8 @@ const _ = require("lodash");
 const { ServiceBroker } = require("moleculer");
 const ChannelMiddleware = require("./../../").Middleware;
 
+const Kafka = require("kafkajs").Kafka;
+
 let Adapters;
 
 if (process.env.GITHUB_ACTIONS_CI) {
@@ -27,7 +29,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 } else {
 	// Local development tests
 	Adapters = [
-		{ type: "Redis", options: {} },
+		/*{ type: "Redis", options: {} },
 		{
 			type: "Redis",
 			name: "Redis-Cluster",
@@ -41,16 +43,19 @@ if (process.env.GITHUB_ACTIONS_CI) {
 				}
 			}
 		},
-		{ type: "AMQP", options: {} }
+		{ type: "AMQP", options: {} },*/
+		{ type: "Kafka", options: "kafka://localhost:9093" }
 	];
 }
+
+jest.setTimeout(30000);
 
 describe("Integration tests", () => {
 	function createBroker(adapter, opts) {
 		return new ServiceBroker(
 			_.defaultsDeep(opts, {
 				logger: false,
-				logLevel: "error",
+				logLevel: "debug",
 				middlewares: [ChannelMiddleware({ adapter })]
 			})
 		);
@@ -58,6 +63,26 @@ describe("Integration tests", () => {
 
 	for (const adapter of Adapters) {
 		describe(`Adapter: ${adapter.name || adapter.type}`, () => {
+			if (adapter.type == "Kafka") {
+				it("initialize Kafka topics", async () => {
+					const kafka = new Kafka({
+						clientId: "moleculer-channel-test",
+						brokers: [adapter.options.replace("kafka://", "")]
+					});
+					const admin = kafka.admin();
+
+					await admin.connect();
+					const topics = await admin.listTopics();
+					if (!topics.includes("test.balanced.topic")) {
+						await admin.createTopics({
+							topics: [{ topic: "test.balanced.topic", numPartitions: 3 }]
+						});
+					}
+					await admin.disconnect();
+				});
+			}
+
+			/*
 			describe("Test simple publish/subscribe logic", () => {
 				const broker = createBroker(adapter);
 
@@ -72,7 +97,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				it("should receive the published message", async () => {
@@ -114,7 +139,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -168,7 +193,7 @@ describe("Integration tests", () => {
 					expect(sub2TestTopic1Handler).toHaveBeenCalledTimes(0);
 				});
 			});
-
+*/
 			describe("Test balanced subscription logic", () => {
 				const broker = createBroker(adapter);
 
@@ -206,7 +231,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -229,6 +254,12 @@ describe("Integration tests", () => {
 					await broker.Promise.delay(500);
 
 					// ---- ˇ ASSERTS ˇ ---
+					expect(
+						sub1Handler.mock.calls.length +
+							sub2Handler.mock.calls.length +
+							sub3Handler.mock.calls.length
+					).toBe(6);
+
 					expect(sub1Handler.mock.calls.length).toBeGreaterThanOrEqual(1);
 					expect(sub1Handler).toHaveBeenCalledWith(msg, expect.anything());
 
@@ -239,7 +270,7 @@ describe("Integration tests", () => {
 					expect(sub3Handler).toHaveBeenCalledWith(msg, expect.anything());
 				});
 			});
-
+			/*
 			describe("Test retried messages logic", () => {
 				const broker = createBroker(adapter);
 
@@ -272,7 +303,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -307,7 +338,7 @@ describe("Integration tests", () => {
 				const sub1Handler = jest.fn(() => Promise.resolve());
 				const sub2Handler = jest.fn(() => Promise.resolve());
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -407,7 +438,7 @@ describe("Integration tests", () => {
 				const subGoodHandler = jest.fn(() => Promise.resolve());
 				const subWrongHandler = jest.fn(() => Promise.reject(error));
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -474,7 +505,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -699,7 +730,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -764,7 +795,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start());
+				beforeAll(() => broker.start().delay(2000));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -792,11 +823,11 @@ describe("Integration tests", () => {
 
 					await broker.Promise.delay(500);
 				});
-			});
+			});*/
 		});
 	}
 });
-
+/*
 describe("Multiple Adapters", () => {
 	const broker = new ServiceBroker({
 		logger: true,
@@ -845,7 +876,7 @@ describe("Multiple Adapters", () => {
 		}
 	});
 
-	beforeAll(() => broker.start());
+	beforeAll(() => broker.start().delay(2000));
 	afterAll(() => broker.stop());
 
 	it("should work with multiple adapters", async () => {
@@ -874,5 +905,5 @@ describe("Multiple Adapters", () => {
 		expect(broker.amqpAdapter).toBeDefined();
 	});
 });
-
+*/
 // TODO multiple namespaces

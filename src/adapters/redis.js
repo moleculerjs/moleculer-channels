@@ -443,7 +443,8 @@ class RedisAdapter extends BaseAdapter {
 					// "Break" the xreadgroup() by disconnecting the client
 					// Will trigger an error that has to be handled
 					chan.unsubscribing = true;
-					this.clients.get(chan.id).disconnect();
+					const client = this.clients.get(chan.id);
+					if (client) client.disconnect();
 				})
 				// Add delay to ensure that client is disconnected
 				.then(() => new Promise(resolve => setTimeout(resolve, 100)))

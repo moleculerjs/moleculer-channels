@@ -40,7 +40,7 @@ function convertLogLevel(level) {
 	switch (level) {
 		case KafkaJsLogLevel.NOTHING:
 		case KafkaJsLogLevel.ERROR:
-			return "error";
+		//	return "error";
 		case KafkaJsLogLevel.WARN:
 			return "warn";
 		case KafkaJsLogLevel.DEBUG:
@@ -63,6 +63,7 @@ function convertLogLevel(level) {
  * 	- [x] implement dead-letter-topic
  * 	- [x] add log creator
  * 	- [x] unable to connect different topics with the same group name.
+ * 	- [x] wait for rebalancing: https://github.com/tulios/kafkajs/issues/452#issuecomment-768241811
  *
  * @class KafkaAdapter
  * @extends {BaseAdapter}
@@ -267,11 +268,12 @@ class KafkaAdapter extends BaseAdapter {
 	 */
 	async processMessage(chan, consumer, { topic, partition, message }) {
 		this.logger.debug(
-			`Kafka consumer received a message in '${chan.name}' queue.` /*, {
-			topic,
-			partition,
-			message
-		}*/
+			`Kafka consumer received a message in '${chan.name}' queue. Processing...`,
+			{
+				topic,
+				partition,
+				offset: message.offset
+			}
 		);
 
 		const id = `${partition}:${message.offset}`;
@@ -284,8 +286,14 @@ class KafkaAdapter extends BaseAdapter {
 
 			await chan.handler(content, message);
 
+			const newOffset = Number(message.offset) + 1;
+			this.logger.info("Message is processed. Committing offset", {
+				topic,
+				partition,
+				offset: newOffset
+			});
 			// Acknowledge
-			consumer.commitOffsets([{ topic, partition, offset: message.offset + 1 }]);
+			consumer.commitOffsets([{ topic, partition, offset: newOffset }]);
 
 			this.removeChannelActiveMessages(chan.id, [id]);
 		} catch (err) {
