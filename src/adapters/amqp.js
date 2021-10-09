@@ -376,7 +376,7 @@ class AmqpAdapter extends BaseAdapter {
 					return;
 				}
 
-				let redeliveryCount = msg.properties.headers["x-redelivered-count"] || 0;
+				let redeliveryCount = msg.properties.headers[HEADER_REDELIVERED_COUNT] || 0;
 				redeliveryCount++;
 				if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
 					if (chan.deadLettering.enabled) {
