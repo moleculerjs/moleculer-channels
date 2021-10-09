@@ -9,7 +9,11 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
-const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+const {
+	HEADER_ORIGINAL_CHANNEL,
+	HEADER_ORIGINAL_GROUP,
+	HEADER_REDELIVERED_COUNT
+} = require("../constants");
 
 let Amqplib;
 
@@ -395,7 +399,7 @@ class AmqpAdapter extends BaseAdapter {
 
 					const res = this.channel.publish("", queueName, msg.content, {
 						headers: Object.assign({}, msg.properties.headers, {
-							"x-redelivered-count": redeliveryCount
+							[HEADER_REDELIVERED_COUNT]: redeliveryCount
 						})
 					});
 					if (res === false)

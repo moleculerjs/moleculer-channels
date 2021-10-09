@@ -218,7 +218,7 @@ class KafkaAdapter extends BaseAdapter {
 	/**
 	 * Subscribe to a channel.
 	 *
-	 * @param {Channel & AmqpDefaultOptions} chan
+	 * @param {Channel & KafkaDefaultOptions} chan
 	 */
 	async subscribe(chan) {
 		this.logger.debug(
@@ -249,9 +249,6 @@ class KafkaAdapter extends BaseAdapter {
 			});
 			this.consumers.set(chan.id, consumer);
 			await consumer.connect();
-			/*consumer.on(consumer.events.GROUP_JOIN, data => {
-				this.logger.info("Consumer joined to group", data, data.payload.memberAssignment);
-			});*/
 
 			this.initChannelActiveMessages(chan.id);
 
@@ -287,7 +284,7 @@ class KafkaAdapter extends BaseAdapter {
 	/**
 	 * Process a message
 	 *
-	 * @param {Channel & AmqpDefaultOptions} chan
+	 * @param {Channel & KafkaDefaultOptions} chan
 	 * @param {KafkaConsumer} consumer
 	 * @param {EachMessagePayload} payload
 	 * @returns {Promise<void>}
@@ -419,7 +416,7 @@ class KafkaAdapter extends BaseAdapter {
 	/**
 	 * Unsubscribe from a channel.
 	 *
-	 * @param {Channel & AmqpDefaultOptions} chan
+	 * @param {Channel & KafkaDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
