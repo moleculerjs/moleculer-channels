@@ -388,18 +388,21 @@ class KafkaAdapter extends BaseAdapter {
 
 	async moveToDeadLetter(chan, { partition, message }) {
 		try {
-			const opts = {
-				raw: true,
-				key: message.key,
-				headers: {
-					...(message.headers || {}),
-					[HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[HEADER_ORIGINAL_GROUP]: chan.group,
-					[HEADER_ORIGINAL_PARTITION]: "" + partition
-				}
+			const headers = {
+				...(message.headers || {}),
+				[HEADER_ORIGINAL_CHANNEL]: chan.name,
+				[HEADER_ORIGINAL_GROUP]: chan.group,
+				[HEADER_ORIGINAL_PARTITION]: "" + partition
 			};
 
-			await this.publish(chan.deadLettering.queueName, message.value, opts);
+			// Remove original group filter after redelivery.
+			delete headers[HEADER_GROUP];
+
+			await this.publish(chan.deadLettering.queueName, message.value, {
+				raw: true,
+				key: message.key,
+				headers
+			});
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.key);
 		} catch (error) {

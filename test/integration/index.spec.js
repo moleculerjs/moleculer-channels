@@ -8,6 +8,11 @@ const Kafka = require("kafkajs").Kafka;
 
 let Adapters;
 
+/*
+	TODO:
+		- Test with MsgPack serializer
+*/
+
 if (process.env.GITHUB_ACTIONS_CI) {
 	Adapters = [
 		{ type: "Redis", options: {} },
@@ -26,7 +31,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: "kafka://localhost:9093" }
+		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
 	];
 } else {
 	// Local development tests
@@ -47,18 +52,20 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		{ type: "Kafka", options: "kafka://localhost:9093" }
+		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
 	];
 }
 
 jest.setTimeout(60000);
+
+let DELAY_AFTER_BROKER_START = 10;
 
 describe("Integration tests", () => {
 	function createBroker(adapter, opts) {
 		return new ServiceBroker(
 			_.defaultsDeep(opts, {
 				nodeID: "int-test",
-				logger: true,
+				logger: false,
 				logLevel: "debug",
 				middlewares: [ChannelMiddleware({ adapter })]
 			})
@@ -68,6 +75,7 @@ describe("Integration tests", () => {
 	for (const adapter of Adapters) {
 		describe(`Adapter: ${adapter.name || adapter.type}`, () => {
 			if (adapter.type == "Kafka") {
+				DELAY_AFTER_BROKER_START = 2000;
 				it("initialize Kafka topics", async () => {
 					await createKafkaTopics(adapter, [
 						{ topic: "test.balanced.topic", numPartitions: 3 },
@@ -76,7 +84,6 @@ describe("Integration tests", () => {
 				});
 			}
 
-			/*
 			describe("Test simple publish/subscribe logic", () => {
 				const broker = createBroker(adapter);
 
@@ -91,7 +98,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				it("should receive the published message", async () => {
@@ -133,7 +140,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -225,7 +232,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -248,12 +255,6 @@ describe("Integration tests", () => {
 					await broker.Promise.delay(500);
 
 					// ---- ˇ ASSERTS ˇ ---
-					expect(
-						sub1Handler.mock.calls.length +
-							sub2Handler.mock.calls.length +
-							sub3Handler.mock.calls.length
-					).toBe(6);
-
 					expect(sub1Handler.mock.calls.length).toBeGreaterThanOrEqual(1);
 					expect(sub1Handler).toHaveBeenCalledWith(msg, expect.anything());
 
@@ -304,7 +305,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -339,7 +340,7 @@ describe("Integration tests", () => {
 				const sub1Handler = jest.fn(() => Promise.resolve());
 				const sub2Handler = jest.fn(() => Promise.resolve());
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -440,7 +441,7 @@ describe("Integration tests", () => {
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 12 }, expect.anything());
 				});
 			});
-			*/
+
 			describe("Test Failed Message logic", () => {
 				const broker = createBroker(adapter);
 
@@ -448,7 +449,7 @@ describe("Integration tests", () => {
 				const subGoodHandler = jest.fn(() => Promise.resolve());
 				const subWrongHandler = jest.fn(() => Promise.reject(error));
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -495,9 +496,11 @@ describe("Integration tests", () => {
 					expect(subWrongHandler).toHaveBeenCalledTimes(6);
 				});
 			});
-			/*
+
 			describe("Test Max-In-Flight logic", () => {
-				const broker = createBroker({ ...adapter, options: { amqp: { prefetch: 1 } } });
+				const broker = createBroker(
+					_.defaultsDeep({ options: { amqp: { prefetch: 1 } } }, adapter)
+				);
 
 				let FLOW = [];
 
@@ -515,7 +518,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -571,10 +574,10 @@ describe("Integration tests", () => {
 				});
 
 				// --- NAMESPACE BUT NO PREFIX ---
-				const broker4 = createBroker(
-					{ ...adapter, options: { prefix: "" } },
-					{ nodeID: "int-test-4", namespace: "C" }
-				);
+				const broker4 = createBroker(_.defaultsDeep({ options: { prefix: "" } }, adapter), {
+					nodeID: "int-test-4",
+					namespace: "C"
+				});
 				const subHandler4 = jest.fn(() => Promise.resolve());
 				broker4.createService({
 					name: "sub",
@@ -582,7 +585,10 @@ describe("Integration tests", () => {
 				});
 
 				// --- NO NAMESPACE BUT PREFIX ---
-				const broker5 = createBroker({ ...adapter, options: { prefix: "C" } }, { nodeID: "int-test-5" });
+				const broker5 = createBroker(
+					_.defaultsDeep({ options: { prefix: "C" } }, adapter),
+					{ nodeID: "int-test-5" }
+				);
 				const subHandler5 = jest.fn(() => Promise.resolve());
 				broker5.createService({
 					name: "sub",
@@ -590,14 +596,15 @@ describe("Integration tests", () => {
 				});
 
 				beforeAll(() =>
-					Promise.all([
+					broker1.Promise.all([
 						broker1.start(),
 						broker2.start(),
 						broker3.start(),
 						broker4.start(),
 						broker5.start()
-					])
+					]).delay(2000)
 				);
+
 				afterAll(() =>
 					Promise.all([
 						broker1.stop(),
@@ -758,7 +765,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -789,7 +796,7 @@ describe("Integration tests", () => {
 			});
 
 			describe("Test Dead Letter logic with retries", () => {
-				const broker = createBroker(adapter, { logLevel: "debug" });
+				const broker = createBroker(adapter);
 
 				const error = new Error("Something happened");
 				const deadLetterHandler = jest.fn(() => Promise.resolve());
@@ -823,7 +830,7 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(2000));
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -831,7 +838,7 @@ describe("Integration tests", () => {
 					subWrongHandler.mockClear();
 				});
 
-				it("should transfer to FAILED_MESSAGES", async () => {
+				it("should transfer to DEAD_LETTER", async () => {
 					const msg = {
 						id: 1,
 						name: "John",
@@ -851,11 +858,11 @@ describe("Integration tests", () => {
 
 					await broker.Promise.delay(500);
 				});
-			});*/
+			});
 		});
 	}
 });
-/*
+
 describe("Multiple Adapters", () => {
 	const broker = new ServiceBroker({
 		logger: true,
@@ -904,7 +911,7 @@ describe("Multiple Adapters", () => {
 		}
 	});
 
-	beforeAll(() => broker.start().delay(2000));
+	beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 	afterAll(() => broker.stop());
 
 	it("should work with multiple adapters", async () => {
@@ -933,12 +940,11 @@ describe("Multiple Adapters", () => {
 		expect(broker.amqpAdapter).toBeDefined();
 	});
 });
-*/
 
 async function createKafkaTopics(adapter, defs) {
 	const kafka = new Kafka({
 		clientId: "moleculer-channel-test",
-		brokers: [adapter.options.replace("kafka://", "")]
+		brokers: adapter.options.kafka.brokers
 	});
 	const admin = kafka.admin();
 
