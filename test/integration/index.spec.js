@@ -716,7 +716,7 @@ describe("Integration tests", () => {
 				const broker = createBroker(adapter, { logLevel: "debug" });
 
 				const error = new Error("Something happened");
-				const deaLetterHandler = jest.fn(() => Promise.resolve());
+				const deadLetterHandler = jest.fn(() => Promise.resolve());
 				const subWrongHandler = jest.fn(() => Promise.reject(error));
 
 				broker.createService({
@@ -740,7 +740,7 @@ describe("Integration tests", () => {
 					name: "sub2",
 					channels: {
 						DEAD_LETTER: {
-							handler: deaLetterHandler
+							handler: deadLetterHandler
 						}
 					}
 				});
@@ -749,7 +749,7 @@ describe("Integration tests", () => {
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
-					deaLetterHandler.mockClear();
+					deadLetterHandler.mockClear();
 					subWrongHandler.mockClear();
 				});
 
@@ -769,7 +769,7 @@ describe("Integration tests", () => {
 					// ---- ˇ ASSERTS ˇ ---
 					expect(subWrongHandler).toHaveBeenCalledTimes(1);
 
-					expect(deaLetterHandler).toHaveBeenCalledTimes(1);
+					expect(deadLetterHandler).toHaveBeenCalledTimes(1);
 
 					await broker.Promise.delay(500);
 				});
@@ -779,7 +779,7 @@ describe("Integration tests", () => {
 				const broker = createBroker(adapter, { logLevel: "debug" });
 
 				const error = new Error("Something happened");
-				const deaLetterHandler = jest.fn(() => Promise.resolve());
+				const deadLetterHandler = jest.fn(() => Promise.resolve());
 				const subWrongHandler = jest.fn(() => Promise.reject(error));
 
 				broker.createService({
@@ -805,7 +805,7 @@ describe("Integration tests", () => {
 					name: "sub2",
 					channels: {
 						DEAD_LETTER: {
-							handler: deaLetterHandler
+							handler: deadLetterHandler
 						}
 					}
 				});
@@ -814,7 +814,7 @@ describe("Integration tests", () => {
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
-					deaLetterHandler.mockClear();
+					deadLetterHandler.mockClear();
 					subWrongHandler.mockClear();
 				});
 
@@ -834,7 +834,7 @@ describe("Integration tests", () => {
 					// ---- ˇ ASSERTS ˇ ---
 					expect(subWrongHandler).toHaveBeenCalledTimes(2);
 
-					expect(deaLetterHandler).toHaveBeenCalledTimes(1);
+					expect(deadLetterHandler).toHaveBeenCalledTimes(1);
 
 					await broker.Promise.delay(500);
 				});

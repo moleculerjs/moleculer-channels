@@ -224,10 +224,30 @@ class AmqpAdapter extends BaseAdapter {
 		this.stopping = true;
 		try {
 			if (this.connection) {
-				this.logger.info("Closing AMQP connection...");
-				await this.connection.close();
-				this.connection = null;
-				this.channel = null;
+				await new Promise((resolve, reject) => {
+					const checkPendingMessages = () => {
+						if (this.getNumberOfTrackedChannels() === 0) {
+							// Stop the connection
+							this.logger.info("Closing AMQP connection...");
+							return this.connection
+								.close()
+								.then(() => {
+									this.connection = null;
+									this.channel = null;
+									resolve();
+								})
+								.catch(reject);
+						} else {
+							this.logger.warn(
+								`Processing ${this.getNumberOfTrackedChannels()} active connections(s)...`
+							);
+
+							setTimeout(checkPendingMessages, 1000);
+						}
+					};
+
+					setImmediate(checkPendingMessages);
+				});
 			}
 		} catch (err) {
 			this.logger.error("Error while closing AMQP connection.", err);
