@@ -3,6 +3,8 @@
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
 
+const deadServiceSchema = require("./dead.service");
+
 let c = 1;
 
 // Create broker

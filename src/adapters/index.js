@@ -13,6 +13,7 @@ const Adapters = {
 	Base: require("./base"),
 	AMQP: require("./amqp"),
 	Kafka: require("./kafka"),
+	NATS: require("./nats"),
 	Redis: require("./redis")
 };
 
@@ -42,6 +43,8 @@ function resolve(opt) {
 			return new Adapters.AMQP(opt);
 		} else if (opt.startsWith("kafka://")) {
 			return new Adapters.Kafka(opt);
+		} else if (opt.startsWith("nats://")) {
+			return new Adapters.NATS(opt);
 		} else {
 			throw new ServiceSchemaError(`Invalid Adapter type '${opt}'.`, { type: opt });
 		}

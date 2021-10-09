@@ -25,7 +25,8 @@ const Adapters = [
 			}
 		}
 	},
-	{ type: "AMQP", options: {} }
+	{ type: "AMQP", options: {} },
+	{ type: "NATS", options: {} }
 ];
 
 Promise.mapSeries(Adapters, async adapterDef => {
