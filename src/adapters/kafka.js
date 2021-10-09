@@ -9,6 +9,13 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
+const {
+	HEADER_REDELIVERED_COUNT,
+	HEADER_GROUP,
+	HEADER_ORIGINAL_CHANNEL,
+	HEADER_ORIGINAL_GROUP
+} = require("../constants");
+const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
 /**
  * @typedef {import('kafkajs').Kafka} KafkaClient Kafka Client
@@ -40,7 +47,6 @@ function convertLogLevel(level) {
 	switch (level) {
 		case KafkaJsLogLevel.NOTHING:
 		case KafkaJsLogLevel.ERROR:
-		//	return "error";
 		case KafkaJsLogLevel.WARN:
 			return "warn";
 		case KafkaJsLogLevel.DEBUG:
@@ -59,7 +65,7 @@ function convertLogLevel(level) {
  * 	- [x] create consumers for every channel because no unsubscribe method
  * 	- [x] manual acknowledge
  * 	- [?] implement maxInFlight
- * 	- [ ] implement message retries (rework due to consumer groups)
+ * 	- [x] implement message retries (rework due to consumer groups)
  * 	- [x] implement dead-letter-topic
  * 	- [x] add log creator
  * 	- [x] unable to connect different topics with the same group name.
@@ -99,7 +105,8 @@ class KafkaAdapter extends BaseAdapter {
 							`[${namespace}${log.groupId != null ? ":" + log.groupId : ""}]`,
 							log.message
 						);
-					}
+					},
+				producerOptions: undefined
 			}
 		});
 
@@ -154,12 +161,9 @@ class KafkaAdapter extends BaseAdapter {
 
 		this.client = new Kafka(this.opts.kafka);
 
-		this.producer = this.client.producer(/*TODO: */);
+		this.producer = this.client.producer(this.opts.kafka.producerOptions);
 
 		await this.producer.connect();
-
-		// TODO: subscribe to events (disconnect, error, ...)
-		// https://kafka.js.org/docs/instrumentation-events
 
 		this.logger.info("Kafka adapter is connected.");
 	}
@@ -262,10 +266,23 @@ class KafkaAdapter extends BaseAdapter {
 	}
 
 	/**
+	 * Commit new offset to Kafka broker.
+	 *
+	 * @param {KafkaConsumer} consumer
+	 * @param {String} topic
+	 * @param {Number} partition
+	 * @param {String} offset
+	 */
+	async commitOffset(consumer, topic, partition, offset) {
+		this.logger.debug("Committing new offset.", { topic, partition, offset });
+		await consumer.commitOffsets([{ topic, partition, offset }]);
+	}
+
+	/**
 	 * Process a message
 	 *
 	 * @param {Channel & AmqpDefaultOptions} chan
-	 * @param {Consumer} consumer
+	 * @param {KafkaConsumer} consumer
 	 * @param {EachMessagePayload} payload
 	 * @returns {Promise<void>}
 	 */
@@ -281,6 +298,20 @@ class KafkaAdapter extends BaseAdapter {
 		);
 
 		const id = `${partition}:${message.offset}`;
+		const newOffset = Number(message.offset) + 1;
+
+		// Check group filtering
+		if (message.headers && message.headers[HEADER_GROUP]) {
+			const group = message.headers[HEADER_GROUP].toString();
+			if (group !== chan.group) {
+				this.logger.debug(
+					`The message is addressed to other group '${group}'. Current group: '${chan.group}'. Skipping...`
+				);
+				// Acknowledge
+				await this.commitOffset(consumer, topic, partition, newOffset);
+				return;
+			}
+		}
 
 		try {
 			this.addChannelActiveMessages(chan.id, [id]);
@@ -290,14 +321,13 @@ class KafkaAdapter extends BaseAdapter {
 
 			await chan.handler(content, message);
 
-			const newOffset = Number(message.offset) + 1;
 			this.logger.info("Message is processed. Committing offset", {
 				topic,
 				partition,
 				offset: newOffset
 			});
 			// Acknowledge
-			consumer.commitOffsets([{ topic, partition, offset: newOffset }]);
+			await this.commitOffset(consumer, topic, partition, newOffset);
 
 			this.removeChannelActiveMessages(chan.id, [id]);
 		} catch (err) {
@@ -315,13 +345,13 @@ class KafkaAdapter extends BaseAdapter {
 					// No retries, drop message
 					this.logger.error(`No retries, drop message...`);
 				}
-				consumer.commitOffsets([{ topic, partition, offset: message.offset + 1 }]);
+				await this.commitOffset(consumer, topic, partition, newOffset);
 				return;
 			}
 
 			let redeliveryCount =
-				message.headers["x-redelivered-count"] != null
-					? Number(message.headers["x-redelivered-count"])
+				message.headers[HEADER_REDELIVERED_COUNT] != null
+					? Number(message.headers[HEADER_REDELIVERED_COUNT])
 					: 0;
 			redeliveryCount++;
 			if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
@@ -347,23 +377,25 @@ class KafkaAdapter extends BaseAdapter {
 					raw: true,
 					key: message.key,
 					headers: Object.assign({}, message.headers, {
-						"x-redelivered-count": redeliveryCount.toString()
+						[HEADER_REDELIVERED_COUNT]: redeliveryCount.toString(),
+						[HEADER_GROUP]: chan.group
 					})
 				});
 			}
-			consumer.commitOffsets([{ topic, partition, offset: message.offset + 1 }]);
+			await this.commitOffset(consumer, topic, partition, newOffset);
 		}
 	}
 
-	async moveToDeadLetter(chan, { topic, partition, message }) {
+	async moveToDeadLetter(chan, { partition, message }) {
 		try {
 			const opts = {
 				raw: true,
 				key: message.key,
 				headers: {
 					...(message.headers || {}),
-					"x-original-channel": chan.name,
-					"x-original-partition": "" + partition
+					[HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[HEADER_ORIGINAL_GROUP]: chan.group,
+					[HEADER_ORIGINAL_PARTITION]: "" + partition
 				}
 			};
 

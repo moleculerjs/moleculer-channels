@@ -45,8 +45,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 				}
 			}
 		},
-		{ type: "AMQP", options: {} },*/
-		{ type: "NATS", options: {} },
+		{ type: "AMQP", options: {} },
+		{ type: "NATS", options: {} },*/
 		{ type: "Kafka", options: "kafka://localhost:9093" }
 	];
 }
@@ -69,25 +69,10 @@ describe("Integration tests", () => {
 		describe(`Adapter: ${adapter.name || adapter.type}`, () => {
 			if (adapter.type == "Kafka") {
 				it("initialize Kafka topics", async () => {
-					const kafka = new Kafka({
-						clientId: "moleculer-channel-test",
-						brokers: [adapter.options.replace("kafka://", "")]
-					});
-					const admin = kafka.admin();
-
-					await admin.connect();
-					const topics = await admin.listTopics();
-					if (!topics.includes("test.balanced.topic")) {
-						await admin.createTopics({
-							topics: [{ topic: "test.balanced.topic", numPartitions: 3 }]
-						});
-					}
-					if (!topics.includes("test.unstable.topic")) {
-						await admin.createTopics({
-							topics: [{ topic: "test.unstable.topic", numPartitions: 2 }]
-						});
-					}
-					await admin.disconnect();
+					await createKafkaTopics(adapter, [
+						{ topic: "test.balanced.topic", numPartitions: 3 },
+						{ topic: "test.unstable.topic", numPartitions: 2 }
+					]);
 				});
 			}
 
@@ -949,4 +934,19 @@ describe("Multiple Adapters", () => {
 	});
 });
 */
-// TODO multiple namespaces
+
+async function createKafkaTopics(adapter, defs) {
+	const kafka = new Kafka({
+		clientId: "moleculer-channel-test",
+		brokers: [adapter.options.replace("kafka://", "")]
+	});
+	const admin = kafka.admin();
+
+	await admin.connect();
+	const topics = await admin.listTopics();
+	defs = defs.filter(def => !topics.includes(def.topic));
+	await admin.createTopics({
+		topics: defs
+	});
+	await admin.disconnect();
+}
