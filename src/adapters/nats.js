@@ -8,7 +8,7 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { MoleculerError } = require("moleculer").Errors;
+const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
 
 let NATS;
 
@@ -37,7 +37,7 @@ let NATS;
  * @property {String} url String containing the URL to NATS server
  * @property {ConnectionOptions} nats.connectionOpts
  * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
- * @property {ConsumerOpts} nats.consumerOpts More info: https://docs.nats.io/jetstream/concepts/consumers
+ * @property {ConsumerOpts} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
  */
 
 /**
@@ -64,7 +64,7 @@ class NatsAdapter extends BaseAdapter {
 				/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
 				streamConfig: {},
 				/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-				consumerOpts: {
+				consumerOptions: {
 					// Manual ACK
 					mack: true,
 					config: {
@@ -191,8 +191,8 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
 		const consumerOpts = _.defaultsDeep(
 			{},
-			chan.nats ? chan.nats.consumerOpts : {},
-			this.opts.nats.consumerOpts
+			chan.nats ? chan.nats.consumerOptions : {},
+			this.opts.nats.consumerOptions
 		);
 
 		consumerOpts.queue = streamName;
@@ -229,6 +229,9 @@ class NatsAdapter extends BaseAdapter {
 		 * @param {JsMsg} message
 		 */
 		return async (err, message) => {
+			// Service is stopping. Skip processing...
+			if (chan.unsubscribing) return;
+
 			// NATS "regular" message with stats. Not a JetStream message
 			// Both err and message are "null"
 			// More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md#callbacks
@@ -346,7 +349,8 @@ class NatsAdapter extends BaseAdapter {
 				raw: true,
 				headers: {
 					// Add info about original channel where error occurred
-					"x-original-channel": chan.name
+					[HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			};
 
@@ -364,7 +368,9 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
+		if (chan.unsubscribing) return;
 		chan.unsubscribing = true;
+
 		const sub = this.subscriptions.get(chan.id);
 		if (!sub) return;
 

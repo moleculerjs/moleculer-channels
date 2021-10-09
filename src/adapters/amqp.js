@@ -9,6 +9,11 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
+const {
+	HEADER_ORIGINAL_CHANNEL,
+	HEADER_ORIGINAL_GROUP,
+	HEADER_REDELIVERED_COUNT
+} = require("../constants");
 
 let Amqplib;
 
@@ -25,7 +30,7 @@ let Amqplib;
  * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
  * @property {Number} maxInFlight Max-in-flight messages
  * @property {Object} amqp AMQP lib configuration
- * @property {Number} amqp.url Connection URI
+ * @property {String} amqp.url Connection URI
  * @property {Object} amqp.socketOptions AMQP lib socket configuration
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
@@ -335,7 +340,10 @@ class AmqpAdapter extends BaseAdapter {
 	 */
 	createConsumerHandler(chan) {
 		return async msg => {
-			this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
+			// Service is stopping. Skip processing...
+			if (chan.unsubscribing) return;
+
+			this.logger.debug(`AMQP message received in '${chan.name}' queue. Processing...`);
 			const id =
 				msg.properties.correlationId ||
 				`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
@@ -368,7 +376,8 @@ class AmqpAdapter extends BaseAdapter {
 					return;
 				}
 
-				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
+				let redeliveryCount = msg.properties.headers[HEADER_REDELIVERED_COUNT] || 0;
+				redeliveryCount++;
 				if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
 					if (chan.deadLettering.enabled) {
 						// Reached max retries and has dead-letter topic, move message
@@ -393,7 +402,7 @@ class AmqpAdapter extends BaseAdapter {
 
 					const res = this.channel.publish("", queueName, msg.content, {
 						headers: Object.assign({}, msg.properties.headers, {
-							"x-redelivered-count": redeliveryCount + 1
+							[HEADER_REDELIVERED_COUNT]: redeliveryCount
 						})
 					});
 					if (res === false)
@@ -412,7 +421,8 @@ class AmqpAdapter extends BaseAdapter {
 			msg.content,
 			{
 				headers: {
-					"x-original-channel": chan.name
+					[HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			}
 		);
@@ -427,6 +437,9 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
+		if (chan.unsubscribing) return;
+		chan.unsubscribing = true;
+
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
 		const sub = this.subscriptions.get(chan.id);

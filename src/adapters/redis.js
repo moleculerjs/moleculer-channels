@@ -437,13 +437,16 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
+		if (chan.unsubscribing) return;
+		chan.unsubscribing = true;
+
 		return (
 			Promise.resolve()
 				.then(() => {
 					// "Break" the xreadgroup() by disconnecting the client
 					// Will trigger an error that has to be handled
-					chan.unsubscribing = true;
-					this.clients.get(chan.id).disconnect();
+					const client = this.clients.get(chan.id);
+					if (client) client.disconnect();
 				})
 				// Add delay to ensure that client is disconnected
 				.then(() => new Promise(resolve => setTimeout(resolve, 100)))

@@ -41,6 +41,7 @@ broker.createService({
 	name: "sub1",
 	channels: {
 		"my.tracked.topic": {
+			maxInFlight: 10,
 			async handler() {
 				this.logger.info(">>> Start processing message. It will takes 10s...");
 				await this.Promise.delay(10 * 1000);

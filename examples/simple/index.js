@@ -23,13 +23,17 @@ const broker = new ServiceBroker({
 			async action(broker, args) {
 				const { options } = args;
 				//console.log(options);
-				await broker.sendToChannel("my.first.topic", {
-					id: 2,
-					name: "Jane Doe",
-					status: false,
-					count: ++c,
-					pid: process.pid
-				});
+				await broker.sendToChannel(
+					"my.first.topic",
+					{
+						id: 2,
+						name: "Jane Doe",
+						status: false,
+						count: ++c,
+						pid: process.pid
+					},
+					{ key: "" + c, headers: { a: "something" } }
+				);
 			}
 		},
 		{
@@ -71,8 +75,8 @@ broker.createService({
 	name: "posts",
 	version: 1,
 	channels: {
-		async "my.first.topic"(msg) {
-			this.logger.info("[POSTS] Channel One msg received", msg);
+		async "my.first.topic"(msg, raw) {
+			this.logger.info("[POSTS] Channel One msg received", msg, raw.key, raw.headers);
 			/*if (Math.random() > 0.7) {
 				this.logger.warn("Throwing some error...");
 				throw new Error("Something happened");

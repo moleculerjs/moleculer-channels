@@ -23,8 +23,6 @@ const broker = new ServiceBroker({
 			command: "publish",
 			alias: ["p"],
 			async action(broker, args) {
-				const { options } = args;
-				//console.log(options);
 				const payload = {
 					id: 2,
 					name: "Jane Doe",
@@ -33,7 +31,7 @@ const broker = new ServiceBroker({
 					pid: process.pid
 				};
 
-				await broker.sendToChannel("my.fail.topic", payload);
+				await broker.sendToChannel("my.fail.topic", payload, { key: "" + c });
 			}
 		}
 	]
@@ -43,7 +41,7 @@ broker.createService({
 	name: "sub1",
 	channels: {
 		"my.fail.topic": {
-			group: "mygroup",
+			group: "failgroup",
 			minIdleTime: 1000,
 			claimInterval: 500,
 			maxRetries: 3,
@@ -59,8 +57,34 @@ broker.createService({
 		}
 	}
 });
+broker.createService({
+	name: "sub2",
+	channels: {
+		"my.fail.topic": {
+			group: "goodgroup",
+			handler(msg) {
+				this.logger.info(">>> I processed", msg);
+			}
+		}
+	}
+});
 
-broker.createService(deadServiceSchema);
+broker.createService({
+	name: "sub3",
+	channels: {
+		DEAD_LETTER: {
+			group: "failgroup",
+			handler(msg, raw) {
+				this.logger.info("--> FAILED HANDLER <--");
+				this.logger.info(msg);
+				// Send a notification about the failure
+
+				this.logger.info("--> RAW (ENTIRE) MESSAGE <--");
+				this.logger.info(raw);
+			}
+		}
+	}
+});
 
 broker
 	.start()

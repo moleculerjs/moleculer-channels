@@ -9,13 +9,13 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch selected demo",
-			"program": "${file}",
+			"program": "examples/index.js",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"dead-letter"
+				"serializer"
 			],
 			"env": {
-				"ADAPTER": "nats://localhost:4222"
+				//"ADAPTER": "kafka://localhost:9093"
 			}
 		},
 		{
