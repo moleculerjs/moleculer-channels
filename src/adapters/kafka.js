@@ -96,7 +96,6 @@ class KafkaAdapter extends BaseAdapter {
 		this.opts = _.defaultsDeep(this.opts, {
 			maxInFlight: 1,
 			kafka: {
-				clientId: null, // set to nodeID in `init`
 				brokers: ["localhost:9092"],
 				logCreator:
 					() =>
@@ -149,7 +148,7 @@ class KafkaAdapter extends BaseAdapter {
 
 		this.checkClientLibVersion("kafkajs", "^1.15.0");
 
-		this.opts.kafka.clientId = this.broker.nodeID;
+		this.opts.kafka.clientId = this.opts.consumerName;
 
 		this.kafkaLogger = this.broker.getLogger("Channels.KafkaJs");
 	}
