@@ -26,7 +26,8 @@ const Adapters = [
 		}
 	},
 	{ type: "AMQP", options: {} },
-	{ type: "NATS", options: {} }
+	{ type: "NATS", options: {} },
+	{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
 ];
 
 Promise.mapSeries(Adapters, async adapterDef => {
