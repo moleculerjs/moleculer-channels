@@ -664,7 +664,7 @@ In this test, we send one message at a time. After processing the current messag
 | NATS JetStream | 1ms | 584 |
 | Kafka | 1ms | 637 |
 
-![chart](https://image-charts.com/chart?chd=a%3A3%2C2%2C22&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Latency%20test%20%28milliseconds%29%7Clower%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
+![chart](https://image-charts.com/chart?chd=a%3A3%2C2%2C51%2C1%2C1&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Latency%20test%20%28milliseconds%29%7Clower%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP%7CNATS%7CKafka&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
 ### Throughput test (maxInFligth: 10)
 In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `10`.
@@ -677,7 +677,7 @@ In this test, we send 10k messages and wait for all be processed. This test meas
 | NATS JetStream | 589 |
 | Kafka | 1831 |
 
-![chart](https://image-charts.com/chart?chd=a%3A1164%2C1275%2C10431&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%2010%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
+![chart](https://image-charts.com/chart?chd=a%3A1294%2C4118%2C11143%2C589%2C1831&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%2010%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP%7CNATS%7CKafka&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
 ### Throughput test (maxInFligth: 100)
 In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `100`.
@@ -690,7 +690,7 @@ In this test, we send 10k messages and wait for all be processed. This test meas
 | NATS JetStream | 646 |
 | Kafka | 1916 |
 
-![chart](https://image-charts.com/chart?chd=a%3A6260%2C4071%2C20988&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%20100%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
+![chart](https://image-charts.com/chart?chd=a%3A4081%2C4198%2C21438%2C646%2C1916&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%20100%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP%7CNATS%7CKafka&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
 
 ## License
