@@ -9,6 +9,7 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
+const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
 
 let Amqplib;
 
@@ -413,7 +414,8 @@ class AmqpAdapter extends BaseAdapter {
 			msg.content,
 			{
 				headers: {
-					"x-original-channel": chan.name
+					[HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			}
 		);

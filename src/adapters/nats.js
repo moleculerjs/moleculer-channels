@@ -9,6 +9,7 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
+const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
 
 let NATS;
 
@@ -346,7 +347,8 @@ class NatsAdapter extends BaseAdapter {
 				raw: true,
 				headers: {
 					// Add info about original channel where error occurred
-					"x-original-channel": chan.name
+					[HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			};
 
