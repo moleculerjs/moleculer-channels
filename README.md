@@ -126,7 +126,7 @@ module.exports = {
         // Default options
         ChannelsMiddleware({
             adapter: {
-                type: "Redis",
+                type: "Kafka",
                 options: {}
             }
         }),
@@ -252,13 +252,18 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 
 | Name | Type | Supported adapters | Description |
 | ---- | ---- | ------------------ | ----------- |
-| `raw` | `Boolean` | Redis, AMQP, JetStream, Kafka | If truthy, the payload won't be serialized. |
+| `raw` | `Boolean` | * | If truthy, the payload won't be serialized. |
 | `persistent` | `Boolean` | AMQP | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts. |
 | `ttl` | `Number` | AMQP | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds. |
 | `priority` | `Number` | AMQP | Priority of the message. |
 | `correlationId` | `String` | AMQP | Request identifier. |
 | `headers` | `Object` | AMQP, JetStream, Kafka | Application specific headers to be carried along with the message content. |
 | `routingKey` | `Object` | AMQP | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
+| `key` | `String` | Kafka | Key of Kafka message. |
+| `partition` | `String` | Kafka | Partition of Kafka message. |
+| `acks` | `Number` | Kafka | Control the number of required acks. |
+| `timeout` | `Number` | Kafka | The time to await a response in ms. Default: `30000` |
+| `compression` | `any` | Kafka | Compression codec. Default: `CompressionTypes.None` |
 
 ## Middleware hooks
 It is possible to wrap the handlers and the send method in Moleculer middleware. The module defines two hooks to cover it. The `localChannel` hook is similar to [`localAction`](https://moleculer.services/docs/0.14/middlewares.html#localAction-next-action) but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to [`emit`](https://moleculer.services/docs/0.14/middlewares.html#emit-next) or [`broadcast`](https://moleculer.services/docs/0.14/middlewares.html#broadcast-next) but it wraps the `broker.sendToChannel` publisher method.
@@ -274,9 +279,9 @@ const MyMiddleware = {
 
     // Wrap the channel handlers
     localChannel(next, chan) {
-        return async msg => {
+        return async (msg, raw) => {
             this.logger.info(kleur.magenta(`  Before localChannel for '${chan.name}'`), msg);
-            await next(msg);
+            await next(msg, raw);
             this.logger.info(kleur.magenta(`  After localChannel for '${chan.name}'`), msg);
         };
     },
@@ -331,7 +336,7 @@ module.exports = {
 | `amqp.messageOptions` | `Object` | `null` | AMQP | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).
 | `amqp.consumeOptions` | `Object` | `null` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
 | `nats.streamConfig` | `Object` | `null` | NATS | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).
-| `nats.consumerOpts` | `Object` | `null` | NATS | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).
+| `nats.consumerOptions` | `Object` | `null` | NATS | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).
 | `kafka.brokers` | `String[]` | `null` | Kafka | Kafka bootstrap brokers.
 | `kafka.logCreator` | `Function` | `null` | Kafka | Kafka logCreator. More info [here](https://kafka.js.org/docs/custom-logger).
 | `kafka.producerOptions` | `Object` | `null` | Kafka | Kafka producer constructor configuration. More info [here](https://kafka.js.org/docs/producing#options).

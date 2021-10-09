@@ -8,11 +8,6 @@ const Kafka = require("kafkajs").Kafka;
 
 let Adapters;
 
-/*
-	TODO:
-		- Test with MsgPack serializer
-*/
-
 if (process.env.GITHUB_ACTIONS_CI) {
 	Adapters = [
 		{ type: "Redis", options: {} },

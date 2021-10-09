@@ -8,7 +8,6 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { MoleculerError } = require("moleculer").Errors;
 const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
 
 let NATS;
@@ -38,7 +37,7 @@ let NATS;
  * @property {String} url String containing the URL to NATS server
  * @property {ConnectionOptions} nats.connectionOpts
  * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
- * @property {ConsumerOpts} nats.consumerOpts More info: https://docs.nats.io/jetstream/concepts/consumers
+ * @property {ConsumerOpts} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
  */
 
 /**
@@ -65,7 +64,7 @@ class NatsAdapter extends BaseAdapter {
 				/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
 				streamConfig: {},
 				/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-				consumerOpts: {
+				consumerOptions: {
 					// Manual ACK
 					mack: true,
 					config: {
@@ -192,8 +191,8 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
 		const consumerOpts = _.defaultsDeep(
 			{},
-			chan.nats ? chan.nats.consumerOpts : {},
-			this.opts.nats.consumerOpts
+			chan.nats ? chan.nats.consumerOptions : {},
+			this.opts.nats.consumerOptions
 		);
 
 		consumerOpts.queue = streamName;
