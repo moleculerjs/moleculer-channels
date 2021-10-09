@@ -106,7 +106,8 @@ class KafkaAdapter extends BaseAdapter {
 							log.message
 						);
 					},
-				producerOptions: undefined
+				producerOptions: undefined,
+				consumerOptions: undefined
 			}
 		});
 
@@ -237,10 +238,15 @@ class KafkaAdapter extends BaseAdapter {
 				);
 			}
 
+			if (!chan.kafka) {
+				chan.kafka = {};
+			}
+
 			let consumer = this.client.consumer({
 				groupId: `${chan.group}:${chan.name}`,
 				maxInFlightRequests: chan.maxInFlight,
-				...(chan.kafka || {})
+				...(this.opts.kafka.consumerOptions || {}),
+				...chan.kafka
 			});
 			this.consumers.set(chan.id, consumer);
 			await consumer.connect();
@@ -250,10 +256,11 @@ class KafkaAdapter extends BaseAdapter {
 
 			this.initChannelActiveMessages(chan.id);
 
-			await consumer.subscribe({ topic: chan.name, fromBeginning: chan.fromBeginning });
+			await consumer.subscribe({ topic: chan.name, fromBeginning: chan.kafka.fromBeginning });
 
 			await consumer.run({
 				autoCommit: false,
+				partitionsConsumedConcurrently: chan.kafka.partitionsConsumedConcurrently,
 				eachMessage: payload => this.processMessage(chan, consumer, payload)
 			});
 		} catch (err) {

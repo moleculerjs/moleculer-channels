@@ -79,7 +79,8 @@ describe("Integration tests", () => {
 				it("initialize Kafka topics", async () => {
 					await createKafkaTopics(adapter, [
 						{ topic: "test.balanced.topic", numPartitions: 3 },
-						{ topic: "test.unstable.topic", numPartitions: 2 }
+						{ topic: "test.unstable.topic", numPartitions: 2 },
+						{ topic: "test.fail.topic", numPartitions: 1 }
 					]);
 				});
 			}
@@ -456,7 +457,7 @@ describe("Integration tests", () => {
 					subWrongHandler.mockClear();
 				});
 
-				it("should place message into FAILED LIST", async () => {
+				it("should retry failed messages only the failed consumer group", async () => {
 					// -> Create and start the services to register consumer groups and queues <- //
 					broker.createService({
 						name: "sub1",
@@ -486,7 +487,7 @@ describe("Integration tests", () => {
 						}
 					});
 
-					await broker.Promise.delay(2000);
+					await broker.Promise.delay(DELAY_AFTER_BROKER_START);
 					// -> Publish a message <- //
 					await broker.sendToChannel("test.fail.topic", { test: 1 });
 					await broker.Promise.delay(1000);
@@ -596,13 +597,13 @@ describe("Integration tests", () => {
 				});
 
 				beforeAll(() =>
-					broker1.Promise.all([
-						broker1.start(),
-						broker2.start(),
-						broker3.start(),
-						broker4.start(),
-						broker5.start()
-					]).delay(2000)
+					broker1.Promise.mapSeries(
+						[broker1, broker2, broker3, broker4, broker5],
+						async broker => {
+							await broker.start();
+							await broker.Promise.delay(DELAY_AFTER_BROKER_START);
+						}
+					)
 				);
 
 				afterAll(() =>
