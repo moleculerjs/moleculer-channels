@@ -337,7 +337,7 @@ describe("Integration tests", () => {
 					expect(subWrongHandler.mock.calls.length).toBeGreaterThan(1);
 				});
 			});
-*/
+
 			describe("Test Connection/Reconnection logic", () => {
 				const broker = createBroker(adapter);
 
@@ -366,11 +366,19 @@ describe("Integration tests", () => {
 							}
 						}
 					});
+					await broker.Promise.delay(2000);
+					// ---- ^ SETUP ^ ---
+
+					await broker.sendToChannel("test.delayed.connection.topic", { id: id++ });
+					await broker.Promise.delay(200);
+					expect(sub1Handler).toHaveBeenCalledTimes(1);
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 0 }, expect.anything());
+
+					// Destroy service
 					await broker.Promise.delay(500);
 					await broker.destroyService(svc0);
 					await broker.Promise.delay(200);
-
-					// ---- ^ SETUP ^ ---
+					sub1Handler.mockClear();
 
 					// -> Publish the messages while no listeners are running <- //
 					await Promise.all(
@@ -392,21 +400,19 @@ describe("Integration tests", () => {
 						}
 					});
 					await broker.Promise.delay(1000);
-					if (adapter.type == "Kafka") await broker.Promise.delay(10 * 1000);
 
 					// ---- ˇ ASSERT ˇ ---
 					expect(sub1Handler).toHaveBeenCalledTimes(6);
-					expect(sub1Handler).toHaveBeenCalledWith({ id: 0 }, expect.anything());
 					expect(sub1Handler).toHaveBeenCalledWith({ id: 1 }, expect.anything());
 					expect(sub1Handler).toHaveBeenCalledWith({ id: 2 }, expect.anything());
 					expect(sub1Handler).toHaveBeenCalledWith({ id: 3 }, expect.anything());
 					expect(sub1Handler).toHaveBeenCalledWith({ id: 4 }, expect.anything());
 					expect(sub1Handler).toHaveBeenCalledWith({ id: 5 }, expect.anything());
+					expect(sub1Handler).toHaveBeenCalledWith({ id: 6 }, expect.anything());
 
 					// -> Server is going down <- //
 					await broker.destroyService(svc1);
 					await broker.Promise.delay(200);
-					if (adapter.type == "Kafka") await broker.Promise.delay(10 * 1000);
 
 					// -> In mean time, more messages are being published <- //
 					await Promise.all(
@@ -427,20 +433,19 @@ describe("Integration tests", () => {
 							}
 						}
 					});
-					await broker.Promise.delay(1000);
-					if (adapter.type == "Kafka") await broker.Promise.delay(10 * 1000);
+					await broker.Promise.delay(2000);
 
 					// ---- ˇ ASSERT ˇ ---
 					expect(sub2Handler).toHaveBeenCalledTimes(6);
-					expect(sub2Handler).toHaveBeenCalledWith({ id: 6 }, expect.anything());
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 7 }, expect.anything());
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 8 }, expect.anything());
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 9 }, expect.anything());
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 10 }, expect.anything());
 					expect(sub2Handler).toHaveBeenCalledWith({ id: 11 }, expect.anything());
+					expect(sub2Handler).toHaveBeenCalledWith({ id: 12 }, expect.anything());
 				});
 			});
-			/*
+			*/
 			describe("Test Failed Message logic", () => {
 				const broker = createBroker(adapter);
 
@@ -485,7 +490,7 @@ describe("Integration tests", () => {
 						}
 					});
 
-					await broker.Promise.delay(500);
+					await broker.Promise.delay(2000);
 					// -> Publish a message <- //
 					await broker.sendToChannel("test.fail.topic", { test: 1 });
 					await broker.Promise.delay(1000);
@@ -495,7 +500,7 @@ describe("Integration tests", () => {
 					expect(subWrongHandler).toHaveBeenCalledTimes(6);
 				});
 			});
-
+			/*
 			describe("Test Max-In-Flight logic", () => {
 				const broker = createBroker({ ...adapter, options: { amqp: { prefetch: 1 } } });
 

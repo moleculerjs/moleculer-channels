@@ -275,7 +275,8 @@ class KafkaAdapter extends BaseAdapter {
 			{
 				topic,
 				partition,
-				offset: message.offset
+				offset: message.offset,
+				headers: message.headers
 			}
 		);
 
@@ -318,10 +319,11 @@ class KafkaAdapter extends BaseAdapter {
 				return;
 			}
 
-			const redeliveryCount =
+			let redeliveryCount =
 				message.headers["x-redelivered-count"] != null
 					? Number(message.headers["x-redelivered-count"])
-					: 1;
+					: 0;
+			redeliveryCount++;
 			if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
 				if (chan.deadLettering.enabled) {
 					// Reached max retries and has dead-letter topic, move message
@@ -337,13 +339,15 @@ class KafkaAdapter extends BaseAdapter {
 				}
 			} else {
 				// Redeliver the message
-				this.logger.warn(`Redeliver message into '${chan.name}' topic.`, redeliveryCount);
+				this.logger.warn(
+					`Redeliver message into '${chan.name}' topic. Count: ${redeliveryCount}`
+				);
 
 				await this.publish(chan.name, message.value, {
 					raw: true,
 					key: message.key,
 					headers: Object.assign({}, message.headers, {
-						"x-redelivered-count": (redeliveryCount + 1).toString()
+						"x-redelivered-count": redeliveryCount.toString()
 					})
 				});
 			}

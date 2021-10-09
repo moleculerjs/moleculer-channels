@@ -348,7 +348,8 @@ class AmqpAdapter extends BaseAdapter {
 					return;
 				}
 
-				const redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
+				let redeliveryCount = msg.properties.headers["x-redelivered-count"] || 1;
+				redeliveryCount++;
 				if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
 					if (chan.deadLettering.enabled) {
 						// Reached max retries and has dead-letter topic, move message
@@ -373,7 +374,7 @@ class AmqpAdapter extends BaseAdapter {
 
 					const res = this.channel.publish("", queueName, msg.content, {
 						headers: Object.assign({}, msg.properties.headers, {
-							"x-redelivered-count": redeliveryCount + 1
+							"x-redelivered-count": redeliveryCount
 						})
 					});
 					if (res === false)
