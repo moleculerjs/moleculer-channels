@@ -12,10 +12,10 @@
 			"program": "examples/index.js",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"simple"
+				"serializer"
 			],
 			"env": {
-				"ADAPTER": "kafka://localhost:9093"
+				//"ADAPTER": "kafka://localhost:9093"
 			}
 		},
 		{

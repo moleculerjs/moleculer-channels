@@ -45,6 +45,7 @@
     "kleur": "^4.1.4",
     "moleculer": "^0.14.16",
     "moleculer-repl": "^0.6.6",
+    "msgpack5": "^5.3.2",
     "nats": "^2.2.0",
     "nodemon": "^2.0.12",
     "npm-check": "^5.9.2",
