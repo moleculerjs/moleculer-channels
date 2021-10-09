@@ -347,6 +347,8 @@ module.exports = {
 
 [Redis Streams](https://redis.io/topics/streams-intro) was introduced in Redis 5.0. Hoverer, since this module relies on the [XAUTOCLAIM](https://redis.io/commands/xautoclaim) command, Redis >= 6.2.0 is required.
 
+>To use this adapter, install the `ioredis` module with npm install `ioredis` command.
+
 **Redis Adapter Overview**
 
 ![Dead-Letter](assets/redis_queue.png)
@@ -467,9 +469,11 @@ module.exports = {
 };
 ```
 
-### RabbitMQ
+### AMQP (RabbitMQ)
 
-The RabbitMQ adapter uses the exchange-queue logic of RabbitMQ for creating consumer groups. It means the `sendToChannel` method sends the message to the exchange and not for a queue. 
+The AMQP adapter uses the exchange-queue logic of RabbitMQ for creating consumer groups. It means the `sendToChannel` method sends the message to the exchange and not for a queue. 
+
+>To use this adapter, install the `amqplib` module with npm install `amqplib` command.
 
 **Example**
 
@@ -529,7 +533,9 @@ module.exports = {
 
 The Kafka adapter uses Apache Kafka topics.
 
-> In Kafka adapter, the `maxInFlight` function works differently than other adapters. Reading messages from a partition is processed sequentially in order. So if you want to process multiple messages, you should read messages from multiple partition. To enable it, use the `kafka.partitionsConsumedConcurrently` option in channel options.
+> In Kafka adapter, the `maxInFlight` function works differently than other adapters. Reading messages from a partition is processed sequentially in order. So if you want to process multiple messages, you should read messages from multiple partition. To enable it, use the `kafka.partitionsConsumedConcurrently` option in channel options. [More info](https://kafka.js.org/docs/consuming#a-name-concurrent-processing-a-partition-aware-concurrency).
+
+>To use this adapter, install the `kafkajs` module with npm install `kafkajs` command.
 
 **Example**
 
@@ -579,6 +585,8 @@ module.exports = {
 
 
 ### NATS JetStream
+
+>To use this adapter, install the `nats` module with npm install `nats` command.
 
 ```js
 // moleculer.config.js
