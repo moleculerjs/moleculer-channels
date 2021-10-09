@@ -290,6 +290,9 @@ class KafkaAdapter extends BaseAdapter {
 	 * @returns {Promise<void>}
 	 */
 	async processMessage(chan, consumer, { topic, partition, message }) {
+		// Service is stopping. Skip processing...
+		if (chan.unsubscribing) return;
+
 		this.logger.debug(
 			`Kafka consumer received a message in '${chan.name}' queue. Processing...`,
 			{
@@ -419,6 +422,9 @@ class KafkaAdapter extends BaseAdapter {
 	 * @param {Channel & KafkaDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
+		if (chan.unsubscribing) return;
+		chan.unsubscribing = true;
+
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
 		const consumer = this.consumers.get(chan.id);

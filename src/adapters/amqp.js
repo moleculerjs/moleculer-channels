@@ -340,7 +340,10 @@ class AmqpAdapter extends BaseAdapter {
 	 */
 	createConsumerHandler(chan) {
 		return async msg => {
-			this.logger.debug(`AMQP message received in '${chan.name}' queue.`);
+			// Service is stopping. Skip processing...
+			if (chan.unsubscribing) return;
+
+			this.logger.debug(`AMQP message received in '${chan.name}' queue. Processing...`);
 			const id =
 				msg.properties.correlationId ||
 				`${msg.fields.consumerTag}:${msg.fields.deliveryTag}`;
@@ -434,6 +437,9 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 */
 	async unsubscribe(chan) {
+		if (chan.unsubscribing) return;
+		chan.unsubscribing = true;
+
 		this.logger.debug(`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`);
 
 		const sub = this.subscriptions.get(chan.id);

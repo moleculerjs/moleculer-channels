@@ -229,6 +229,9 @@ class NatsAdapter extends BaseAdapter {
 		 * @param {JsMsg} message
 		 */
 		return async (err, message) => {
+			// Service is stopping. Skip processing...
+			if (chan.unsubscribing) return;
+
 			// NATS "regular" message with stats. Not a JetStream message
 			// Both err and message are "null"
 			// More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md#callbacks
@@ -365,7 +368,9 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	async unsubscribe(chan) {
+		if (chan.unsubscribing) return;
 		chan.unsubscribing = true;
+
 		const sub = this.subscriptions.get(chan.id);
 		if (!sub) return;
 
