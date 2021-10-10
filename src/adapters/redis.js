@@ -9,6 +9,8 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
+const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+const HEADER_ORIGINAL_ID = "x-original-id";
 
 let Redis;
 
@@ -392,7 +394,14 @@ class RedisAdapter extends BaseAdapter {
 							// Move the messages to a dedicated channel
 							await Promise.all(
 								messages.map(entry =>
-									this.moveToDeadLetter(chan, entry[0], entry[1][1])
+									this.moveToDeadLetter(
+										chan,
+										entry[0],
+										entry[1][1],
+										entry[1][2] === "headers"
+											? this.serializer.deserialize(entry[1][3])
+											: {}
+									)
 								)
 							);
 						} else {
@@ -504,7 +513,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, serializedMessages, fullMessages } =
+		const { ids, parsedMessages, parsedHeaders, serializedMessages, fullMessages } =
 			this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
@@ -520,6 +529,8 @@ class RedisAdapter extends BaseAdapter {
 		for (let i = 0; i < promiseResults.length; i++) {
 			const result = promiseResults[i];
 			const id = ids[i];
+			const messageHeaders = parsedHeaders[i];
+
 			if (result.status == "fulfilled") {
 				// Send ACK message
 				// https://redis.io/commands/xack
@@ -536,7 +547,12 @@ class RedisAdapter extends BaseAdapter {
 					// No retries
 
 					if (chan.deadLettering.enabled) {
-						await this.moveToDeadLetter(chan, id, serializedMessages[i]);
+						await this.moveToDeadLetter(
+							chan,
+							id,
+							serializedMessages[i],
+							messageHeaders
+						);
 					} else {
 						// Drop message
 						this.logger.error(`Drop message...`, id);
@@ -566,11 +582,18 @@ class RedisAdapter extends BaseAdapter {
 				accumulator.serializedMessages.push(currentVal[1][1]);
 				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
+				accumulator.parsedHeaders.push(
+					currentVal[1][2] === "headers"
+						? this.serializer.deserialize(currentVal[1][3])
+						: {}
+				);
+
 				return accumulator;
 			},
 			{
 				ids: [], // for XACK
 				parsedMessages: [], // Deserialized payload
+				parsedHeaders: [], // Deserialized Headers
 				serializedMessages: [], // Serialized payload
 				fullMessages: [] // Entire message
 			}
@@ -583,9 +606,17 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 * @param {String} originalID ID of the dead message
 	 * @param {Object} message Raw (not serialized) message contents
+	 * @param {Object} headers Header contents
 	 */
-	async moveToDeadLetter(chan, originalID, message) {
+	async moveToDeadLetter(chan, originalID, message, headers) {
 		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
+
+		const msgHdrs = {
+			...headers,
+			[HEADER_ORIGINAL_ID]: originalID,
+			[HEADER_ORIGINAL_CHANNEL]: chan.name,
+			[HEADER_ORIGINAL_GROUP]: chan.group
+		};
 
 		// Move the message to a dedicated channel
 		const nackedClient = this.clients.get(this.nackedName);
@@ -594,10 +625,8 @@ class RedisAdapter extends BaseAdapter {
 			"*", // Auto generate the ID
 			"payload",
 			message, // Message contents
-			"channel",
-			chan.name, // Topic where failure occurred
-			"originalID",
-			originalID // Original ID (timestamp) of failed message
+			"headers",
+			this.serializer.serialize(msgHdrs)
 		);
 
 		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
@@ -619,13 +648,21 @@ class RedisAdapter extends BaseAdapter {
 		const clientPub = this.clients.get(this.pubName);
 
 		try {
-			// https://redis.io/commands/XADD
-			const id = await clientPub.xadd(
+			let args = [
 				channelName, // Stream name
 				"*", // Auto ID
 				"payload", // Entry
 				opts.raw ? payload : this.serializer.serialize(payload) // Actual payload
-			);
+			];
+
+			// Add headers
+			if (opts.headers) {
+				args.push(...["headers", this.serializer.serialize(opts.headers)]);
+			}
+
+			// https://redis.io/commands/XADD
+			const id = await clientPub.xadd(...args);
+
 			this.logger.debug(`Message ${id} was published at '${channelName}'`);
 		} catch (err) {
 			this.logger.error(`Cannot publish to '${channelName}'`, err);
