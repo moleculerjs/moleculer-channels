@@ -11,11 +11,7 @@ const broker = new ServiceBroker({
 		CHANNELS: "debug",
 		"**": "info"
 	},
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: process.env.ADAPTER || "redis://localhost:6379"
-		})
-	],
+	middlewares: [ChannelsMiddleware({ adapter: { type: "Redis", options: {} } })],
 	replCommands: [
 		{
 			command: "publish",
@@ -40,8 +36,10 @@ broker.createService({
 	channels: {
 		"my.fail.topic": {
 			group: "failgroup",
-			minIdleTime: 1000,
-			claimInterval: 500,
+			redis: {
+				minIdleTime: 1000,
+				claimInterval: 500
+			},
 			maxRetries: 3,
 			deadLettering: {
 				enabled: true,
