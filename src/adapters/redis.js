@@ -26,7 +26,7 @@ let Redis;
 
 /**
  * @typedef {Object} RedisDefaultOptions Redis Adapter configuration
- * @property {Number} readTimeoutInternal Timeout interval (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout
+ * @property {Number} readTimeoutInterval Timeout interval (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout
  * @property {Number} minIdleTime Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
  * @property {Number} claimInterval Interval (in milliseconds) between message claims
  * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
@@ -75,7 +75,7 @@ class RedisAdapter extends BaseAdapter {
 				consumerOptions: {
 					// Timeout interval (in milliseconds) while waiting for new messages
 					// By default never timeout
-					readTimeoutInternal: 0,
+					readTimeoutInterval: 0,
 					// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
 					minIdleTime: 60 * 60 * 1000,
 					// Time between claims (in milliseconds)
@@ -289,7 +289,7 @@ class RedisAdapter extends BaseAdapter {
 							chan.group, // Group name
 							chan.id, // Consumer name
 							`BLOCK`,
-							chan.redis.readTimeoutInternal, // Timeout interval while waiting for messages
+							chan.redis.readTimeoutInterval, // Timeout interval while waiting for messages
 							`COUNT`,
 							chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id), // Max number of messages to fetch in a single read
 							`STREAMS`,

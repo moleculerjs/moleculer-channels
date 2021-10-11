@@ -224,7 +224,7 @@ module.exports = {
 | `startID` | `String` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
 | `minIdleTime` | `Number` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour. |
 | `claimInterval` | `Number` | Redis | Interval (in milliseconds) between message claims
-| `readTimeoutInternal` | `Number`| Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup) |
+| `readTimeoutInterval` | `Number`| Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup) |
 | `processingAttemptsInterval` | `Number` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel |
 | `amqp.queueOptions` | `Object` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
 | `amqp.exchangeOptions` | `Object` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
@@ -324,7 +324,7 @@ module.exports = {
 | `redis` | `Object`, `String`, `Number` | `null` | Redis | Redis connection options. More info [here](https://github.com/luin/ioredis#connect-to-redis)
 | `cluster.nodes` | `Array` | `null` | Redis | Redis Cluster nodes list. More info [here](https://github.com/luin/ioredis#cluster)
 | `cluster.clusterOptions` | `Object` | `null` | Redis | Redis Cluster options. More info [here](https://github.com/luin/ioredis#cluster)
-| `redis.consumerOptions.readTimeoutInternal` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
+| `redis.consumerOptions.readTimeoutInterval` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
 | `redis.consumerOptions.minIdleTime` | `Number` | `60 * 60 * 1000` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
 | `redis.consumerOptions.claimInterval` | `Number` | `100` | Redis | Interval (in milliseconds) between message claims.
 | `redis.consumerOptions.startID` | `String` | `$` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).
@@ -388,7 +388,7 @@ module.exports = {
                         password: "pass1234",
 						consumerOptions: {
 							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-							readTimeoutInternal: 0,
+							readTimeoutInterval: 0,
 							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
 							minIdleTime: 5000,
 							// Interval (in milliseconds) between two claims
@@ -467,7 +467,7 @@ module.exports = {
                     redis: {
 						consumerOptions: {
 							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-							readTimeoutInternal: 0,
+							readTimeoutInterval: 0,
 							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
 							minIdleTime: 5000,
 							// Interval (in milliseconds) between two claims

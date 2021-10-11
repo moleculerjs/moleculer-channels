@@ -11,7 +11,7 @@ const broker = new ServiceBroker({
 		CHANNELS: "debug",
 		"**": "info"
 	},
-	middlewares: [ChannelsMiddleware({ adapter: { type: "Redis", options: {} } })],
+	middlewares: [ChannelsMiddleware({ adapter: process.env.ADAPTER || "redis://localhost:6379" })],
 	replCommands: [
 		{
 			command: "publish",
@@ -25,7 +25,7 @@ const broker = new ServiceBroker({
 					pid: process.pid
 				};
 
-				await broker.sendToChannel("my.fail.topic", payload, { headers: { a: 123 } });
+				await broker.sendToChannel("my.fail.topic", payload, { headers: { a: "123" } });
 			}
 		}
 	]

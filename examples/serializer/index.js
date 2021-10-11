@@ -20,8 +20,8 @@ const broker = new ServiceBroker({
 					amqp: {
 						url: "amqp://localhost:5672"
 					},
-					redis: "localhost:6379",
-					serializer: "MsgPack"
+					redis: "localhost:6379"
+					//serializer: "MsgPack"
 				}
 			}
 		})
