@@ -90,6 +90,7 @@ class KafkaAdapter extends BaseAdapter {
 
 		super(opts);
 
+		/** @type {Logger} */
 		this.kafkaLogger = null;
 
 		/** @type {KafkaDefaultOptions & BaseDefaultOptions} */
@@ -154,15 +155,35 @@ class KafkaAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Connect to the adapter
+	 * Connect to the adapter with reconnecting logic
 	 */
-	async connect() {
+	connect() {
+		return new Promise(resolve => {
+			const doConnect = () => {
+				this.tryConnect()
+					.then(resolve)
+					.catch(err => {
+						this.logger.error("Unable to connect Kafka brokers.", err);
+						setTimeout(() => {
+							this.logger.info("Reconnecting...");
+							doConnect();
+						}, 2000);
+					});
+			};
+
+			doConnect();
+		});
+	}
+
+	/**
+	 * Trying connect to the adapter.
+	 */
+	async tryConnect() {
 		this.logger.debug("Connecting to Kafka brokers...", this.opts.kafka.brokers);
 
 		this.client = new Kafka(this.opts.kafka);
 
 		this.producer = this.client.producer(this.opts.kafka.producerOptions);
-
 		await this.producer.connect();
 
 		this.logger.info("Kafka adapter is connected.");
