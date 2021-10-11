@@ -318,17 +318,17 @@ module.exports = {
 | `prefix` | `String` | ServiceBroker namespace | * | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker. |
 | `serializer` | `String`, `Object`, `Serializer` | `JSON` | * | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
 | `maxRetries` | `Number` | `3` | * | Maximum number of retries before sending the message to dead-letter-queue or drop. |
+| `maxInFlight` | `Number` | `1` | * | Max number of messages under processing at the same time.
 | `deadLettering.enabled` | `Boolean` | `false` | * | Enable "Dead-lettering" feature. |
 | `deadLettering.queueName` | `String` | `FAILED_MESSAGES` | * | Name of dead-letter queue. |
 | `redis` | `Object`, `String`, `Number` | `null` | Redis | Redis connection options. More info [here](https://github.com/luin/ioredis#connect-to-redis)
 | `cluster.nodes` | `Array` | `null` | Redis | Redis Cluster nodes list. More info [here](https://github.com/luin/ioredis#cluster)
 | `cluster.clusterOptions` | `Object` | `null` | Redis | Redis Cluster options. More info [here](https://github.com/luin/ioredis#cluster)
-| `readTimeoutInternal` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
-| `minIdleTime` | `Number` | `60 * 60 * 1000` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-| `claimInterval` | `Number` | `100` | Redis | Interval (in milliseconds) between message claims.
-| `maxInFlight` | `Number` | `1` | Redis, AMQP, Kafka | Max number of messages under processing at the same time.
-| `startID` | `String` | `$` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).
-| `processingAttemptsInterval` | `Number` | `0` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.
+| `redis.consumerOptions.readTimeoutInternal` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
+| `redis.consumerOptions.minIdleTime` | `Number` | `60 * 60 * 1000` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+| `redis.consumerOptions.claimInterval` | `Number` | `100` | Redis | Interval (in milliseconds) between message claims.
+| `redis.consumerOptions.startID` | `String` | `$` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).
+| `redis.consumerOptions.processingAttemptsInterval` | `Number` | `0` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.
 | `amqp.url` | `String` | `null` | AMQP | Connection URI.
 | `amqp.socketOptions` | `Object` | `null` | AMQP | AMQP lib socket configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#connect).
 | `amqp.queueOptions` | `Object` | `null` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
@@ -385,21 +385,21 @@ module.exports = {
                         host: "127.0.0.1",
                         port: 6379,
                         db: 3,
-                        password: "pass1234"
+                        password: "pass1234",
+						consumerOptions: {
+							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+							readTimeoutInternal: 0,
+							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+							minIdleTime: 5000,
+							// Interval (in milliseconds) between two claims
+							claimInterval: 100,
+							// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+							// More info: https://redis.io/commands/XGROUP
+							startID: "$",
+							// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+							processingAttemptsInterval: 1000
+						}
                     },
-                    // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-                    readTimeoutInternal: 0,
-                    // Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-                    minIdleTime: 60 * 60 * 1000,
-                    // Interval (in milliseconds) between two claims
-                    claimInterval: 100,
-                    // Maximum number of messages that can be processed simultaneously
-                    maxInFlight: 1,
-                    // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-                    // More info: https://redis.io/commands/XGROUP
-                    startID: "$",
-                    // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-                    processingAttemptsInterval: 1000,
                 }
             }
         })
@@ -427,8 +427,10 @@ module.exports = {
             }
         },
         "payment.processed": {
-            minIdleTime: 10,
-            claimInterval: 10,
+            redis: {
+                minIdleTime: 10,
+                claimInterval: 10
+            }
             deadLettering: {
 				enabled: true,
 				queueName: "DEAD_LETTER"
@@ -461,6 +463,21 @@ module.exports = {
                                 password: "fallback-password",
                             },                            
                         }
+                    },
+                    redis: {
+						consumerOptions: {
+							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+							readTimeoutInternal: 0,
+							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+							minIdleTime: 5000,
+							// Interval (in milliseconds) between two claims
+							claimInterval: 100,
+							// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+							// More info: https://redis.io/commands/XGROUP
+							startID: "$",
+							// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+							processingAttemptsInterval: 1000
+						}
                     }
                 }
             }
@@ -565,7 +582,7 @@ module.exports = {
                 type: "Kafka",
                 options: {
                     kafka: {
-                        brokers: ["kafka-1:9092", "kafka-1:9092"]
+                        brokers: ["kafka-1:9092", "kafka-1:9092"],
                         // Options for `producer()`
                         producerOptions: {},
                         // Options for `consumer()`
@@ -619,7 +636,7 @@ module.exports = {
 						/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
 						streamConfig: {},
 						/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-						consumerOpts: {
+						consumerOptions: {
 							config: {
 								// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
 								deliver_policy: "new",
