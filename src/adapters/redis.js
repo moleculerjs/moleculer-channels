@@ -9,12 +9,15 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
+const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+const HEADER_ORIGINAL_ID = "x-original-id";
 
 let Redis;
 
 /**
  * @typedef {import("ioredis").Cluster} Cluster Redis cluster instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Cluster
  * @typedef {import("ioredis").Redis} Redis Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
+ * @typedef {import("ioredis").RedisOptions} RedisOptions
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -35,6 +38,13 @@ let Redis;
  * @property {Function} xreadgroup Function for fetching new messages from redis stream
  * @property {Function} xclaim Function for claiming pending messages
  * @property {Function} failed_messages Function for checking NACKed messages and moving them into dead letter queue
+ * @property {RedisDefaultOptions} redis
+ */
+
+/**
+ * @typedef {Object} RedisOpts
+ * @property {Object} redis Redis lib configuration
+ * @property {RedisDefaultOptions} redis.consumerOptions
  */
 
 /**
@@ -50,25 +60,33 @@ class RedisAdapter extends BaseAdapter {
 	 * @param  {Object?} opts
 	 */
 	constructor(opts) {
-		if (_.isString(opts)) opts = { redis: opts };
+		if (_.isString(opts))
+			opts = {
+				redis: {
+					url: opts
+				}
+			};
 
 		super(opts);
 
-		/** @type {RedisDefaultOptions & BaseDefaultOptions} */
+		/** @type {RedisOpts & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
-			// Timeout interval (in milliseconds) while waiting for new messages
-			// By default never timeout
-			readTimeoutInternal: 0,
-			// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-			minIdleTime: 60 * 60 * 1000,
-			// Time between claims (in milliseconds)
-			claimInterval: 100,
-			// Max number of messages to fetch in a single read
-			maxInFlight: 1,
-			// Special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-			startID: "$",
-			// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-			processingAttemptsInterval: 1000
+			redis: {
+				consumerOptions: {
+					// Timeout interval (in milliseconds) while waiting for new messages
+					// By default never timeout
+					readTimeoutInternal: 0,
+					// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+					minIdleTime: 60 * 60 * 1000,
+					// Time between claims (in milliseconds)
+					claimInterval: 100,
+					// Special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+					// https://redis.io/commands/XGROUP
+					startID: "$",
+					// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+					processingAttemptsInterval: 1000
+				}
+			}
 		});
 
 		/**
@@ -177,7 +195,7 @@ class RedisAdapter extends BaseAdapter {
 				}
 				client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
 			} else {
-				client = new Redis(opts);
+				client = new Redis(opts && opts.url ? opts.url : opts);
 			}
 
 			let isConnected = false;
@@ -212,16 +230,9 @@ class RedisAdapter extends BaseAdapter {
 		);
 
 		try {
-			// https://redis.io/commands/XGROUP
-			if (chan.startID == null) chan.startID = this.opts.startID;
-			if (chan.minIdleTime == null) chan.minIdleTime = this.opts.minIdleTime;
-			if (chan.claimInterval == null) chan.claimInterval = this.opts.claimInterval;
-			if (chan.maxInFlight == null) chan.maxInFlight = this.opts.maxInFlight;
-			if (chan.readTimeoutInternal == null)
-				chan.readTimeoutInternal = this.opts.readTimeoutInternal;
-			if (chan.processingAttemptsInterval == null)
-				chan.processingAttemptsInterval = this.opts.processingAttemptsInterval;
+			chan.redis = _.defaultsDeep({}, chan.redis, this.opts.redis.consumerOptions);
 
+			if (chan.maxInFlight == null) chan.maxInFlight = this.opts.maxInFlight;
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
 			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
 			if (chan.deadLettering.enabled) {
@@ -241,7 +252,7 @@ class RedisAdapter extends BaseAdapter {
 					"CREATE",
 					chan.name, // Stream name
 					chan.group, // Consumer group
-					chan.startID, // Starting point to read messages
+					chan.redis.startID, // Starting point to read messages
 					`MKSTREAM` // Create stream if doesn't exist
 				);
 			} catch (err) {
@@ -278,7 +289,7 @@ class RedisAdapter extends BaseAdapter {
 							chan.group, // Group name
 							chan.id, // Consumer name
 							`BLOCK`,
-							chan.readTimeoutInternal, // Timeout interval while waiting for messages
+							chan.redis.readTimeoutInternal, // Timeout interval while waiting for messages
 							`COUNT`,
 							chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id), // Max number of messages to fetch in a single read
 							`STREAMS`,
@@ -326,7 +337,7 @@ class RedisAdapter extends BaseAdapter {
 						chan.name, // Channel name
 						chan.group, // Group name
 						chan.id, // Consumer name,
-						chan.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
+						chan.redis.minIdleTime, // Claim messages that are pending for the specified period in milliseconds
 						cursorID,
 						"COUNT",
 						chan.maxInFlight - this.getNumberOfChannelActiveMessages(chan.id) // Number of messages to claim at a time
@@ -348,7 +359,7 @@ class RedisAdapter extends BaseAdapter {
 				}
 
 				// Next xclaim for the chan
-				setTimeout(() => chan.xclaim(), chan.claimInterval);
+				setTimeout(() => chan.xclaim(), chan.redis.claimInterval);
 			};
 
 			// Move NACKed messages to a dedicated channel
@@ -392,7 +403,14 @@ class RedisAdapter extends BaseAdapter {
 							// Move the messages to a dedicated channel
 							await Promise.all(
 								messages.map(entry =>
-									this.moveToDeadLetter(chan, entry[0], entry[1][1])
+									this.moveToDeadLetter(
+										chan,
+										entry[0],
+										entry[1][1],
+										entry[1][2] === "headers"
+											? this.serializer.deserialize(entry[1][3])
+											: {}
+									)
 								)
 							);
 						} else {
@@ -411,7 +429,7 @@ class RedisAdapter extends BaseAdapter {
 					);
 				}
 
-				setTimeout(() => chan.failed_messages(), chan.processingAttemptsInterval);
+				setTimeout(() => chan.failed_messages(), chan.redis.processingAttemptsInterval);
 			};
 
 			// Init the failed messages loop
@@ -504,7 +522,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, serializedMessages, fullMessages } =
+		const { ids, parsedMessages, parsedHeaders, serializedMessages, fullMessages } =
 			this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
@@ -520,6 +538,8 @@ class RedisAdapter extends BaseAdapter {
 		for (let i = 0; i < promiseResults.length; i++) {
 			const result = promiseResults[i];
 			const id = ids[i];
+			const messageHeaders = parsedHeaders[i];
+
 			if (result.status == "fulfilled") {
 				// Send ACK message
 				// https://redis.io/commands/xack
@@ -536,7 +556,12 @@ class RedisAdapter extends BaseAdapter {
 					// No retries
 
 					if (chan.deadLettering.enabled) {
-						await this.moveToDeadLetter(chan, id, serializedMessages[i]);
+						await this.moveToDeadLetter(
+							chan,
+							id,
+							serializedMessages[i],
+							messageHeaders
+						);
 					} else {
 						// Drop message
 						this.logger.error(`Drop message...`, id);
@@ -566,11 +591,18 @@ class RedisAdapter extends BaseAdapter {
 				accumulator.serializedMessages.push(currentVal[1][1]);
 				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
+				accumulator.parsedHeaders.push(
+					currentVal[1][2] === "headers"
+						? this.serializer.deserialize(currentVal[1][3])
+						: {}
+				);
+
 				return accumulator;
 			},
 			{
 				ids: [], // for XACK
 				parsedMessages: [], // Deserialized payload
+				parsedHeaders: [], // Deserialized Headers
 				serializedMessages: [], // Serialized payload
 				fullMessages: [] // Entire message
 			}
@@ -583,9 +615,17 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 * @param {String} originalID ID of the dead message
 	 * @param {Object} message Raw (not serialized) message contents
+	 * @param {Object} headers Header contents
 	 */
-	async moveToDeadLetter(chan, originalID, message) {
+	async moveToDeadLetter(chan, originalID, message, headers) {
 		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
+
+		const msgHdrs = {
+			...headers,
+			[HEADER_ORIGINAL_ID]: originalID,
+			[HEADER_ORIGINAL_CHANNEL]: chan.name,
+			[HEADER_ORIGINAL_GROUP]: chan.group
+		};
 
 		// Move the message to a dedicated channel
 		const nackedClient = this.clients.get(this.nackedName);
@@ -594,10 +634,8 @@ class RedisAdapter extends BaseAdapter {
 			"*", // Auto generate the ID
 			"payload",
 			message, // Message contents
-			"channel",
-			chan.name, // Topic where failure occurred
-			"originalID",
-			originalID // Original ID (timestamp) of failed message
+			"headers",
+			this.serializer.serialize(msgHdrs)
 		);
 
 		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
@@ -619,13 +657,21 @@ class RedisAdapter extends BaseAdapter {
 		const clientPub = this.clients.get(this.pubName);
 
 		try {
-			// https://redis.io/commands/XADD
-			const id = await clientPub.xadd(
+			let args = [
 				channelName, // Stream name
 				"*", // Auto ID
 				"payload", // Entry
 				opts.raw ? payload : this.serializer.serialize(payload) // Actual payload
-			);
+			];
+
+			// Add headers
+			if (opts.headers) {
+				args.push(...["headers", this.serializer.serialize(opts.headers)]);
+			}
+
+			// https://redis.io/commands/XADD
+			const id = await clientPub.xadd(...args);
+
 			this.logger.debug(`Message ${id} was published at '${channelName}'`);
 		} catch (err) {
 			this.logger.error(`Cannot publish to '${channelName}'`, err);

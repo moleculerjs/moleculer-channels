@@ -328,9 +328,11 @@ describe("Integration tests", () => {
 					channels: {
 						"test.unstable.topic": {
 							group: "mygroup",
-							// Defaults to 1 hour. Decrease for unit tests
-							minIdleTime: 10,
-							claimInterval: 10,
+							redis: {
+								// Defaults to 1 hour. Decrease for unit tests
+								minIdleTime: 10,
+								claimInterval: 10
+							},
 							maxRetries: 10,
 							handler: subGoodHandler
 						}
@@ -495,10 +497,12 @@ describe("Integration tests", () => {
 						channels: {
 							"test.fail.topic": {
 								maxInFlight: 1,
-								minIdleTime: 50,
-								claimInterval: 50,
 								maxRetries: 6,
-								processingAttemptsInterval: 10,
+								redis: {
+									minIdleTime: 50,
+									claimInterval: 50,
+									processingAttemptsInterval: 10
+								},
 								handler: subWrongHandler
 							}
 						}
@@ -509,10 +513,12 @@ describe("Integration tests", () => {
 						channels: {
 							"test.fail.topic": {
 								maxInFlight: 1,
-								minIdleTime: 50,
-								claimInterval: 50,
 								maxRetries: 6,
-								processingAttemptsInterval: 10,
+								redis: {
+									minIdleTime: 50,
+									claimInterval: 50,
+									processingAttemptsInterval: 10
+								},
 								handler: subGoodHandler
 							}
 						}
@@ -776,7 +782,9 @@ describe("Integration tests", () => {
 					channels: {
 						"test.failed_messages.topic": {
 							group: "mygroup",
-							claimInterval: 50,
+							redis: {
+								claimInterval: 50
+							},
 							maxRetries: 0,
 							deadLettering: {
 								enabled: true,
@@ -840,9 +848,11 @@ describe("Integration tests", () => {
 						"test.failed_messages.topic": {
 							group: "mygroup",
 							maxRetries: 2,
-							minIdleTime: 50,
-							claimInterval: 50,
-							processingAttemptsInterval: 10,
+							redis: {
+								minIdleTime: 50,
+								claimInterval: 50,
+								processingAttemptsInterval: 10
+							},
 							deadLettering: {
 								enabled: true,
 								queueName: "DEAD_LETTER",
