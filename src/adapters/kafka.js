@@ -59,18 +59,6 @@ function convertLogLevel(level) {
 /**
  * Kafka adapter
  *
- * TODO:
- * 	- [ ] implement infinite connecting at starting
- * 	- [ ] implement auto-reconnecting
- * 	- [x] create consumers for every channel because no unsubscribe method
- * 	- [x] manual acknowledge
- * 	- [?] implement maxInFlight
- * 	- [x] implement message retries (rework due to consumer groups)
- * 	- [x] implement dead-letter-topic
- * 	- [x] add log creator
- * 	- [x] unable to connect different topics with the same group name.
- * 	- [x] wait for rebalancing: https://github.com/tulios/kafkajs/issues/452#issuecomment-768241811
- *
  * @class KafkaAdapter
  * @extends {BaseAdapter}
  */
