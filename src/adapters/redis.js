@@ -67,6 +67,15 @@ class RedisAdapter extends BaseAdapter {
 				}
 			};
 
+		if (opts && _.isString(opts.redis)) {
+			opts = {
+				...opts,
+				redis: {
+					url: opts.redis
+				}
+			};
+		}
+
 		super(opts);
 
 		/** @type {RedisOpts & BaseDefaultOptions} */
