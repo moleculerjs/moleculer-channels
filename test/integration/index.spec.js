@@ -31,8 +31,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 } else {
 	// Local development tests
 	Adapters = [
-		{ type: "Redis", options: {} },
-		{
+		{ type: "Redis", options: {} }
+		/*{
 			type: "Redis",
 			name: "Redis-Cluster",
 			options: {
@@ -47,7 +47,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }*/
 	];
 }
 
@@ -112,41 +112,39 @@ describe("Integration tests", () => {
 				});
 			});
 
-			if (adapter.type != "Redis") {
-				describe("Test different serializer", () => {
-					const broker = createBroker(
-						_.defaultsDeep({ options: { serializer: "MsgPack" } }, adapter)
-					);
+			describe("Test different serializer", () => {
+				const broker = createBroker(
+					_.defaultsDeep({ options: { serializer: "MsgPack" } }, adapter)
+				);
 
-					const subTestTopicHandler = jest.fn(() => {
-						return Promise.resolve();
-					});
-
-					broker.createService({
-						name: "sub",
-						channels: {
-							"test.serializer.topic": subTestTopicHandler
-						}
-					});
-
-					beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
-					afterAll(() => broker.stop());
-
-					it("should receive the published message", async () => {
-						const msg = {
-							id: 1,
-							name: "John",
-							age: 25
-						};
-						// ---- ^ SETUP ^ ---
-						await broker.sendToChannel("test.serializer.topic", msg);
-						await broker.Promise.delay(200);
-						// ---- ˇ ASSERTS ˇ ---
-						expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
-						expect(subTestTopicHandler).toHaveBeenCalledWith(msg, expect.anything());
-					});
+				const subTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
 				});
-			}
+
+				broker.createService({
+					name: "sub",
+					channels: {
+						"test.serializer.topic": subTestTopicHandler
+					}
+				});
+
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				afterAll(() => broker.stop());
+
+				it("should receive the published message", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.serializer.topic", msg);
+					await broker.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(subTestTopicHandler).toHaveBeenCalledWith(msg, expect.anything());
+				});
+			});
 
 			describe("Test multiple subscription logic", () => {
 				const broker = createBroker(adapter);

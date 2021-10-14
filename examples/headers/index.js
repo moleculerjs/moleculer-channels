@@ -11,7 +11,17 @@ const broker = new ServiceBroker({
 		CHANNELS: "debug",
 		"**": "info"
 	},
-	middlewares: [ChannelsMiddleware({ adapter: process.env.ADAPTER || "redis://localhost:6379" })],
+	middlewares: [
+		ChannelsMiddleware({
+			adapter: {
+				type: "Redis",
+				options: {
+					redis: "localhost:6379",
+					serializer: "MsgPack"
+				}
+			}
+		})
+	],
 	replCommands: [
 		{
 			command: "publish",
@@ -40,14 +50,14 @@ broker.createService({
 				minIdleTime: 1000,
 				claimInterval: 500
 			},
-			maxRetries: 3,
+			maxRetries: 0,
 			deadLettering: {
 				enabled: true,
 				queueName: "DEAD_LETTER",
 				exchangeName: "DEAD_LETTER"
 			},
 			handler(msg, raw) {
-				this.logger.error("Processing...", raw);
+				this.logger.error("Processing...", msg);
 
 				this.logger.error("Ups! Something happened");
 				return Promise.reject(new Error("Something happened"));
@@ -75,8 +85,18 @@ broker.createService({
 
 broker
 	.start()
-	.then(() => {
+	.then(async () => {
 		broker.repl();
+
+		const payload = {
+			id: 2,
+			name: "Jane Doe",
+			status: false,
+			count: ++c,
+			pid: process.pid
+		};
+
+		// await broker.sendToChannel("my.fail.topic", payload, { headers: { a: "123" } });
 	})
 	.catch(err => {
 		broker.logger.error(err);

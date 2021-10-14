@@ -12,7 +12,7 @@
 			"program": "examples/index.js",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"serializer"
+				"headers"
 			],
 			"env": {
 				//"ADAPTER": "kafka://localhost:9093"

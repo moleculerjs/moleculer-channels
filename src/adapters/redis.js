@@ -293,7 +293,7 @@ class RedisAdapter extends BaseAdapter {
 					// https://redis.io/commands/xreadgroup
 					let message;
 					try {
-						message = await chanSub.xreadgroup(
+						message = await chanSub.xreadgroupBuffer(
 							`GROUP`,
 							chan.group, // Group name
 							chan.id, // Consumer name
@@ -342,7 +342,7 @@ class RedisAdapter extends BaseAdapter {
 				try {
 					// Claim messages that were not NACKed
 					// https://redis.io/commands/xautoclaim
-					let message = await claimClient.xautoclaim(
+					let message = await claimClient.xautoclaimBuffer(
 						chan.name, // Channel name
 						chan.group, // Group name
 						chan.id, // Consumer name,
@@ -355,7 +355,7 @@ class RedisAdapter extends BaseAdapter {
 					if (message) {
 						// Update the cursor id to be used in subsequent call
 						// When there are no remaining entries, "0-0" is returned
-						cursorID = message[0];
+						cursorID = message[0].toString();
 
 						// Messages
 						if (message[1].length !== 0) {
@@ -400,7 +400,7 @@ class RedisAdapter extends BaseAdapter {
 						this.addChannelActiveMessages(chan.id, ids);
 
 						// https://redis.io/commands/xclaim
-						let messages = await nackedClient.xclaim(
+						let messages = await nackedClient.xclaimBuffer(
 							chan.name,
 							chan.group,
 							chan.id,
@@ -414,7 +414,7 @@ class RedisAdapter extends BaseAdapter {
 								messages.map(entry =>
 									this.moveToDeadLetter(
 										chan,
-										entry[0],
+										entry[0].toString(),
 										entry[1][1],
 										entry[1][2] === "headers"
 											? this.serializer.deserialize(entry[1][3])
@@ -594,7 +594,7 @@ class RedisAdapter extends BaseAdapter {
 	parseMessage(messages) {
 		return messages[0][1].reduce(
 			(accumulator, currentVal) => {
-				accumulator.ids.push(currentVal[0]);
+				accumulator.ids.push(currentVal[0].toString());
 
 				accumulator.fullMessages.push(currentVal[1]);
 				accumulator.serializedMessages.push(currentVal[1][1]);
@@ -638,7 +638,7 @@ class RedisAdapter extends BaseAdapter {
 
 		// Move the message to a dedicated channel
 		const nackedClient = this.clients.get(this.nackedName);
-		await nackedClient.xadd(
+		await nackedClient.xaddBuffer(
 			chan.deadLettering.queueName,
 			"*", // Auto generate the ID
 			"payload",
@@ -679,7 +679,7 @@ class RedisAdapter extends BaseAdapter {
 			}
 
 			// https://redis.io/commands/XADD
-			const id = await clientPub.xadd(...args);
+			const id = await clientPub.xaddBuffer(...args);
 
 			this.logger.debug(`Message ${id} was published at '${channelName}'`);
 		} catch (err) {
