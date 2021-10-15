@@ -538,7 +538,13 @@ class RedisAdapter extends BaseAdapter {
 
 		const promises = parsedMessages.map((entry, index) => {
 			// Call the actual user defined handler
-			return chan.handler(entry, fullMessages[index]);
+			return chan.handler(entry, {
+				payload: entry,
+				headers:
+					Object.keys(parsedHeaders[index]).length !== 0
+						? parsedHeaders[index]
+						: undefined
+			});
 		});
 
 		const promiseResults = await Promise.allSettled(promises);
@@ -601,7 +607,7 @@ class RedisAdapter extends BaseAdapter {
 				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
 				accumulator.parsedHeaders.push(
-					currentVal[1][2] === "headers"
+					currentVal[1][2] && currentVal[1][2].toString() === "headers"
 						? this.serializer.deserialize(currentVal[1][3])
 						: {}
 				);
