@@ -35,7 +35,7 @@ let Amqplib;
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
  * @property {Object} amqp.messageOptions AMQP lib message configuration
- * @property {Object} amqp.consumeOptions AMQP lib consume configuration
+ * @property {Object} amqp.consumerOptions AMQP lib consume configuration
  */
 
 /**
@@ -77,7 +77,7 @@ class AmqpAdapter extends BaseAdapter {
 				queueOptions: {},
 				exchangeOptions: {},
 				messageOptions: {},
-				consumeOptions: {}
+				consumerOptions: {}
 			}
 		});
 
@@ -308,18 +308,18 @@ class AmqpAdapter extends BaseAdapter {
 			this.channel.bindQueue(queueName, chan.name, "");
 
 			// More info http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
-			const consumeOptions = _.defaultsDeep(
+			const consumerOptions = _.defaultsDeep(
 				{},
-				chan.amqp ? chan.amqp.consumeOptions : {},
-				this.opts.amqp.consumeOptions
+				chan.amqp ? chan.amqp.consumerOptions : {},
+				this.opts.amqp.consumerOptions
 			);
 
 			this.initChannelActiveMessages(chan.id);
-			this.logger.debug(`Consuming '${queueName}' queue...`, consumeOptions);
+			this.logger.debug(`Consuming '${queueName}' queue...`, consumerOptions);
 			const res = await this.channel.consume(
 				queueName,
 				this.createConsumerHandler(chan),
-				consumeOptions
+				consumerOptions
 			);
 
 			this.subscriptions.set(chan.id, { chan, consumerTag: res.consumerTag });

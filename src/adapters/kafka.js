@@ -15,6 +15,7 @@ const {
 	HEADER_ORIGINAL_CHANNEL,
 	HEADER_ORIGINAL_GROUP
 } = require("../constants");
+/** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
 /**
@@ -32,7 +33,7 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
  */
 
 /**
- * @typedef {Object} KafkaDefaultOptions AMQP Adapter configuration
+ * @typedef {Object} KafkaDefaultOptions Kafka Adapter configuration
  * @property {Number} maxInFlight Max-in-flight messages
  * @property {KafkaConfig} kafka Kafka config
  */

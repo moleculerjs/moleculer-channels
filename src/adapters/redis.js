@@ -10,6 +10,7 @@ const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError } = require("moleculer").Errors;
 const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+/** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
 
 let Redis;
