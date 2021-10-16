@@ -416,9 +416,9 @@ class RedisAdapter extends BaseAdapter {
 										chan,
 										entry[0].toString(),
 										entry[1][1],
-										entry[1][2] === "headers"
+										entry[1][2] && entry[1][2].toString() === "headers"
 											? this.serializer.deserialize(entry[1][3])
-											: {}
+											: undefined
 									)
 								)
 							);
@@ -531,7 +531,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, parsedHeaders, serializedMessages, fullMessages } =
+		const { ids, parsedMessages, parsedHeaders, serializedMessages } =
 			this.parseMessage(message);
 
 		this.addChannelActiveMessages(chan.id, ids);
@@ -540,10 +540,9 @@ class RedisAdapter extends BaseAdapter {
 			// Call the actual user defined handler
 			return chan.handler(entry, {
 				payload: entry,
-				headers:
-					Object.keys(parsedHeaders[index]).length !== 0
-						? parsedHeaders[index]
-						: undefined
+				...(parsedHeaders[index] !== undefined
+					? { headers: parsedHeaders[index] }
+					: undefined)
 			});
 		});
 
@@ -602,14 +601,13 @@ class RedisAdapter extends BaseAdapter {
 			(accumulator, currentVal) => {
 				accumulator.ids.push(currentVal[0].toString());
 
-				accumulator.fullMessages.push(currentVal[1]);
 				accumulator.serializedMessages.push(currentVal[1][1]);
 				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
 
 				accumulator.parsedHeaders.push(
 					currentVal[1][2] && currentVal[1][2].toString() === "headers"
 						? this.serializer.deserialize(currentVal[1][3])
-						: {}
+						: undefined
 				);
 
 				return accumulator;
@@ -618,8 +616,7 @@ class RedisAdapter extends BaseAdapter {
 				ids: [], // for XACK
 				parsedMessages: [], // Deserialized payload
 				parsedHeaders: [], // Deserialized Headers
-				serializedMessages: [], // Serialized payload
-				fullMessages: [] // Entire message
+				serializedMessages: [] // Serialized payload
 			}
 		);
 	}

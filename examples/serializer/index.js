@@ -20,8 +20,8 @@ const broker = new ServiceBroker({
 					amqp: {
 						url: "amqp://localhost:5672"
 					},
-					redis: "localhost:6379"
-					//serializer: "MsgPack"
+					redis: "localhost:6379",
+					serializer: "MsgPack"
 				}
 			}
 		})
@@ -53,6 +53,8 @@ broker.createService({
 	channels: {
 		async "my.first.topic"(msg, raw) {
 			this.logger.info("[POSTS] Channel One msg received", msg);
+
+			this.logger.info("[POSTS] Channel One raw received", raw);
 		}
 	}
 });
@@ -63,13 +65,17 @@ broker
 		broker.repl();
 
 		console.log("Publish 'my.first.topic' message...");
-		await broker.sendToChannel("my.first.topic", {
-			id: 1,
-			name: "John Doe",
-			status: true,
-			count: c,
-			pid: process.pid
-		});
+		await broker.sendToChannel(
+			"my.first.topic",
+			{
+				id: 1,
+				name: "John Doe",
+				status: true,
+				count: c,
+				pid: process.pid
+			},
+			{ key: "" + c, headers: { a: "something" } }
+		);
 	})
 	.catch(err => {
 		broker.logger.error(err);
