@@ -279,8 +279,10 @@ describe("Integration tests", () => {
 					};
 					// ---- ^ SETUP ^ ---
 
+					const numMessages = 20
+
 					await Promise.all(
-						_.times(10, () => broker.sendToChannel("test.balanced.topic", msg))
+						_.times(numMessages, () => broker.sendToChannel("test.balanced.topic", msg))
 					);
 					await broker.Promise.delay(500);
 
@@ -299,7 +301,7 @@ describe("Integration tests", () => {
 						sub1Handler.mock.calls.length +
 							sub2Handler.mock.calls.length +
 							sub3Handler.mock.calls.length
-					).toEqual(10);
+					).toEqual(numMessages);
 				});
 			});
 
