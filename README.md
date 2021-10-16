@@ -228,7 +228,7 @@ module.exports = {
 | `processingAttemptsInterval` | `Number` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel |
 | `amqp.queueOptions` | `Object` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
 | `amqp.exchangeOptions` | `Object` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
-| `amqp.consumeOptions` | `Object` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
+| `amqp.consumerOptions` | `Object` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
 | `kafka.consumerOptions` | `Object` | Kafka | Kafka consumer configuration. More info [here](https://kafka.js.org/docs/consuming#options).
 | `kafka.fromBeginning` | `Boolean` | Kafka | Kafka consumer `fromBeginning` option. More info [here](https://kafka.js.org/docs/consuming#frombeginning).
 | `kafka.partitionsConsumedConcurrently` | `Number` | Kafka | Kafka consumer `partitionsConsumedConcurrently` option. More info [here](https://kafka.js.org/docs/consuming#partition-aware-concurrency).
@@ -334,7 +334,7 @@ module.exports = {
 | `amqp.queueOptions` | `Object` | `null` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
 | `amqp.exchangeOptions` | `Object` | `null` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
 | `amqp.messageOptions` | `Object` | `null` | AMQP | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).
-| `amqp.consumeOptions` | `Object` | `null` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
+| `amqp.consumerOptions` | `Object` | `null` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
 | `nats.streamConfig` | `Object` | `null` | NATS | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).
 | `nats.consumerOptions` | `Object` | `null` | NATS | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).
 | `kafka.brokers` | `String[]` | `null` | Kafka | Kafka bootstrap brokers.
@@ -530,7 +530,7 @@ module.exports = {
                         // Options for `channel.publish()`
                         messageOptions: {},
                         // Options for `channel.consume()`
-                        consumeOptions: {}
+                        consumerOptions: {}
                     },
                     maxInFlight: 10,
                     maxRetries: 3,
@@ -632,7 +632,7 @@ module.exports = {
 					nats: {
 						url: "nats://localhost:4222",
 						/** @type {ConnectionOptions} */
-						connectionOpts: {},
+						connectionOptions: {},
 						/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
 						streamConfig: {},
 						/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
@@ -683,7 +683,7 @@ In this test, we send one message at a time. After processing the current messag
 
 ![chart](https://image-charts.com/chart?chd=a%3A3%2C2%2C51%2C1%2C1&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Latency%20test%20%28milliseconds%29%7Clower%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP%7CNATS%7CKafka&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
-### Throughput test (maxInFligth: 10)
+### Throughput test (maxInFlight: 10)
 In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `10`.
 
 | Adapter | msg/sec |
@@ -696,7 +696,7 @@ In this test, we send 10k messages and wait for all be processed. This test meas
 
 ![chart](https://image-charts.com/chart?chd=a%3A1294%2C4118%2C11143%2C589%2C1831&chf=b0%2Clg%2C90%2C03a9f4%2C0%2C3f51b5%2C1&chg=0%2C50&chma=0%2C0%2C10%2C10&chs=999x500&cht=bvs&chtt=Throughtput%20test%20%28msg%2Fsec%29%7C%28maxInFligth%3A%2010%29%7Chigher%20is%20better&chxl=0%3A%7CRedis%7CRedisCluster%7CAMQP%7CNATS%7CKafka&chxs=0%2C333%2C10%7C1%2C333%2C10&chxt=x%2Cy)
 
-### Throughput test (maxInFligth: 100)
+### Throughput test (maxInFlight: 100)
 In this test, we send 10k messages and wait for all be processed. This test measures the throughput. The `maxInFlight` is `100`.
 
 | Adapter | msg/sec |

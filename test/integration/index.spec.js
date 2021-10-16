@@ -112,41 +112,39 @@ describe("Integration tests", () => {
 				});
 			});
 
-			if (adapter.type != "Redis") {
-				describe("Test different serializer", () => {
-					const broker = createBroker(
-						_.defaultsDeep({ options: { serializer: "MsgPack" } }, adapter)
-					);
+			describe("Test different serializer", () => {
+				const broker = createBroker(
+					_.defaultsDeep({ options: { serializer: "MsgPack" } }, adapter)
+				);
 
-					const subTestTopicHandler = jest.fn(() => {
-						return Promise.resolve();
-					});
-
-					broker.createService({
-						name: "sub",
-						channels: {
-							"test.serializer.topic": subTestTopicHandler
-						}
-					});
-
-					beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
-					afterAll(() => broker.stop());
-
-					it("should receive the published message", async () => {
-						const msg = {
-							id: 1,
-							name: "John",
-							age: 25
-						};
-						// ---- ^ SETUP ^ ---
-						await broker.sendToChannel("test.serializer.topic", msg);
-						await broker.Promise.delay(200);
-						// ---- ˇ ASSERTS ˇ ---
-						expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
-						expect(subTestTopicHandler).toHaveBeenCalledWith(msg, expect.anything());
-					});
+				const subTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
 				});
-			}
+
+				broker.createService({
+					name: "sub",
+					channels: {
+						"test.serializer.topic": subTestTopicHandler
+					}
+				});
+
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				afterAll(() => broker.stop());
+
+				it("should receive the published message", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.serializer.topic", msg);
+					await broker.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(subTestTopicHandler).toHaveBeenCalledWith(msg, expect.anything());
+				});
+			});
 
 			describe("Test multiple subscription logic", () => {
 				const broker = createBroker(adapter);
@@ -281,8 +279,10 @@ describe("Integration tests", () => {
 					};
 					// ---- ^ SETUP ^ ---
 
+					const numMessages = 20
+
 					await Promise.all(
-						_.times(10, () => broker.sendToChannel("test.balanced.topic", msg))
+						_.times(numMessages, () => broker.sendToChannel("test.balanced.topic", msg))
 					);
 					await broker.Promise.delay(500);
 
@@ -301,7 +301,7 @@ describe("Integration tests", () => {
 						sub1Handler.mock.calls.length +
 							sub2Handler.mock.calls.length +
 							sub3Handler.mock.calls.length
-					).toEqual(10);
+					).toEqual(numMessages);
 				});
 			});
 

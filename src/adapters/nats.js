@@ -35,7 +35,7 @@ let NATS;
  * @typedef {Object} NATSOpts
  * @property {Object} nats NATS lib configuration
  * @property {String} url String containing the URL to NATS server
- * @property {ConnectionOptions} nats.connectionOpts
+ * @property {ConnectionOptions} nats.connectionOptions
  * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
  * @property {ConsumerOpts} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
  */
@@ -60,7 +60,7 @@ class NatsAdapter extends BaseAdapter {
 		this.opts = _.defaultsDeep(this.opts, {
 			nats: {
 				/** @type {ConnectionOptions} */
-				connectionOpts: {},
+				connectionOptions: {},
 				/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
 				streamConfig: {},
 				/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
@@ -81,7 +81,7 @@ class NatsAdapter extends BaseAdapter {
 
 		// Adapted from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
 		if (this.opts.nats.url)
-			this.opts.nats.connectionOpts.servers = this.opts.nats.url
+			this.opts.nats.connectionOptions.servers = this.opts.nats.url
 				.split(",")
 				.map(server => new URL(server).host);
 
@@ -125,7 +125,7 @@ class NatsAdapter extends BaseAdapter {
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		this.connection = await NATS.connect(this.opts.nats.connectionOpts);
+		this.connection = await NATS.connect(this.opts.nats.connectionOptions);
 
 		this.manager = await this.connection.jetstreamManager();
 
