@@ -221,15 +221,17 @@ module.exports = {
 | `deadLettering.enabled` | `Boolean` | * | Enable "Dead-lettering" feature. |
 | `deadLettering.queueName` | `String` | * | Name of dead-letter queue. |
 | `handler` | `Function(payload: any, rawMessage: any)` | * | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter. |
-| `startID` | `String` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
-| `minIdleTime` | `Number` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour. |
-| `claimInterval` | `Number` | Redis | Interval (in milliseconds) between message claims
-| `readTimeoutInterval` | `Number`| Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup) |
-| `processingAttemptsInterval` | `Number` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel |
+| `redis.startID` | `String` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
+| `redis.minIdleTime` | `Number` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour. |
+| `redis.claimInterval` | `Number` | Redis | Interval (in milliseconds) between message claims
+| `redis.readTimeoutInterval` | `Number`| Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup) |
+| `redis.processingAttemptsInterval` | `Number` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel |
 | `amqp.queueOptions` | `Object` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
 | `amqp.exchangeOptions` | `Object` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
 | `amqp.consumerOptions` | `Object` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
-| `kafka.consumerOptions` | `Object` | Kafka | Kafka consumer configuration. More info [here](https://kafka.js.org/docs/consuming#options).
+| `nats.consumerOptions` | `Object` | NATS | NATS consumer options configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers)
+| `nats.streamConfig` | `Object` | NATS | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).
+| `nats.consumerOptions` | `Object` | NATS | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).
 | `kafka.fromBeginning` | `Boolean` | Kafka | Kafka consumer `fromBeginning` option. More info [here](https://kafka.js.org/docs/consuming#frombeginning).
 | `kafka.partitionsConsumedConcurrently` | `Number` | Kafka | Kafka consumer `partitionsConsumedConcurrently` option. More info [here](https://kafka.js.org/docs/consuming#partition-aware-concurrency).
 
