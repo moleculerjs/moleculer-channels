@@ -229,9 +229,8 @@ module.exports = {
 | `amqp.queueOptions` | `Object` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
 | `amqp.exchangeOptions` | `Object` | AMQP | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).
 | `amqp.consumerOptions` | `Object` | AMQP | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).
-| `nats.consumerOptions` | `Object` | NATS | NATS consumer options configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers)
-| `nats.streamConfig` | `Object` | NATS | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).
 | `nats.consumerOptions` | `Object` | NATS | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).
+| `nats.streamConfig` | `Object` | NATS | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).
 | `kafka.fromBeginning` | `Boolean` | Kafka | Kafka consumer `fromBeginning` option. More info [here](https://kafka.js.org/docs/consuming#frombeginning).
 | `kafka.partitionsConsumedConcurrently` | `Number` | Kafka | Kafka consumer `partitionsConsumedConcurrently` option. More info [here](https://kafka.js.org/docs/consuming#partition-aware-concurrency).
 
@@ -259,7 +258,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | `ttl` | `Number` | AMQP | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds. |
 | `priority` | `Number` | AMQP | Priority of the message. |
 | `correlationId` | `String` | AMQP | Request identifier. |
-| `headers` | `Object` | AMQP, JetStream, Kafka | Application specific headers to be carried along with the message content. |
+| `headers` | `Object` | AMQP, JetStream, Kafka, Redis | Application specific headers to be carried along with the message content. |
 | `routingKey` | `Object` | AMQP | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
 | `key` | `String` | Kafka | Key of Kafka message. |
 | `partition` | `String` | Kafka | Partition of Kafka message. |
