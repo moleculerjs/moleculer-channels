@@ -387,19 +387,19 @@ module.exports = {
                         port: 6379,
                         db: 3,
                         password: "pass1234",
-						consumerOptions: {
-							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-							readTimeoutInterval: 0,
-							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-							minIdleTime: 5000,
-							// Interval (in milliseconds) between two claims
-							claimInterval: 100,
-							// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-							// More info: https://redis.io/commands/XGROUP
-							startID: "$",
-							// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-							processingAttemptsInterval: 1000
-						}
+                        consumerOptions: {
+                            // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+                            readTimeoutInterval: 0,
+                            // Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+                            minIdleTime: 5000,
+                            // Interval (in milliseconds) between two claims
+                            claimInterval: 100,
+                            // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+                            // More info: https://redis.io/commands/XGROUP
+                            startID: "$",
+                            // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+                            processingAttemptsInterval: 1000
+                        }
                     },
                 }
             }
@@ -433,9 +433,9 @@ module.exports = {
                 claimInterval: 10
             }
             deadLettering: {
-				enabled: true,
-				queueName: "DEAD_LETTER"
-			},
+                enabled: true,
+                queueName: "DEAD_LETTER"
+            },
             async handler(payload) {
                 /*...*/
             }
@@ -466,19 +466,19 @@ module.exports = {
                         }
                     },
                     redis: {
-						consumerOptions: {
-							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-							readTimeoutInterval: 0,
-							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-							minIdleTime: 5000,
-							// Interval (in milliseconds) between two claims
-							claimInterval: 100,
-							// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-							// More info: https://redis.io/commands/XGROUP
-							startID: "$",
-							// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-							processingAttemptsInterval: 1000
-						}
+                        consumerOptions: {
+                            // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+                            readTimeoutInterval: 0,
+                            // Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+                            minIdleTime: 5000,
+                            // Interval (in milliseconds) between two claims
+                            claimInterval: 100,
+                            // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+                            // More info: https://redis.io/commands/XGROUP
+                            startID: "$",
+                            // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+                            processingAttemptsInterval: 1000
+                        }
                     }
                 }
             }
@@ -626,38 +626,38 @@ const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
     middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "NATS",
-				options: {
-					nats: {
-						url: "nats://localhost:4222",
-						/** @type {ConnectionOptions} */
-						connectionOptions: {},
-						/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
-						streamConfig: {},
-						/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-						consumerOptions: {
-							config: {
-								// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
-								deliver_policy: "new",
-								// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
-								ack_policy: "explicit",
-								// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
-								max_ack_pending: 1
-							}
-						}
-					},
-					maxInFlight: 10,
-					maxRetries: 3,
-					deadLettering: {
-						enabled: false,
-						queueName: "DEAD_LETTER"
-					}
-				}
-			}
-		})
-	]
+        ChannelsMiddleware({
+            adapter: {
+                type: "NATS",
+                options: {
+                    nats: {
+                        url: "nats://localhost:4222",
+                        /** @type {ConnectionOptions} */
+                        connectionOptions: {},
+                        /** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
+                        streamConfig: {},
+                        /** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+                        consumerOptions: {
+                            config: {
+                                // More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+                                deliver_policy: "new",
+                                // More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+                                ack_policy: "explicit",
+                                // More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+                                max_ack_pending: 1
+                            }
+                        }
+                    },
+                    maxInFlight: 10,
+                    maxRetries: 3,
+                    deadLettering: {
+                        enabled: false,
+                        queueName: "DEAD_LETTER"
+                    }
+                }
+            }
+        })
+    ]
 };
 ```
 
