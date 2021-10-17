@@ -326,11 +326,11 @@ module.exports = {
 | `redis.consumerOptions` `.readTimeoutInterval` | `Number`| `0` | Redis | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)
 | `redis.consumerOptions` `.minIdleTime` | `Number` | `60 * 60 * 1000` | Redis | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
 | `redis.consumerOptions` `.claimInterval` | `Number` | `100` | Redis | Interval (in milliseconds) between message claims.
-| `redis.consumerOptions` `..startID` | `String` | `$` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).
-| `redis.consumerOptions` `..processingAttemptsInterval` | `Number` | `0` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.
+| `redis.consumerOptions` `.startID` | `String` | `$` | Redis | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).
+| `redis.consumerOptions` `.processingAttemptsInterval` | `Number` | `0` | Redis | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.
 | `cluster` | `Object` | `null` | Redis | Redis cluster connection options. More info [here](https://github.com/luin/ioredis#cluster) |
-| ...`nodes` | `Array` | `null` | Redis | Redis Cluster nodes list. |
-| ...`clusterOptions` | `Object` | `null` | Redis | Redis Cluster options. |
+| `cluster.nodes` | `Array` | `null` | Redis | Redis Cluster nodes list. |
+| `cluster.clusterOptions` | `Object` | `null` | Redis | Redis Cluster options. |
 | `amqp.url` | `String` | `null` | AMQP | Connection URI.
 | `amqp.socketOptions` | `Object` | `null` | AMQP | AMQP lib socket configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#connect).
 | `amqp.queueOptions` | `Object` | `null` | AMQP | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).
