@@ -23,14 +23,10 @@ Reliable messages for Moleculer services via external queue/channel/topic. Unlik
 - graceful stopping with active message tracking.
 
 ## Install
-Until the first version is published on NPM:
-```
-npm i moleculerjs/moleculer-channels#master
-```
 
-<!-- ```
+```
 npm i @moleculer/channels
-``` -->
+```
 
 ## Communication diagram
 
