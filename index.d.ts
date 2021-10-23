@@ -1,5 +1,5 @@
 
-declare module "moleculer-channel" {
+declare module "@moleculer/channels" {
     import { LoggerInstance as Logger, ServiceBroker, Service } from "moleculer";
     import { KafkaConfig, Consumer as KafkaConsumer, EachMessagePayload } from "kafkajs"
     import { Redis, Cluster as RedisCluster } from "ioredis";
