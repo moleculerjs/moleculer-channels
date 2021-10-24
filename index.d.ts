@@ -1,6 +1,5 @@
-
 declare module "@moleculer/channels" {
-    import { LoggerInstance as Logger, ServiceBroker, Service } from "moleculer";
+    import { LoggerInstance as Logger, ServiceBroker, Service, Middleware } from "moleculer";
     import { KafkaConfig, Consumer as KafkaConsumer, EachMessagePayload } from "kafkajs"
     import { Redis, Cluster as RedisCluster } from "ioredis";
     import { ConnectionOptions, ConsumerOpts, StreamConfig, JsMsg, JetStreamPublishOptions } from "nats";
@@ -357,7 +356,7 @@ declare module "@moleculer/channels" {
     }
 
 
-    interface ChannelFunction {
+    interface ChannelFunction extends Middleware {
         /**
          * Create lifecycle hook of service
          * @param {ServiceBroker} _broker
@@ -390,6 +389,9 @@ declare module "@moleculer/channels" {
         stopped(): Promise<void>;
 
     }
-    export function ChannelsMiddleware(): ChannelFunction;
+
+  
+    export function Middleware(opts:ChannelOptions ): ChannelFunction;
+
 
 }
