@@ -5,20 +5,13 @@ declare module "@moleculer/channels" {
     import { ConnectionOptions, ConsumerOpts, StreamConfig, JsMsg, JetStreamPublishOptions } from "nats";
 
     export type ChannelOptions = {
-        adapter: string;
+        adapter: string | BaseAdapter;
         schemaProperty?: string;
         sendMethodName?: string;
         adapterPropertyName?: string;
 
     }
 
-    type RedisDefaultOptions = {
-        readTimeoutInterval: number;
-        minIdleTime: number;
-        claimInterval: number;
-        startID: string;
-        processingAttemptsInterval: number;
-    }
 
     export interface NATSOpts extends BaseDefaultOptions {
         nats: any;
@@ -75,9 +68,7 @@ declare module "@moleculer/channels" {
     }
 
     interface RedisOpts extends BaseDefaultOptions {
-        redis: {
-            consumerOptions: RedisDefaultOptions;
-        };
+        redis:string;
     }
 
 
