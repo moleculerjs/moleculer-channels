@@ -1,7 +1,7 @@
 declare module "@moleculer/channels" {
     import { LoggerInstance as Logger, ServiceBroker, Service, Middleware } from "moleculer";
     import { KafkaConfig, Consumer as KafkaConsumer, EachMessagePayload } from "kafkajs"
-    import { Redis, Cluster as RedisCluster } from "ioredis";
+    import { Redis, Cluster as RedisCluster, ClusterOptions, ClusterNode } from "ioredis";
     import { ConnectionOptions, ConsumerOpts, StreamConfig, JsMsg, JetStreamPublishOptions } from "nats";
 
     export type ChannelOptions = {
@@ -12,6 +12,14 @@ declare module "@moleculer/channels" {
 
     }
 
+
+   export type RedisDefaultOptions = {
+        readTimeoutInterval: number;
+        minIdleTime: number;
+        claimInterval: number;
+        startID: string;
+        processingAttemptsInterval: number;
+    }
 
     export interface NATSOpts extends BaseDefaultOptions {
         nats: any;
@@ -67,8 +75,21 @@ declare module "@moleculer/channels" {
         };
     }
 
+    
     interface RedisOpts extends BaseDefaultOptions {
         redis:string;
+        cluster: ClusterOptions;
+
+    }
+
+    interface RedisClientOpts extends BaseDefaultOptions {
+        redis: {
+            url: string;
+        };
+        cluster: {
+            nodes: ClusterNode[];
+            clusterOptions: ClusterOptions;
+        }
     }
 
 
@@ -91,7 +112,7 @@ declare module "@moleculer/channels" {
         xreadgroup: Function;
         xclaim: Function;
         failed_messages: Function;
-        redis: RedisDefaultOptions;
+        redis: string;
     }
 
 
@@ -283,7 +304,7 @@ declare module "@moleculer/channels" {
        * @memberof RedisTransporter
        * @returns {Promise<Cluster|Redis>)}
        */
-        createRedisClient(name, opts): Promise<Redis | RedisCluster>;
+        createRedisClient(name: string, opts:RedisClientOpts): Promise<Redis | RedisCluster>;
 
         /**
          * Process incoming messages.
