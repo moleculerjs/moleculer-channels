@@ -1,33 +1,86 @@
 declare module "@moleculer/channels" {
     import { LoggerInstance as Logger, ServiceBroker, Service, Middleware } from "moleculer";
-    import { KafkaConfig, Consumer as KafkaConsumer, EachMessagePayload } from "kafkajs"
-    import { Redis, Cluster as RedisCluster, ClusterOptions, ClusterNode } from "ioredis";
+    import { KafkaConfig, Consumer as KafkaConsumer, EachMessagePayload, ProducerConfig, ConsumerConfig, BrokersFunction, ISocketFactory, logCreator, logLevel, RetryOptions, SASLOptions } from "kafkajs"
+    import { Redis, Cluster as RedisCluster, ClusterOptions, ClusterNode, RedisOptions } from "ioredis";
     import { ConnectionOptions, ConsumerOpts, StreamConfig, JsMsg, JetStreamPublishOptions } from "nats";
+    import * as tls from 'tls'
 
     export type ChannelOptions = {
-        adapter: string | BaseAdapter;
+        adapter: string | BaseChannelOptions;
         schemaProperty?: string;
         sendMethodName?: string;
         adapterPropertyName?: string;
 
     }
-
-
-   export type RedisDefaultOptions = {
-        readTimeoutInterval: number;
-        minIdleTime: number;
-        claimInterval: number;
-        startID: string;
-        processingAttemptsInterval: number;
+    type DeadLetteringOptions = {
+        enabled: boolean;
+        queueName: string;
+    }
+    interface BaseChannelOptions {
+        type: string;
+        maxInFlight?: number;
+        maxRetries?: number;
+        deadLettering?:DeadLetteringOptions
     }
 
-    export interface NATSOpts extends BaseDefaultOptions {
-        nats: any;
-        url: string;
-        connectionOptions: ConnectionOptions;
-        streamConfig: StreamConfig;
-        consumerOptions: ConsumerOpts;
+    export interface AmqpDefaultOptions extends BaseChannelOptions {
+        amqp: {
+            url: string;
+            socketOptions: object;
+            queueOptions: object;
+            exchangeOptions: object;
+            messageOptions: object;
+            consumerOptions: object;
+        };
     }
+
+    export interface KafkaDefaultOptions extends BaseChannelOptions {
+        kafka: {
+            brokers: string[] | BrokersFunction;
+            ssl?: tls.ConnectionOptions | boolean;
+            sasl?: SASLOptions;
+            clientId?: string
+            connectionTimeout?: number;
+            authenticationTimeout?: number;
+            reauthenticationThreshold?: number;
+            requestTimeout?: number;
+            enforceRequestTimeout?: boolean;
+            retry?: RetryOptions;
+            socketFactory?: ISocketFactory;
+            logLevel?: logLevel;
+            logCreator?: logCreator;
+            producerOptions: ProducerConfig;
+            consumerOptions: ConsumerConfig;
+        }
+    }
+
+
+    export interface NatsStreamOptions extends BaseChannelOptions  {
+        nats:{
+            url?: string;
+            connectionOptions?: ConnectionOptions;
+            streamConfig?: StreamConfig;
+            consumerOptions?: ConsumerOpts;
+        }
+     }
+
+   export interface RedisDefaultOptions extends BaseChannelOptions{
+        redis:{
+            url?: string;
+            consumerOptions?: {
+                readTimeoutInterval?: number;
+                minIdleTime?: number;
+                claimInterval?: number;
+                startID?: string;
+                processingAttemptsInterval?: number;
+            }
+            cluster: {
+                nodes: ClusterNode[];
+                clusterOptions?: ClusterOptions;
+            }
+        }
+    }
+
 
     export type Message = {
         content: string;
@@ -48,53 +101,6 @@ declare module "@moleculer/channels" {
         key: string;
         raw: boolean;
         partition: number;
-    }
-
-    export type DeadLetteringOptions = {
-        enabled: boolean;
-        queueName: string;
-    }
-
-    export type BaseDefaultOptions = {
-        maxInFlight: number;
-        consumerName?: string;
-        prefix?: string;
-        serializer: string;
-        maxRetries: number;
-        deadLettering: DeadLetteringOptions;
-    }
-
-    export interface AmqpDefaultOptions extends BaseDefaultOptions {
-        amqp: {
-            url: string;
-            socketOptions: object;
-            queueOptions: object;
-            exchangeOptions: object;
-            messageOptions: object;
-            consumerOptions: object;
-        };
-    }
-
-    
-    interface RedisOpts extends BaseDefaultOptions {
-        redis:string;
-        cluster: ClusterOptions;
-
-    }
-
-    interface RedisClientOpts extends BaseDefaultOptions {
-        redis: {
-            url: string;
-        };
-        cluster: {
-            nodes: ClusterNode[];
-            clusterOptions: ClusterOptions;
-        }
-    }
-
-
-    export interface KafkaDefaultOptions extends BaseDefaultOptions {
-        kafka: KafkaConfig;
     }
 
     export type Channel = {
@@ -120,7 +126,7 @@ declare module "@moleculer/channels" {
         /**
          * @param opts BaseDefaultOptions
          */
-        constructor(opts: BaseDefaultOptions): void;
+        constructor(opts: BaseChannelOptions): void;
 
         /**
          * @param broker ServiceBroker
@@ -205,7 +211,7 @@ declare module "@moleculer/channels" {
          *
          * @param {Channel & BaseDefaultOptions} chan
          */
-        subscribe(chan: Channel & BaseDefaultOptions): Promise<void>;
+        subscribe(chan: Channel & BaseChannelOptions): Promise<void>;
 
         /**
          * Publish a payload to a channel.
@@ -221,7 +227,7 @@ declare module "@moleculer/channels" {
          *
          * @param {Channel & BaseDefaultOptions} chan
          */
-        unsubscribe(chan: Channel & BaseDefaultOptions): Promise<void>;
+        unsubscribe(chan: Channel & BaseChannelOptions): Promise<void>;
 
     }
 
@@ -304,7 +310,7 @@ declare module "@moleculer/channels" {
        * @memberof RedisTransporter
        * @returns {Promise<Cluster|Redis>)}
        */
-        createRedisClient(name: string, opts:RedisClientOpts): Promise<Redis | RedisCluster>;
+        createRedisClient(name: string, opts:RedisDefaultOptions): Promise<Redis | RedisCluster>;
 
         /**
          * Process incoming messages.
