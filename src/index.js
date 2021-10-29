@@ -81,6 +81,21 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		);
 	}
 
+	/**
+	 *
+	 * @param {ServiceBroker} broker
+	 */
+	function registerChannelMetrics(broker) {
+		if (!broker.isMetricsEnabled()) return;
+
+		// ToDo: register the metrics
+		broker.metrics.register({
+			type: "counter",
+			name: "channels",
+			unit: "calls"
+		});
+	}
+
 	return {
 		name: "Channels",
 
@@ -121,6 +136,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 					`broker.${mwOpts.adapterPropertyName} property is already in use by another Channel middleware`
 				);
 			}
+
+			registerChannelMetrics(broker);
 		},
 
 		/**
@@ -235,6 +252,53 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			logger.debug("Channel adapter disconnected.");
 
 			started = false;
+		},
+
+		/**
+		 * Wrap the channel handlers
+		 *
+		 * @param {Function} next Middleware function
+		 * @param {Channel} chan Channel instance
+		 * @this {ServiceBroker} ServiceBroker instance
+		 */
+		localChannel(next, chan) {
+			if (!broker.isMetricsEnabled()) return next;
+
+			/**
+			 * @param {Object} msg Parsed payload
+			 * @param {Object} raw Entire message that depends on the adapter
+			 */
+			return async (msg, raw) => {
+				this.logger.info(`Before localChannel for '${chan.name}'`, msg);
+				await next(msg, raw);
+				this.logger.info(`After localChannel for '${chan.name}'`, msg);
+			};
+		},
+
+		/**
+		 * Wrap the `broker.sendToChannel` method
+		 *
+		 * @param {Function} next Middleware function
+		 * @this {ServiceBroker} ServiceBroker instance
+		 */
+		sendToChannel(next) {
+			if (!broker.isMetricsEnabled()) return next;
+
+			/**
+			 * Publish a payload to a channel.
+			 *
+			 * @param {String} channelName
+			 * @param {any} payload
+			 * @param {Object} opts
+			 */
+			return async (channelName, payload, opts) => {
+				// ToDo: Add the metrics
+				this.metrics.increment("channels", 1);
+
+				this.logger.info(`Before sendToChannel for '${channelName}'`, payload);
+				await next(channelName, payload, opts);
+				this.logger.info(`After sendToChannel for '${channelName}'`, payload);
+			};
 		}
 	};
 };
