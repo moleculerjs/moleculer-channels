@@ -7,8 +7,10 @@
 "use strict";
 
 const _ = require("lodash");
+const { METRIC } = require("moleculer");
 const { BrokerOptionsError, ServiceSchemaError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
+const C = require("./constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
@@ -88,11 +90,36 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 	function registerChannelMetrics(broker) {
 		if (!broker.isMetricsEnabled()) return;
 
-		// ToDo: register the metrics
 		broker.metrics.register({
-			type: "counter",
-			name: "channels",
-			unit: "calls"
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_SENT,
+			labelNames: ["channel"],
+			rate: true,
+			unit: "call"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_TOTAL,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_GAUGE,
+			name: C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_HISTOGRAM,
+			name: C.METRIC_CHANNELS_MESSAGES_TIME,
+			labelNames: ["channel", "group"],
+			quantiles: true,
+			unit: "msg"
 		});
 	}
 
@@ -119,6 +146,11 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				broker[mwOpts.sendMethodName] = broker.wrapMethod(
 					"sendToChannel",
 					(channelName, payload, opts) => {
+						broker.metrics.increment(
+							C.METRIC_CHANNELS_MESSAGES_SENT,
+							{ channel: channelName },
+							1
+						);
 						return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 					}
 				);
@@ -194,6 +226,48 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						);
 						chan.handler = wrappedHandler;
 
+						// Add metrics for the handler
+						if (broker.isMetricsEnabled()) {
+							chan.handler = (...args) => {
+								const labels = { channel: name, group: chan.group };
+								const timeEnd = broker.metrics.timer(
+									C.METRIC_CHANNELS_MESSAGES_TIME,
+									labels,
+									1
+								);
+								broker.metrics.increment(
+									C.METRIC_CHANNELS_MESSAGES_TOTAL,
+									labels,
+									1
+								);
+								broker.metrics.increment(
+									C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+									labels,
+									1
+								);
+								return wrappedHandler(...args)
+									.then(res => {
+										timeEnd();
+										broker.metrics.decrement(
+											C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+											labels,
+											1
+										);
+										return res;
+									})
+									.catch(err => {
+										timeEnd();
+										broker.metrics.decrement(
+											C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+											labels,
+											1
+										);
+
+										throw err;
+									});
+							};
+						}
+
 						//svc.$channels[name] = chan;
 						logger.debug(
 							`Registering '${chan.name}' channel in '${svc.fullName}' service with group '${chan.group}'...`
@@ -252,53 +326,6 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			logger.debug("Channel adapter disconnected.");
 
 			started = false;
-		},
-
-		/**
-		 * Wrap the channel handlers
-		 *
-		 * @param {Function} next Middleware function
-		 * @param {Channel} chan Channel instance
-		 * @this {ServiceBroker} ServiceBroker instance
-		 */
-		localChannel(next, chan) {
-			if (!broker.isMetricsEnabled()) return next;
-
-			/**
-			 * @param {Object} msg Parsed payload
-			 * @param {Object} raw Entire message that depends on the adapter
-			 */
-			return async (msg, raw) => {
-				this.logger.info(`Before localChannel for '${chan.name}'`, msg);
-				await next(msg, raw);
-				this.logger.info(`After localChannel for '${chan.name}'`, msg);
-			};
-		},
-
-		/**
-		 * Wrap the `broker.sendToChannel` method
-		 *
-		 * @param {Function} next Middleware function
-		 * @this {ServiceBroker} ServiceBroker instance
-		 */
-		sendToChannel(next) {
-			if (!broker.isMetricsEnabled()) return next;
-
-			/**
-			 * Publish a payload to a channel.
-			 *
-			 * @param {String} channelName
-			 * @param {any} payload
-			 * @param {Object} opts
-			 */
-			return async (channelName, payload, opts) => {
-				// ToDo: Add the metrics
-				this.metrics.increment("channels", 1);
-
-				this.logger.info(`Before sendToChannel for '${channelName}'`, payload);
-				await next(channelName, payload, opts);
-				this.logger.info(`After sendToChannel for '${channelName}'`, payload);
-			};
 		}
 	};
 };
