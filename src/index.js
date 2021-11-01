@@ -232,26 +232,16 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 								const labels = { channel: name, group: chan.group };
 								const timeEnd = broker.metrics.timer(
 									C.METRIC_CHANNELS_MESSAGES_TIME,
-									labels,
-									1
+									labels
 								);
-								broker.metrics.increment(
-									C.METRIC_CHANNELS_MESSAGES_TOTAL,
-									labels,
-									1
-								);
-								broker.metrics.increment(
-									C.METRIC_CHANNELS_MESSAGES_ACTIVE,
-									labels,
-									1
-								);
+								broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_TOTAL, labels);
+								broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ACTIVE, labels);
 								return wrappedHandler(...args)
 									.then(res => {
 										timeEnd();
 										broker.metrics.decrement(
 											C.METRIC_CHANNELS_MESSAGES_ACTIVE,
-											labels,
-											1
+											labels
 										);
 										return res;
 									})
@@ -259,8 +249,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 										timeEnd();
 										broker.metrics.decrement(
 											C.METRIC_CHANNELS_MESSAGES_ACTIVE,
-											labels,
-											1
+											labels
 										);
 
 										throw err;
