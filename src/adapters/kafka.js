@@ -26,8 +26,8 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
  * @typedef {import('kafkajs').ProducerConfig} ProducerConfig Kafka producer configuration
  * @typedef {import('kafkajs').ConsumerConfig} ConsumerConfig Kafka consumer configuration
  * @typedef {import('kafkajs').EachMessagePayload} EachMessagePayload Incoming message payload
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */

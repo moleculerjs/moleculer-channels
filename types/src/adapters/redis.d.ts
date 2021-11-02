@@ -3,8 +3,8 @@ export = RedisAdapter;
  * @typedef {import("ioredis").Cluster} Cluster Redis cluster instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Cluster
  * @typedef {import("ioredis").Redis} Redis Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
  * @typedef {import("ioredis").RedisOptions} RedisOptions
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -50,7 +50,7 @@ declare class RedisAdapter extends BaseAdapter {
      * @param {any} opts
      *
      * @memberof RedisTransporter
-     * @returns {Promise<Cluster|Redis>)}
+     * @returns {Promise<Cluster|Redis>}
      */
     createRedisClient(name: string, opts: any): Promise<Cluster | Redis>;
     /**
@@ -64,9 +64,9 @@ declare class RedisAdapter extends BaseAdapter {
      * Parse the message(s).
      *
      * @param {Array} messages
-     * @returns {Array}
+     * @returns {any}
      */
-    parseMessage(messages: any[]): any[];
+    parseMessage(messages: any[]): any;
     /**
      * Moves message into dead letter
      *
@@ -141,11 +141,11 @@ type RedisOptions = any;
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = import("moleculer").ServiceBroker;
+type ServiceBroker = import("../../typings/moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-type Logger = import("moleculer").LoggerInstance;
+type Logger = import("../../typings/moleculer").LoggerInstance;
 /**
  * Base adapter options
  */

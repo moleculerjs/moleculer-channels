@@ -1,7 +1,8 @@
 export = BaseAdapter;
 /**
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../../typings/moleculer").Serializer} Serializer Moleculer Serializer
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
  */
@@ -24,9 +25,9 @@ declare class BaseAdapter {
     opts: BaseDefaultOptions;
     /**
      * Tracks the messages that are still being processed by different clients
-     * @type {Map<string, string[]>}
+     * @type {Map<string, string[]|number[]>}
      */
-    activeMessages: Map<string, string[]>;
+    activeMessages: Map<string, string[] | number[]>;
     /**
      * Initialize the adapter.
      *
@@ -34,19 +35,20 @@ declare class BaseAdapter {
      * @param {Logger} logger
      */
     init(broker: ServiceBroker, logger: Logger): void;
-    broker: import("moleculer").ServiceBroker;
-    logger: import("moleculer").LoggerInstance;
+    broker: import("../../typings/moleculer").ServiceBroker;
+    logger: import("../../typings/moleculer").LoggerInstance;
     Promise: PromiseConstructorLike;
-    serializer: import("moleculer").Serializer;
+    /** @type {Serializer} */
+    serializer: Serializer;
     /**
      * Check the installed client library version.
      * https://github.com/npm/node-semver#usage
      *
-     * @param {String} installedVersion
+     * @param {String} library
      * @param {String} requiredVersions
      * @returns {Boolean}
      */
-    checkClientLibVersion(library: any, requiredVersions: string): boolean;
+    checkClientLibVersion(library: string, requiredVersions: string): boolean;
     /**
      * Init active messages list for tracking messages of a channel
      * @param {string} channelID
@@ -61,16 +63,16 @@ declare class BaseAdapter {
      * Add IDs of the messages that are currently being processed
      *
      * @param {string} channelID Channel ID
-     * @param {string[]} IDs List of IDs
+     * @param {string[]|number[]} IDs List of IDs
      */
-    addChannelActiveMessages(channelID: string, IDs: string[]): void;
+    addChannelActiveMessages(channelID: string, IDs: string[] | number[]): void;
     /**
      * Remove IDs of the messages that were already processed
      *
      * @param {string} channelID Channel ID
-     * @param {string[]} IDs List of IDs
+     * @param {string[]|number[]} IDs List of IDs
      */
-    removeChannelActiveMessages(channelID: string, IDs: string[]): void;
+    removeChannelActiveMessages(channelID: string, IDs: string[] | number[]): void;
     /**
      * Get the number of active messages of a channel
      *
@@ -117,7 +119,7 @@ declare class BaseAdapter {
     publish(channelName: string, payload: any, opts: any | null): Promise<void>;
 }
 declare namespace BaseAdapter {
-    export { ServiceBroker, Logger, Channel, DeadLetteringOptions, BaseDefaultOptions };
+    export { ServiceBroker, Logger, Serializer, Channel, DeadLetteringOptions, BaseDefaultOptions };
 }
 /**
  * Base Adapter configuration
@@ -151,11 +153,15 @@ type BaseDefaultOptions = {
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = import("moleculer").ServiceBroker;
+type ServiceBroker = import("../../typings/moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-type Logger = import("moleculer").LoggerInstance;
+type Logger = import("../../typings/moleculer").LoggerInstance;
+/**
+ * Moleculer Serializer
+ */
+type Serializer = import("../../typings/moleculer").Serializer;
 /**
  * Base channel definition
  */

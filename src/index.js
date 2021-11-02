@@ -11,10 +11,10 @@ const { BrokerOptionsError, ServiceSchemaError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
 
 /**
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("moleculer").Service} Service Moleculer service
- * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
+ * @typedef {import("../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("../typings/moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../typings/moleculer").Service} Service Moleculer service
+ * @typedef {import("../typings/moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
  */
 

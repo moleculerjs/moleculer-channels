@@ -57,7 +57,7 @@ import BaseAdapter = require("./base");
 /**
  * Logger instance
  */
-type Logger = import("moleculer").LoggerInstance;
+type Logger = import("../../typings/moleculer").LoggerInstance;
 /**
  * Kafka Client
  */
@@ -106,7 +106,7 @@ type ConsumerConfig = import('kafkajs').ConsumerConfig;
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = import("moleculer").ServiceBroker;
+type ServiceBroker = import("../../typings/moleculer").ServiceBroker;
 /**
  * Base adapter options
  */

@@ -20,8 +20,8 @@ let Amqplib;
 /**
  * @typedef {import('amqplib').Connection} AMQPLibConnection AMQP connection
  * @typedef {import('amqplib').Channel} AMQPLibChannel AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -30,7 +30,7 @@ let Amqplib;
  * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
  * @property {Number} maxInFlight Max-in-flight messages
  * @property {Object} amqp AMQP lib configuration
- * @property {String} amqp.url Connection URI
+ * @property {String|String[]} amqp.url Connection URI
  * @property {Object} amqp.socketOptions AMQP lib socket configuration
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration

@@ -4,8 +4,9 @@
 		"strict": false,
 		"checkJs": true,
 		"declaration": true,
-		"declarationDir": "types"
+		"declarationDir": "types",
+		"outDir": "dist",
 	},
 	"include": ["**.js"],
-	"exclude": ["node_modules", ".eslintrc.js", "prettier.config.js"]
+	"exclude": ["node_modules", ".eslintrc.js", "prettier.config.js", "types"]
 }

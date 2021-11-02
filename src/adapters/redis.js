@@ -19,8 +19,8 @@ let Redis;
  * @typedef {import("ioredis").Cluster} Cluster Redis cluster instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Cluster
  * @typedef {import("ioredis").Redis} Redis Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
  * @typedef {import("ioredis").RedisOptions} RedisOptions
- * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -193,7 +193,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {any} opts
 	 *
 	 * @memberof RedisTransporter
-	 * @returns {Promise<Cluster|Redis>)}
+	 * @returns {Promise<Cluster|Redis>}
 	 */
 	createRedisClient(name, opts) {
 		return new Promise((resolve, reject) => {
@@ -547,7 +547,7 @@ class RedisAdapter extends BaseAdapter {
 			});
 		});
 
-		const promiseResults = await Promise.allSettled(promises);
+		const promiseResults = await this.Promise.allSettled(promises);
 		const pubClient = this.clients.get(this.pubName);
 
 		for (let i = 0; i < promiseResults.length; i++) {
@@ -595,7 +595,7 @@ class RedisAdapter extends BaseAdapter {
 	 * Parse the message(s).
 	 *
 	 * @param {Array} messages
-	 * @returns {Array}
+	 * @returns {any}
 	 */
 	parseMessage(messages) {
 		return messages[0][1].reduce(
