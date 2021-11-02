@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"allowJs": true,
+		"strict": false,
+		"checkJs": true,
+		"declaration": true,
+		"declarationDir": "types"
+	},
+	"include": ["**.js"],
+	"exclude": ["node_modules", ".eslintrc.js", "prettier.config.js"]
+}

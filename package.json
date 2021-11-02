@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon examples/index.js",
+    "check": "tsc --noEmit true",
+    "types": "tsc --emitDeclarationOnly true --noEmitOnError false",
     "ci": "jest --watch",
     "test": "jest --coverage",
     "lint": "eslint --ext=.js src examples test",
@@ -24,6 +26,7 @@
     "type": "git",
     "url": "https://github.com/moleculerjs/moleculer-channels.git"
   },
+  "typings": "types/index.d.ts",
   "author": "MoleculerJS",
   "license": "MIT",
   "peerDependencies": {
@@ -67,7 +70,10 @@
     "node": ">= 12.x.x"
   },
   "dependencies": {
+    "@types/node": "^16.11.6",
+    "jsdoc": "^3.6.7",
     "lodash": "^4.17.21",
-    "semver": "^7.3.5"
+    "semver": "^7.3.5",
+    "typescript": "^4.4.4"
   }
 }
