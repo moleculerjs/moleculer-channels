@@ -356,10 +356,7 @@ class AmqpAdapter extends BaseAdapter {
 			} catch (err) {
 				this.removeChannelActiveMessages(chan.id, [id]);
 
-				this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, {
-					channel: chan.name,
-					group: chan.group
-				});
+				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
 				if (!chan.maxRetries) {
@@ -401,10 +398,7 @@ class AmqpAdapter extends BaseAdapter {
 						redeliveryCount
 					);
 
-					this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, {
-						channel: chan.name,
-						group: chan.group
-					});
+					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 
 					const res = this.channel.publish("", queueName, msg.content, {
 						headers: Object.assign({}, msg.properties.headers, {
@@ -440,10 +434,7 @@ class AmqpAdapter extends BaseAdapter {
 		);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 
-		this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, {
-			channel: chan.name,
-			group: chan.group
-		});
+		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 		this.channel.ack(msg);
 	}

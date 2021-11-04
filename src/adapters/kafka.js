@@ -344,10 +344,7 @@ class KafkaAdapter extends BaseAdapter {
 		} catch (err) {
 			this.removeChannelActiveMessages(chan.id, [id]);
 
-			this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, {
-				channel: chan.name,
-				group: chan.group
-			});
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 			this.logger.warn(`Kafka message processing error in '${chan.name}' queue.`, err);
 			if (!chan.maxRetries) {
@@ -398,10 +395,7 @@ class KafkaAdapter extends BaseAdapter {
 					})
 				});
 
-				this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, {
-					channel: chan.name,
-					group: chan.group
-				});
+				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 			}
 			await this.commitOffset(consumer, topic, partition, newOffset);
 		}
@@ -431,10 +425,7 @@ class KafkaAdapter extends BaseAdapter {
 				headers
 			});
 
-			this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, {
-				channel: chan.name,
-				group: chan.group
-			});
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.key);
 		} catch (error) {

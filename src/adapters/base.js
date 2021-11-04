@@ -113,6 +113,18 @@ class BaseAdapter {
 	}
 
 	/**
+	 *
+	 * @param {String} metricName
+	 * @param {Channel} chan
+	 */
+	metricsIncrement(metricName, chan) {
+		this.broker.metrics.increment(metricName, {
+			channel: chan.name,
+			group: chan.group
+		});
+	}
+
+	/**
 	 * Check the installed client library version.
 	 * https://github.com/npm/node-semver#usage
 	 *

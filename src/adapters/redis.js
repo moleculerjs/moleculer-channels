@@ -360,13 +360,7 @@ class RedisAdapter extends BaseAdapter {
 
 						// Messages
 						if (message[1].length !== 0) {
-							this.broker.metrics.increment(
-								C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL,
-								{
-									channel: chan.name,
-									group: chan.group
-								}
-							);
+							this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 							this.logger.debug(`${chan.id} claimed ${message[1].length} messages`);
 							this.processMessage(chan, [message]);
 						}
@@ -573,10 +567,7 @@ class RedisAdapter extends BaseAdapter {
 					group: chan.group
 				});
 			} else {
-				this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, {
-					channel: chan.name,
-					group: chan.group
-				});
+				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 				// Message rejected
 				if (!chan.maxRetries) {
@@ -663,10 +654,7 @@ class RedisAdapter extends BaseAdapter {
 			this.serializer.serialize(msgHdrs)
 		);
 
-		this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, {
-			channel: chan.name,
-			group: chan.group
-		});
+		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
 	}

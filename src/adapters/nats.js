@@ -252,10 +252,7 @@ class NatsAdapter extends BaseAdapter {
 					message.ack();
 				} catch (error) {
 					// this.logger.error(error);
-					this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, {
-						channel: chan.name,
-						group: chan.group
-					});
+					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 					// Message rejected
 					if (!chan.maxRetries) {
@@ -296,10 +293,7 @@ class NatsAdapter extends BaseAdapter {
 					} else {
 						// Retries enabled but limit NOT reached
 						// NACK the message for redelivery
-						this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, {
-							channel: chan.name,
-							group: chan.group
-						});
+						this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 
 						this.logger.debug(`NACKing message...`, message.seq);
 						message.nak();
@@ -364,10 +358,7 @@ class NatsAdapter extends BaseAdapter {
 
 			await this.publish(chan.deadLettering.queueName, message.data, opts);
 
-			this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, {
-				channel: chan.name,
-				group: chan.group
-			});
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.seq);
 		} catch (error) {
