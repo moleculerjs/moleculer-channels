@@ -9,7 +9,8 @@
 const _ = require("lodash");
 const semver = require("semver");
 const { MoleculerError } = require("moleculer").Errors;
-const { Serializers } = require("moleculer");
+const { Serializers, METRIC } = require("moleculer");
+const C = require("../constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
@@ -75,6 +76,54 @@ class BaseAdapter {
 		this.serializer = Serializers.resolve(this.opts.serializer);
 		this.serializer.init(this.broker);
 		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
+
+		this.registerAdapterMetrics(broker);
+	}
+
+	/**
+	 * Register adapter related metrics
+	 * @param {ServiceBroker} broker
+	 */
+	registerAdapterMetrics(broker) {
+		if (!broker.isMetricsEnabled()) return;
+
+		broker.metrics.register({
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+	}
+
+	/**
+	 *
+	 * @param {String} metricName
+	 * @param {Channel} chan
+	 */
+	metricsIncrement(metricName, chan) {
+		if (!broker.isMetricsEnabled()) return;
+		
+		this.broker.metrics.increment(metricName, {
+			channel: chan.name,
+			group: chan.group
+		});
 	}
 
 	/**

@@ -11,6 +11,15 @@ const broker = new ServiceBroker({
 		CHANNELS: "debug",
 		"**": "info"
 	},
+	metrics: {
+		enabled: true,
+		reporter: {
+			type: "Console",
+			options: {
+				includes: ["moleculer.channels.**"]
+			}
+		}
+	},
 	middlewares: [
 		ChannelsMiddleware({
 			adapter: {
@@ -50,7 +59,7 @@ broker.createService({
 				minIdleTime: 1000,
 				claimInterval: 500
 			},
-			maxRetries: 0,
+			maxRetries: 2,
 			deadLettering: {
 				enabled: true,
 				queueName: "DEAD_LETTER",
