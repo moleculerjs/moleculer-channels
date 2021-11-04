@@ -9,11 +9,7 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
-const {
-	HEADER_ORIGINAL_CHANNEL,
-	HEADER_ORIGINAL_GROUP,
-	HEADER_REDELIVERED_COUNT
-} = require("../constants");
+const C = require("../constants");
 
 let Amqplib;
 
@@ -360,6 +356,11 @@ class AmqpAdapter extends BaseAdapter {
 			} catch (err) {
 				this.removeChannelActiveMessages(chan.id, [id]);
 
+				this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, {
+					channel: chan.name,
+					group: chan.group
+				});
+
 				this.logger.warn(`AMQP message processing error in '${chan.name}' queue.`, err);
 				if (!chan.maxRetries) {
 					if (chan.deadLettering.enabled) {
@@ -376,7 +377,7 @@ class AmqpAdapter extends BaseAdapter {
 					return;
 				}
 
-				let redeliveryCount = msg.properties.headers[HEADER_REDELIVERED_COUNT] || 0;
+				let redeliveryCount = msg.properties.headers[C.HEADER_REDELIVERED_COUNT] || 0;
 				redeliveryCount++;
 				if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
 					if (chan.deadLettering.enabled) {
@@ -400,9 +401,14 @@ class AmqpAdapter extends BaseAdapter {
 						redeliveryCount
 					);
 
+					this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, {
+						channel: chan.name,
+						group: chan.group
+					});
+
 					const res = this.channel.publish("", queueName, msg.content, {
 						headers: Object.assign({}, msg.properties.headers, {
-							[HEADER_REDELIVERED_COUNT]: redeliveryCount
+							[C.HEADER_REDELIVERED_COUNT]: redeliveryCount
 						})
 					});
 					if (res === false)
@@ -414,6 +420,12 @@ class AmqpAdapter extends BaseAdapter {
 		};
 	}
 
+	/**
+	 * Moves message into dead letter
+	 *
+	 * @param {Channel & AmqpDefaultOptions} chan
+	 * @param {Object} msg
+	 */
 	async moveToDeadLetter(chan, msg) {
 		const res = this.channel.publish(
 			chan.deadLettering.exchangeName || "",
@@ -421,12 +433,17 @@ class AmqpAdapter extends BaseAdapter {
 			msg.content,
 			{
 				headers: {
-					[HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[HEADER_ORIGINAL_GROUP]: chan.group
+					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[C.HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			}
 		);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
+
+		this.broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, {
+			channel: chan.name,
+			group: chan.group
+		});
 
 		this.channel.ack(msg);
 	}
