@@ -50,7 +50,7 @@ class BaseAdapter {
 
 		/**
 		 * Tracks the messages that are still being processed by different clients
-		 * @type {Map<string, string[]|number[]>}
+		 * @type {Map<string, Array<string|number>>}
 		 */
 		this.activeMessages = new Map();
 	}
@@ -138,7 +138,7 @@ class BaseAdapter {
 	 * Add IDs of the messages that are currently being processed
 	 *
 	 * @param {string} channelID Channel ID
-	 * @param {string[]|number[]} IDs List of IDs
+	 * @param {Array<string|number>} IDs List of IDs
 	 */
 	addChannelActiveMessages(channelID, IDs) {
 		if (!this.activeMessages.has(channelID)) {

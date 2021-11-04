@@ -479,7 +479,7 @@ class AmqpAdapter extends BaseAdapter {
 
 	/**
 	 * Resubscribe to all channels.
-	 * @returns {Promise<void>
+	 * @returns {Promise<void>}
 	 */
 	async resubscribeAllChannels() {
 		this.logger.info("Resubscribing to all channels...");
