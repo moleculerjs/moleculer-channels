@@ -12,9 +12,9 @@ const { MoleculerError } = require("moleculer").Errors;
 const { Serializers } = require("moleculer");
 
 /**
- * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("../../typings/moleculer").Serializer} Serializer Moleculer Serializer
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
  */

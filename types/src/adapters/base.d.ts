@@ -1,8 +1,8 @@
 export = BaseAdapter;
 /**
- * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("../../typings/moleculer").Serializer} Serializer Moleculer Serializer
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
  */
@@ -25,9 +25,9 @@ declare class BaseAdapter {
     opts: BaseDefaultOptions;
     /**
      * Tracks the messages that are still being processed by different clients
-     * @type {Map<string, string[]|number[]>}
+     * @type {Map<string, Array<string|number>>}
      */
-    activeMessages: Map<string, string[] | number[]>;
+    activeMessages: Map<string, Array<string | number>>;
     /**
      * Initialize the adapter.
      *
@@ -35,8 +35,8 @@ declare class BaseAdapter {
      * @param {Logger} logger
      */
     init(broker: ServiceBroker, logger: Logger): void;
-    broker: import("../../typings/moleculer").ServiceBroker;
-    logger: import("../../typings/moleculer").LoggerInstance;
+    broker: import("moleculer").ServiceBroker;
+    logger: import("moleculer").LoggerInstance;
     Promise: PromiseConstructorLike;
     /** @type {Serializer} */
     serializer: Serializer;
@@ -63,9 +63,9 @@ declare class BaseAdapter {
      * Add IDs of the messages that are currently being processed
      *
      * @param {string} channelID Channel ID
-     * @param {string[]|number[]} IDs List of IDs
+     * @param {Array<string|number>} IDs List of IDs
      */
-    addChannelActiveMessages(channelID: string, IDs: string[] | number[]): void;
+    addChannelActiveMessages(channelID: string, IDs: Array<string | number>): void;
     /**
      * Remove IDs of the messages that were already processed
      *
@@ -153,15 +153,15 @@ type BaseDefaultOptions = {
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = import("../../typings/moleculer").ServiceBroker;
+type ServiceBroker = import("moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-type Logger = import("../../typings/moleculer").LoggerInstance;
+type Logger = import("moleculer").LoggerInstance;
 /**
  * Moleculer Serializer
  */
-type Serializer = import("../../typings/moleculer").Serializer;
+type Serializer = import("moleculer").Serializer;
 /**
  * Base channel definition
  */

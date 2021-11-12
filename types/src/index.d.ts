@@ -31,19 +31,19 @@ export = _exports;
 /**
  * Moleculer Service Broker instance
  */
-export type ServiceBroker = import("../typings/moleculer").ServiceBroker;
+export type ServiceBroker = import("moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-export type Logger = import("../typings/moleculer").LoggerInstance;
+export type Logger = import("moleculer").LoggerInstance;
 /**
  * Moleculer service
  */
-export type Service = import("../typings/moleculer").Service;
+export type Service = import("moleculer").Service;
 /**
  * Moleculer middleware
  */
-export type Middleware = import("../typings/moleculer").Middleware;
+export type Middleware = import("moleculer").Middleware;
 /**
  * Base adapter class
  */

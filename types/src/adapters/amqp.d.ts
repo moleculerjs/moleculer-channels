@@ -2,8 +2,8 @@ export = AmqpAdapter;
 /**
  * @typedef {import('amqplib').Connection} AMQPLibConnection AMQP connection
  * @typedef {import('amqplib').Channel} AMQPLibChannel AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
- * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -60,7 +60,7 @@ declare class AmqpAdapter extends BaseAdapter {
     moveToDeadLetter(chan: any, msg: any): Promise<void>;
     /**
      * Resubscribe to all channels.
-     * @returns {Promise<void>
+     * @returns {Promise<void>}
      */
     resubscribeAllChannels(): Promise<void>;
 }
@@ -113,11 +113,11 @@ type AMQPLibChannel = any;
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = import("../../typings/moleculer").ServiceBroker;
+type ServiceBroker = import("moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-type Logger = import("../../typings/moleculer").LoggerInstance;
+type Logger = import("moleculer").LoggerInstance;
 /**
  * Base adapter options
  */

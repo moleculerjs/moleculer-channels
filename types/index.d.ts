@@ -1,8 +1,8 @@
 export function Middleware(mwOpts: import("./src").MiddlewareOptions): {
     name: string;
-    created(_broker: import("./typings/moleculer").ServiceBroker): void;
-    serviceCreated(svc: import("./typings/moleculer").Service<import("./typings/moleculer").ServiceSettingSchema>): Promise<void>;
-    serviceStopping(svc: import("./typings/moleculer").Service<import("./typings/moleculer").ServiceSettingSchema>): Promise<void>;
+    created(_broker: import("moleculer").ServiceBroker): void;
+    serviceCreated(svc: import("moleculer").Service<import("moleculer").ServiceSettingSchema>): Promise<void>;
+    serviceStopping(svc: import("moleculer").Service<import("moleculer").ServiceSettingSchema>): Promise<void>;
     started(): Promise<void>;
     stopped(): Promise<void>;
 };

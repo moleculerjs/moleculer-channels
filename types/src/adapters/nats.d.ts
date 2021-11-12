@@ -12,8 +12,8 @@ export = NatsAdapter;
  * @typedef {import("nats").JsMsg} JsMsg Jet Stream Message
  * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
  * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
- * @typedef {import("../../typings/moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("../../typings/moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -130,11 +130,11 @@ type MsgHdrs = import("nats").MsgHdrs;
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = import("../../typings/moleculer").ServiceBroker;
+type ServiceBroker = import("moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-type Logger = import("../../typings/moleculer").LoggerInstance;
+type Logger = import("moleculer").LoggerInstance;
 /**
  * Base adapter options
  */
