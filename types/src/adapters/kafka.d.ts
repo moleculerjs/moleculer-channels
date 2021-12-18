@@ -12,7 +12,7 @@ declare class KafkaAdapter extends BaseAdapter {
      */
     constructor(opts: KafkaDefaultOptions | (string | null));
     /** @type {Logger} */
-    kafkaLogger: any;
+    kafkaLogger: Logger;
     /** @type {KafkaClient} */
     client: KafkaClient;
     /** @type {KafkaProducer} */
@@ -54,6 +54,10 @@ declare namespace KafkaAdapter {
     export { KafkaClient, KafkaProducer, KafkaConsumer, KafkaConfig, ProducerConfig, ConsumerConfig, EachMessagePayload, ServiceBroker, Logger, Channel, BaseDefaultOptions, KafkaDefaultOptions };
 }
 import BaseAdapter = require("./base");
+/**
+ * Logger instance
+ */
+type Logger = import("moleculer").LoggerInstance;
 /**
  * Kafka Client
  */
@@ -102,11 +106,7 @@ type ConsumerConfig = import('kafkajs').ConsumerConfig;
 /**
  * Moleculer Service Broker instance
  */
-type ServiceBroker = any;
-/**
- * Logger instance
- */
-type Logger = any;
+type ServiceBroker = import("moleculer").ServiceBroker;
 /**
  * Base adapter options
  */
