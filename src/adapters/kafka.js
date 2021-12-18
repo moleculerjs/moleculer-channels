@@ -176,6 +176,8 @@ class KafkaAdapter extends BaseAdapter {
 		await this.producer.connect();
 
 		this.logger.info("Kafka adapter is connected.");
+
+		this.connected = true;
 	}
 
 	/**
@@ -206,7 +208,10 @@ class KafkaAdapter extends BaseAdapter {
 								// Release the pointers
 								this.consumers = new Map();
 							})
-							.then(() => resolve())
+							.then(() => {
+								this.connected = false;
+								resolve();
+							})
 							.catch(err => reject(err));
 					} else {
 						this.logger.warn(
@@ -490,6 +495,11 @@ class KafkaAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			this.logger.warn(`Adapter not yet connected. Skipping publishing...`);
+			return;
+		}
 
 		this.logger.debug(`Publish a message to '${channelName}' topic...`, payload, opts);
 

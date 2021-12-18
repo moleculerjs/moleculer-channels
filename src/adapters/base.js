@@ -52,6 +52,9 @@ class BaseAdapter {
 		 * @type {Map<string, string[]>}
 		 */
 		this.activeMessages = new Map();
+
+		/** @type {Boolean} Flag indicating the adapter's connection status */
+		this.connected = false;
 	}
 
 	/**

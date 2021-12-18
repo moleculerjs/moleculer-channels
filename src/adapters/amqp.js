@@ -98,7 +98,7 @@ class AmqpAdapter extends BaseAdapter {
 		 * @type {Map<string,SubscriptionEntry>}
 		 */
 		this.subscriptions = new Map();
-		this.connected = false;
+
 		this.stopping = false;
 		this.connectAttempt = 0;
 		this.connectionCount = 0; // To detect reconnections
@@ -239,6 +239,7 @@ class AmqpAdapter extends BaseAdapter {
 								.then(() => {
 									this.connection = null;
 									this.channel = null;
+									this.connected = false;
 									resolve();
 								})
 								.catch(reject);
@@ -498,6 +499,11 @@ class AmqpAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			this.logger.warn(`Adapter not yet connected. Skipping publishing...`);
+			return;
+		}
 
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
 		const messageOptions = _.defaultsDeep(

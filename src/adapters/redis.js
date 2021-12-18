@@ -149,6 +149,8 @@ class RedisAdapter extends BaseAdapter {
 			this.nackedName,
 			await this.createRedisClient(this.nackedName, this.opts.redis)
 		);
+
+		this.connected = true;
 	}
 
 	/**
@@ -171,7 +173,10 @@ class RedisAdapter extends BaseAdapter {
 							// Release the pointers
 							this.clients = new Map();
 						})
-						.then(() => resolve())
+						.then(() => {
+							this.connected = false;
+							resolve();
+						})
 						.catch(err => reject(err));
 				} else {
 					this.logger.warn(
@@ -664,6 +669,11 @@ class RedisAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			this.logger.warn(`Adapter not yet connected. Skipping publishing...`);
+			return;
+		}
 
 		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
 

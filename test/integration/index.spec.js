@@ -279,7 +279,7 @@ describe("Integration tests", () => {
 					};
 					// ---- ^ SETUP ^ ---
 
-					const numMessages = 20
+					const numMessages = 20;
 
 					await Promise.all(
 						_.times(numMessages, () => broker.sendToChannel("test.balanced.topic", msg))

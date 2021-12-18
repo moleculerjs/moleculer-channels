@@ -130,6 +130,8 @@ class NatsAdapter extends BaseAdapter {
 		this.manager = await this.connection.jetstreamManager();
 
 		this.client = this.connection.jetstream(); // JetStreamOptions
+
+		this.connected = true;
 	}
 
 	/**
@@ -149,6 +151,8 @@ class NatsAdapter extends BaseAdapter {
 		} catch (error) {
 			this.logger.error("Error while closing NATS JetStream connection.", error);
 		}
+
+		this.connected = false;
 	}
 
 	/**
@@ -421,6 +425,11 @@ class NatsAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			this.logger.warn(`Adapter not yet connected. Skipping publishing...`);
+			return;
+		}
 
 		try {
 			// Remap headers into JetStream format
