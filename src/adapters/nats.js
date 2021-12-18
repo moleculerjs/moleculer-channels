@@ -427,8 +427,7 @@ class NatsAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		if (!this.connected) {
-			this.logger.warn(`Adapter not yet connected. Skipping publishing...`);
-			return;
+			throw new MoleculerError("Adapter not yet connected. Skipping publishing.");
 		}
 
 		try {

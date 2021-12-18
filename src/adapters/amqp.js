@@ -501,8 +501,7 @@ class AmqpAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		if (!this.connected) {
-			this.logger.warn(`Adapter not yet connected. Skipping publishing...`);
-			return;
+			throw new MoleculerError("Adapter not yet connected. Skipping publishing.");
 		}
 
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish
