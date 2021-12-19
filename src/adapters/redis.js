@@ -9,7 +9,7 @@
 const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError, MoleculerRetryableError } = require("moleculer").Errors;
-const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+const C = require("../constants");
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
 
@@ -365,6 +365,7 @@ class RedisAdapter extends BaseAdapter {
 
 						// Messages
 						if (message[1].length !== 0) {
+							this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 							this.logger.debug(`${chan.id} claimed ${message[1].length} messages`);
 							this.processMessage(chan, [message]);
 						}
@@ -571,6 +572,8 @@ class RedisAdapter extends BaseAdapter {
 					group: chan.group
 				});
 			} else {
+				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
+
 				// Message rejected
 				if (!chan.maxRetries) {
 					// No retries
@@ -641,8 +644,8 @@ class RedisAdapter extends BaseAdapter {
 		const msgHdrs = {
 			...headers,
 			[HEADER_ORIGINAL_ID]: originalID,
-			[HEADER_ORIGINAL_CHANNEL]: chan.name,
-			[HEADER_ORIGINAL_GROUP]: chan.group
+			[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+			[C.HEADER_ORIGINAL_GROUP]: chan.group
 		};
 
 		// Move the message to a dedicated channel
@@ -655,6 +658,8 @@ class RedisAdapter extends BaseAdapter {
 			"headers",
 			this.serializer.serialize(msgHdrs)
 		);
+
+		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 		this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, originalID);
 	}

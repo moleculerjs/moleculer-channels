@@ -7,8 +7,10 @@
 "use strict";
 
 const _ = require("lodash");
+const { METRIC } = require("moleculer");
 const { BrokerOptionsError, ServiceSchemaError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
+const C = require("./constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
@@ -81,6 +83,46 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		);
 	}
 
+	/**
+	 *
+	 * @param {ServiceBroker} broker
+	 */
+	function registerChannelMetrics(broker) {
+		if (!broker.isMetricsEnabled()) return;
+
+		broker.metrics.register({
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_SENT,
+			labelNames: ["channel"],
+			rate: true,
+			unit: "call"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_COUNTER,
+			name: C.METRIC_CHANNELS_MESSAGES_TOTAL,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_GAUGE,
+			name: C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+			labelNames: ["channel", "group"],
+			rate: true,
+			unit: "msg"
+		});
+
+		broker.metrics.register({
+			type: METRIC.TYPE_HISTOGRAM,
+			name: C.METRIC_CHANNELS_MESSAGES_TIME,
+			labelNames: ["channel", "group"],
+			quantiles: true,
+			unit: "msg"
+		});
+	}
+
 	return {
 		name: "Channels",
 
@@ -104,6 +146,11 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				broker[mwOpts.sendMethodName] = broker.wrapMethod(
 					"sendToChannel",
 					(channelName, payload, opts) => {
+						broker.metrics.increment(
+							C.METRIC_CHANNELS_MESSAGES_SENT,
+							{ channel: channelName },
+							1
+						);
 						return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 					}
 				);
@@ -121,6 +168,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 					`broker.${mwOpts.adapterPropertyName} property is already in use by another Channel middleware`
 				);
 			}
+
+			registerChannelMetrics(broker);
 		},
 
 		/**
@@ -176,6 +225,37 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							chan
 						);
 						chan.handler = wrappedHandler;
+
+						// Add metrics for the handler
+						if (broker.isMetricsEnabled()) {
+							chan.handler = (...args) => {
+								const labels = { channel: name, group: chan.group };
+								const timeEnd = broker.metrics.timer(
+									C.METRIC_CHANNELS_MESSAGES_TIME,
+									labels
+								);
+								broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_TOTAL, labels);
+								broker.metrics.increment(C.METRIC_CHANNELS_MESSAGES_ACTIVE, labels);
+								return wrappedHandler(...args)
+									.then(res => {
+										timeEnd();
+										broker.metrics.decrement(
+											C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+											labels
+										);
+										return res;
+									})
+									.catch(err => {
+										timeEnd();
+										broker.metrics.decrement(
+											C.METRIC_CHANNELS_MESSAGES_ACTIVE,
+											labels
+										);
+
+										throw err;
+									});
+							};
+						}
 
 						//svc.$channels[name] = chan;
 						logger.debug(

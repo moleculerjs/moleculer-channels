@@ -8,7 +8,7 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+const C = require("../constants");
 const { MoleculerRetryableError } = require("moleculer").Errors;
 
 let NATS;
@@ -257,6 +257,7 @@ class NatsAdapter extends BaseAdapter {
 					message.ack();
 				} catch (error) {
 					// this.logger.error(error);
+					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 					// Message rejected
 					if (!chan.maxRetries) {
@@ -297,6 +298,8 @@ class NatsAdapter extends BaseAdapter {
 					} else {
 						// Retries enabled but limit NOT reached
 						// NACK the message for redelivery
+						this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
+
 						this.logger.debug(`NACKing message...`, message.seq);
 						message.nak();
 					}
@@ -347,19 +350,20 @@ class NatsAdapter extends BaseAdapter {
 	 */
 	async moveToDeadLetter(chan, message) {
 		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
-
 		try {
 			/** @type {JetStreamPublishOptions} */
 			const opts = {
 				raw: true,
 				headers: {
 					// Add info about original channel where error occurred
-					[HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[HEADER_ORIGINAL_GROUP]: chan.group
+					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[C.HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			};
 
 			await this.publish(chan.deadLettering.queueName, message.data, opts);
+
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.seq);
 		} catch (error) {
