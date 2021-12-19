@@ -8,7 +8,7 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { MoleculerError } = require("moleculer").Errors;
+const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const {
 	HEADER_ORIGINAL_CHANNEL,
 	HEADER_ORIGINAL_GROUP,
@@ -501,7 +501,7 @@ class AmqpAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		if (!this.connected) {
-			throw new MoleculerError("Adapter not yet connected. Skipping publishing.");
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
 		}
 
 		// Available options: http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish

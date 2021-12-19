@@ -8,7 +8,7 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { MoleculerError } = require("moleculer").Errors;
+const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const {
 	HEADER_REDELIVERED_COUNT,
 	HEADER_GROUP,
@@ -497,7 +497,7 @@ class KafkaAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		if (!this.connected) {
-			throw new MoleculerError("Adapter not yet connected. Skipping publishing.");
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
 		}
 
 		this.logger.debug(`Publish a message to '${channelName}' topic...`, payload, opts);

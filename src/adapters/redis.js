@@ -8,7 +8,7 @@
 
 const _ = require("lodash");
 const BaseAdapter = require("./base");
-const { ServiceSchemaError } = require("moleculer").Errors;
+const { ServiceSchemaError, MoleculerRetryableError } = require("moleculer").Errors;
 const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
@@ -671,7 +671,7 @@ class RedisAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		if (!this.connected) {
-			throw new MoleculerError("Adapter not yet connected. Skipping publishing.");
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
 		}
 
 		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);

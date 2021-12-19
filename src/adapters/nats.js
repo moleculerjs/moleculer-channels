@@ -9,6 +9,7 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { HEADER_ORIGINAL_CHANNEL, HEADER_ORIGINAL_GROUP } = require("../constants");
+const { MoleculerRetryableError } = require("moleculer").Errors;
 
 let NATS;
 
@@ -427,7 +428,7 @@ class NatsAdapter extends BaseAdapter {
 		if (this.stopping) return;
 
 		if (!this.connected) {
-			throw new MoleculerError("Adapter not yet connected. Skipping publishing.");
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
 		}
 
 		try {
