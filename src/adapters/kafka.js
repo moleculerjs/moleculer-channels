@@ -9,12 +9,7 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError } = require("moleculer").Errors;
-const {
-	HEADER_REDELIVERED_COUNT,
-	HEADER_GROUP,
-	HEADER_ORIGINAL_CHANNEL,
-	HEADER_ORIGINAL_GROUP
-} = require("../constants");
+const C = require("../constants");
 /** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
@@ -317,8 +312,8 @@ class KafkaAdapter extends BaseAdapter {
 		const newOffset = Number(message.offset) + 1;
 
 		// Check group filtering
-		if (message.headers && message.headers[HEADER_GROUP]) {
-			const group = message.headers[HEADER_GROUP].toString();
+		if (message.headers && message.headers[C.HEADER_GROUP]) {
+			const group = message.headers[C.HEADER_GROUP].toString();
 			if (group !== chan.group) {
 				this.logger.debug(
 					`The message is addressed to other group '${group}'. Current group: '${chan.group}'. Skipping...`
@@ -349,6 +344,8 @@ class KafkaAdapter extends BaseAdapter {
 		} catch (err) {
 			this.removeChannelActiveMessages(chan.id, [id]);
 
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
+
 			this.logger.warn(`Kafka message processing error in '${chan.name}' queue.`, err);
 			if (!chan.maxRetries) {
 				if (chan.deadLettering.enabled) {
@@ -366,8 +363,8 @@ class KafkaAdapter extends BaseAdapter {
 			}
 
 			let redeliveryCount =
-				message.headers[HEADER_REDELIVERED_COUNT] != null
-					? Number(message.headers[HEADER_REDELIVERED_COUNT])
+				message.headers[C.HEADER_REDELIVERED_COUNT] != null
+					? Number(message.headers[C.HEADER_REDELIVERED_COUNT])
 					: 0;
 			redeliveryCount++;
 			if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
@@ -393,32 +390,42 @@ class KafkaAdapter extends BaseAdapter {
 					raw: true,
 					key: message.key,
 					headers: Object.assign({}, message.headers, {
-						[HEADER_REDELIVERED_COUNT]: redeliveryCount.toString(),
-						[HEADER_GROUP]: chan.group
+						[C.HEADER_REDELIVERED_COUNT]: redeliveryCount.toString(),
+						[C.HEADER_GROUP]: chan.group
 					})
 				});
+
+				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 			}
 			await this.commitOffset(consumer, topic, partition, newOffset);
 		}
 	}
 
+	/**
+	 * Moves message into dead letter
+	 *
+	 * @param {Channel} chan
+	 * @param {Object} message message
+	 */
 	async moveToDeadLetter(chan, { partition, message }) {
 		try {
 			const headers = {
 				...(message.headers || {}),
-				[HEADER_ORIGINAL_CHANNEL]: chan.name,
-				[HEADER_ORIGINAL_GROUP]: chan.group,
+				[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+				[C.HEADER_ORIGINAL_GROUP]: chan.group,
 				[HEADER_ORIGINAL_PARTITION]: "" + partition
 			};
 
 			// Remove original group filter after redelivery.
-			delete headers[HEADER_GROUP];
+			delete headers[C.HEADER_GROUP];
 
 			await this.publish(chan.deadLettering.queueName, message.value, {
 				raw: true,
 				key: message.key,
 				headers
 			});
+
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.key);
 		} catch (error) {
