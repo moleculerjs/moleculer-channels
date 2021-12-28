@@ -118,7 +118,7 @@ class BaseAdapter {
 	 * @param {Channel} chan
 	 */
 	metricsIncrement(metricName, chan) {
-		if (!broker.isMetricsEnabled()) return;
+		if (!this.broker.isMetricsEnabled()) return;
 		
 		this.broker.metrics.increment(metricName, {
 			channel: chan.name,
