@@ -42,7 +42,6 @@ declare class AmqpAdapter extends BaseAdapter {
      * @type {Map<string,SubscriptionEntry>}
      */
     subscriptions: Map<string, SubscriptionEntry>;
-    connected: boolean;
     stopping: boolean;
     connectAttempt: number;
     connectionCount: number;
@@ -57,7 +56,13 @@ declare class AmqpAdapter extends BaseAdapter {
      * @returns {Function}
      */
     createConsumerHandler(chan: Channel & AmqpDefaultOptions): Function;
-    moveToDeadLetter(chan: any, msg: any): Promise<void>;
+    /**
+     * Moves message into dead letter
+     *
+     * @param {Channel & AmqpDefaultOptions} chan
+     * @param {Object} msg
+     */
+    moveToDeadLetter(chan: Channel & AmqpDefaultOptions, msg: any): Promise<void>;
     /**
      * Resubscribe to all channels.
      * @returns {Promise<void>}

@@ -21,7 +21,6 @@ declare class KafkaAdapter extends BaseAdapter {
      * @type {Map<string,KafkaConsumer>}
      */
     consumers: Map<string, KafkaConsumer>;
-    connected: boolean;
     stopping: boolean;
     /**
      * Trying connect to the adapter.
@@ -45,10 +44,13 @@ declare class KafkaAdapter extends BaseAdapter {
      * @returns {Promise<void>}
      */
     processMessage(chan: Channel & KafkaDefaultOptions, consumer: KafkaConsumer, { topic, partition, message }: EachMessagePayload): Promise<void>;
-    moveToDeadLetter(chan: any, { partition, message }: {
-        partition: any;
-        message: any;
-    }): Promise<void>;
+    /**
+     * Moves message into dead letter
+     *
+     * @param {Channel} chan
+     * @param {Object} message message
+     */
+    moveToDeadLetter(chan: Channel, { partition, message }: any): Promise<void>;
 }
 declare namespace KafkaAdapter {
     export { KafkaClient, KafkaProducer, KafkaConsumer, KafkaConfig, ProducerConfig, ConsumerConfig, EachMessagePayload, ServiceBroker, Logger, Channel, BaseDefaultOptions, KafkaDefaultOptions };

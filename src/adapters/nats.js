@@ -9,6 +9,7 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const C = require("../constants");
+const { MoleculerRetryableError } = require("moleculer").Errors;
 
 let NATS;
 
@@ -130,6 +131,8 @@ class NatsAdapter extends BaseAdapter {
 		this.manager = await this.connection.jetstreamManager();
 
 		this.client = this.connection.jetstream(); // JetStreamOptions
+
+		this.connected = true;
 	}
 
 	/**
@@ -149,6 +152,8 @@ class NatsAdapter extends BaseAdapter {
 		} catch (error) {
 			this.logger.error("Error while closing NATS JetStream connection.", error);
 		}
+
+		this.connected = false;
 	}
 
 	/**
@@ -425,6 +430,10 @@ class NatsAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
+		}
 
 		try {
 			// Remap headers into JetStream format

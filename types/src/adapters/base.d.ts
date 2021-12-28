@@ -28,6 +28,8 @@ declare class BaseAdapter {
      * @type {Map<string, Array<string|number>>}
      */
     activeMessages: Map<string, Array<string | number>>;
+    /** @type {Boolean} Flag indicating the adapter's connection status */
+    connected: boolean;
     /**
      * Initialize the adapter.
      *
@@ -40,6 +42,17 @@ declare class BaseAdapter {
     Promise: PromiseConstructorLike;
     /** @type {Serializer} */
     serializer: Serializer;
+    /**
+     * Register adapter related metrics
+     * @param {ServiceBroker} broker
+     */
+    registerAdapterMetrics(broker: ServiceBroker): void;
+    /**
+     *
+     * @param {String} metricName
+     * @param {Channel} chan
+     */
+    metricsIncrement(metricName: string, chan: Channel): void;
     /**
      * Check the installed client library version.
      * https://github.com/npm/node-semver#usage
