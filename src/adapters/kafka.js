@@ -8,7 +8,7 @@
 
 const BaseAdapter = require("./base");
 const _ = require("lodash");
-const { MoleculerError } = require("moleculer").Errors;
+const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
 /** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
@@ -171,6 +171,8 @@ class KafkaAdapter extends BaseAdapter {
 		await this.producer.connect();
 
 		this.logger.info("Kafka adapter is connected.");
+
+		this.connected = true;
 	}
 
 	/**
@@ -201,7 +203,10 @@ class KafkaAdapter extends BaseAdapter {
 								// Release the pointers
 								this.consumers = new Map();
 							})
-							.then(() => resolve())
+							.then(() => {
+								this.connected = false;
+								resolve();
+							})
 							.catch(err => reject(err));
 					} else {
 						this.logger.warn(
@@ -497,6 +502,10 @@ class KafkaAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
+		}
 
 		this.logger.debug(`Publish a message to '${channelName}' topic...`, payload, opts);
 

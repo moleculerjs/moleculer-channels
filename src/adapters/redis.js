@@ -8,7 +8,7 @@
 
 const _ = require("lodash");
 const BaseAdapter = require("./base");
-const { ServiceSchemaError } = require("moleculer").Errors;
+const { ServiceSchemaError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
@@ -149,6 +149,8 @@ class RedisAdapter extends BaseAdapter {
 			this.nackedName,
 			await this.createRedisClient(this.nackedName, this.opts.redis)
 		);
+
+		this.connected = true;
 	}
 
 	/**
@@ -171,7 +173,10 @@ class RedisAdapter extends BaseAdapter {
 							// Release the pointers
 							this.clients = new Map();
 						})
-						.then(() => resolve())
+						.then(() => {
+							this.connected = false;
+							resolve();
+						})
 						.catch(err => reject(err));
 				} else {
 					this.logger.warn(
@@ -669,6 +674,10 @@ class RedisAdapter extends BaseAdapter {
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
 		if (this.stopping) return;
+
+		if (!this.connected) {
+			throw new MoleculerRetryableError("Adapter not yet connected. Skipping publishing.");
+		}
 
 		this.logger.debug(`Publish a message to '${channelName}' channel...`, payload, opts);
 

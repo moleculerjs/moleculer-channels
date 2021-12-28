@@ -53,6 +53,9 @@ class BaseAdapter {
 		 * @type {Map<string, string[]>}
 		 */
 		this.activeMessages = new Map();
+
+		/** @type {Boolean} Flag indicating the adapter's connection status */
+		this.connected = false;
 	}
 
 	/**
@@ -119,7 +122,7 @@ class BaseAdapter {
 	 */
 	metricsIncrement(metricName, chan) {
 		if (!this.broker.isMetricsEnabled()) return;
-		
+
 		this.broker.metrics.increment(metricName, {
 			channel: chan.name,
 			group: chan.group
