@@ -198,7 +198,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {any} opts
 	 *
 	 * @memberof RedisTransporter
-	 * @returns {Promise<Cluster|Redis>)}
+	 * @returns {Promise<Cluster|Redis>}
 	 */
 	createRedisClient(name, opts) {
 		return new Promise((resolve, reject) => {
@@ -553,7 +553,7 @@ class RedisAdapter extends BaseAdapter {
 			});
 		});
 
-		const promiseResults = await Promise.allSettled(promises);
+		const promiseResults = await this.Promise.allSettled(promises);
 		const pubClient = this.clients.get(this.pubName);
 
 		for (let i = 0; i < promiseResults.length; i++) {
@@ -603,7 +603,7 @@ class RedisAdapter extends BaseAdapter {
 	 * Parse the message(s).
 	 *
 	 * @param {Array} messages
-	 * @returns {Array}
+	 * @returns {any}
 	 */
 	parseMessage(messages) {
 		return messages[0][1].reduce(

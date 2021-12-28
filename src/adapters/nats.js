@@ -33,7 +33,7 @@ let NATS;
  */
 
 /**
- * @typedef {Object} NATSOpts
+ * @typedef {Object} NatsDefaultOptions
  * @property {Object} nats NATS lib configuration
  * @property {String} url String containing the URL to NATS server
  * @property {ConnectionOptions} nats.connectionOptions
@@ -57,7 +57,7 @@ class NatsAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type { BaseDefaultOptions & NATSOpts } */
+		/** @type { BaseDefaultOptions & NatsDefaultOptions } */
 		this.opts = _.defaultsDeep(this.opts, {
 			nats: {
 				/** @type {ConnectionOptions} */
@@ -159,7 +159,7 @@ class NatsAdapter extends BaseAdapter {
 	/**
 	 * Subscribe to a channel with a handler.
 	 *
-	 * @param {Channel & NATSOpts} chan
+	 * @param {Channel & NatsDefaultOptions} chan
 	 */
 	async subscribe(chan) {
 		this.logger.debug(

@@ -15,6 +15,7 @@ const C = require("../constants");
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
  */
@@ -50,7 +51,7 @@ class BaseAdapter {
 
 		/**
 		 * Tracks the messages that are still being processed by different clients
-		 * @type {Map<string, string[]>}
+		 * @type {Map<string, Array<string|number>>}
 		 */
 		this.activeMessages = new Map();
 
@@ -76,6 +77,7 @@ class BaseAdapter {
 		this.logger.info("Channel prefix:", this.opts.prefix);
 
 		// create an instance of serializer (default to JSON)
+		/** @type {Serializer} */
 		this.serializer = Serializers.resolve(this.opts.serializer);
 		this.serializer.init(this.broker);
 		this.logger.info("Channel serializer:", this.broker.getConstructorName(this.serializer));
@@ -133,7 +135,7 @@ class BaseAdapter {
 	 * Check the installed client library version.
 	 * https://github.com/npm/node-semver#usage
 	 *
-	 * @param {String} installedVersion
+	 * @param {String} library
 	 * @param {String} requiredVersions
 	 * @returns {Boolean}
 	 */
@@ -188,7 +190,7 @@ class BaseAdapter {
 	 * Add IDs of the messages that are currently being processed
 	 *
 	 * @param {string} channelID Channel ID
-	 * @param {string[]} IDs List of IDs
+	 * @param {Array<string|number>} IDs List of IDs
 	 */
 	addChannelActiveMessages(channelID, IDs) {
 		if (!this.activeMessages.has(channelID)) {
@@ -202,7 +204,7 @@ class BaseAdapter {
 	 * Remove IDs of the messages that were already processed
 	 *
 	 * @param {string} channelID Channel ID
-	 * @param {string[]} IDs List of IDs
+	 * @param {string[]|number[]} IDs List of IDs
 	 */
 	removeChannelActiveMessages(channelID, IDs) {
 		if (!this.activeMessages.has(channelID)) {

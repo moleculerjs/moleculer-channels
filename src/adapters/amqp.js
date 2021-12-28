@@ -26,7 +26,7 @@ let Amqplib;
  * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
  * @property {Number} maxInFlight Max-in-flight messages
  * @property {Object} amqp AMQP lib configuration
- * @property {String} amqp.url Connection URI
+ * @property {String|String[]} amqp.url Connection URI
  * @property {Object} amqp.socketOptions AMQP lib socket configuration
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
@@ -488,7 +488,7 @@ class AmqpAdapter extends BaseAdapter {
 
 	/**
 	 * Resubscribe to all channels.
-	 * @returns {Promise<void>
+	 * @returns {Promise<void>}
 	 */
 	async resubscribeAllChannels() {
 		this.logger.info("Resubscribing to all channels...");

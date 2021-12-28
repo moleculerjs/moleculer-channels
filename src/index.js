@@ -16,13 +16,15 @@ const C = require("./constants");
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
+ * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
  */
 
 /**
  * @typedef {Object} DeadLetteringOptions Dead-letter-queue options
  * @property {Boolean} enabled Enable dead-letter-queue
- * @property {String} queueName Name of the dead-letter-queue
+ * @property {String} queueName Name of the dead-letter queue
+ * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
  */
 
 /**
@@ -44,6 +46,26 @@ const C = require("./constants");
  * @property {Channel} chan Channel object
  */
 
+/**
+ * @typedef {Object} AdapterConfig
+ * @property {String} type Adapter name
+ * @property {import("./adapters/base").BaseDefaultOptions & import("./adapters/amqp").AmqpDefaultOptions & import("./adapters/kafka").KafkaDefaultOptions & import("./adapters/nats").NatsDefaultOptions & import("./adapters/redis").RedisDefaultOptions} options Adapter options
+ */
+
+/**
+ * @typedef {Object} MiddlewareOptions Middleware options
+ * @property {String|AdapterConfig} adapter Adapter name or connection string or configuration object.
+ * @property {String} schemaProperty Property name of channels definition in service schema.
+ * @property {String} sendMethodName Method name to send messages.
+ * @property {String} adapterPropertyName Property name of the adapter instance in service instance.
+ */
+
+/**
+ * Initialize the Channels middleware.
+ *
+ * @param {MiddlewareOptions} mwOpts
+ * @returns Middleware
+ */
 module.exports = function ChannelsMiddleware(mwOpts) {
 	mwOpts = _.defaultsDeep({}, mwOpts, {
 		adapter: null,
@@ -75,7 +97,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 	/**
 	 * Remove channel from registry
 	 * @param {Service} svc
-	 * @param {Channel} chan
+	 * @param {Channel=} chan
 	 */
 	function unregisterChannel(svc, chan) {
 		channelRegistry = channelRegistry.filter(
@@ -156,7 +178,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				);
 			} else {
 				throw new BrokerOptionsError(
-					`broker.${mwOpts.sendMethodName} method is already in use by another Channel middleware`
+					`broker.${mwOpts.sendMethodName} method is already in use by another Channel middleware`,
+					null
 				);
 			}
 
@@ -165,7 +188,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				broker[mwOpts.adapterPropertyName] = adapter;
 			} else {
 				throw new BrokerOptionsError(
-					`broker.${mwOpts.adapterPropertyName} property is already in use by another Channel middleware`
+					`broker.${mwOpts.adapterPropertyName} property is already in use by another Channel middleware`,
+					null
 				);
 			}
 

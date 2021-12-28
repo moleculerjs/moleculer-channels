@@ -6,6 +6,7 @@
 
 "use strict";
 
+const BaseAdapter = require("./base");
 const { isObject, isString } = require("lodash");
 const { ServiceSchemaError } = require("moleculer").Errors;
 
@@ -28,7 +29,7 @@ function getByName(name) {
  * Resolve adapter by name
  *
  * @param {object|string} opt
- * @returns {Adapter}
+ * @returns {BaseAdapter}
  */
 function resolve(opt) {
 	if (opt instanceof Adapters.Base) {
@@ -62,6 +63,11 @@ function resolve(opt) {
 	return new Adapters.Redis();
 }
 
+/**
+ * Register a new Channel Adapter
+ * @param {String} name
+ * @param {BaseAdapter} value
+ */
 function register(name, value) {
 	Adapters[name] = value;
 }
