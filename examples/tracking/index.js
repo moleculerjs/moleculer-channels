@@ -33,6 +33,14 @@ const broker = new ServiceBroker({
 
 				await broker.sendToChannel("my.tracked.topic", payload);
 			}
+		},
+		{
+			command: "terminate",
+			alias: ["t"],
+			async action(broker, args) {
+				broker.logger.warn("Send SIGTERM...");
+				process.emit("SIGTERM");
+			}
 		}
 	]
 });
@@ -53,7 +61,7 @@ broker.createService({
 
 broker
 	.start()
-	.then(() => {
+	.then(async () => {
 		broker.repl();
 	})
 	.catch(err => {
