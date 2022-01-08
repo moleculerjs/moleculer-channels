@@ -146,7 +146,11 @@ export type MiddlewareOptions = {
      */
     sendMethodName: string;
     /**
-     * Property name of the adapter instance in service instance.
+     * Property name of the adapter instance in broker instance.
      */
     adapterPropertyName: string;
+    /**
+     * Method name to add to service in order to trigger channel handlers.
+     */
+    channelHandlerTrigger: string;
 };
