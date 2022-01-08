@@ -293,6 +293,10 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							 * @returns
 							 */
 							svc[mwOpts.channelHandlerTrigger] = (channelName, payload, raw) => {
+								svc.logger.debug(
+									`${mwOpts.channelHandlerTrigger} called '${channelName}' channel handler`
+								);
+
 								if (!svc.schema[mwOpts.schemaProperty][channelName])
 									return Promise.reject(
 										new MoleculerError(
