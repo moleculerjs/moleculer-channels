@@ -8,7 +8,7 @@
 
 const _ = require("lodash");
 const { METRIC } = require("moleculer");
-const { BrokerOptionsError, ServiceSchemaError } = require("moleculer").Errors;
+const { BrokerOptionsError, ServiceSchemaError, MoleculerError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
 const C = require("./constants");
 
@@ -71,7 +71,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		adapter: null,
 		schemaProperty: "channels",
 		sendMethodName: "sendToChannel",
-		adapterPropertyName: "channelAdapter"
+		adapterPropertyName: "channelAdapter",
+		channelHandlerTrigger: "emitLocalChannelHandler"
 	});
 
 	/** @type {ServiceBroker} */
@@ -279,6 +280,40 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 										throw err;
 									});
 							};
+						}
+
+						// Attach method to simplify unit testing
+						if (!svc[mwOpts.channelHandlerTrigger]) {
+							/**
+							 * Call a local channel event handler. Useful for unit tests.
+							 *
+							 * @param {String} channelName
+							 * @param {Object} payload
+							 * @param {Object} rawMessage
+							 * @returns
+							 */
+							svc[mwOpts.channelHandlerTrigger] = (channelName, payload, raw) => {
+								if (!svc.schema[mwOpts.schemaProperty][channelName])
+									return Promise.reject(
+										new MoleculerError(
+											`'${channelName}' is not registered as local channel event handler`,
+											500,
+											"NOT_FOUND_CHANNEL",
+											{ channelName }
+										)
+									);
+
+								return svc.schema[mwOpts.schemaProperty][channelName].call(
+									svc, // Attach reference to service
+									payload,
+									raw
+								);
+							};
+						} else {
+							throw new BrokerOptionsError(
+								`service.${mwOpts.channelHandlerTrigger} method is already in use by another Channel middleware`,
+								null
+							);
 						}
 
 						//svc.$channels[name] = chan;
