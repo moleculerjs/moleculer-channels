@@ -911,18 +911,23 @@ describe("Multiple Adapters", () => {
 		logLevel: "error",
 		middlewares: [
 			// Default options
-			ChannelMiddleware({ adapter: { type: "Redis", options: {} } }),
+			ChannelMiddleware({
+				channelHandlerTrigger: "myTriggerA",
+				adapter: { type: "Redis", options: {} }
+			}),
 			ChannelMiddleware({
 				adapter: "Redis",
 				schemaProperty: "redisChannels",
 				sendMethodName: "sendToRedisChannel",
-				adapterPropertyName: "redisAdapter"
+				adapterPropertyName: "redisAdapter",
+				channelHandlerTrigger: "myTriggerB"
 			}),
 			ChannelMiddleware({
 				adapter: "AMQP",
 				schemaProperty: "amqpChannels",
 				sendMethodName: "sendToAMQPChannel",
-				adapterPropertyName: "amqpAdapter"
+				adapterPropertyName: "amqpAdapter",
+				channelHandlerTrigger: "myTriggerC"
 			})
 		]
 	});
