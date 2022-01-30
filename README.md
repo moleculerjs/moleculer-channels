@@ -47,13 +47,13 @@ npm i @moleculer/channels
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	logger: true,
+    logger: true,
 
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "redis://localhost:6379"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
 };
 ```
 
@@ -63,33 +63,33 @@ By default, the middleware will add a `sendToChannel(<topic-name>, { payload })`
 
 ```js
 module.exports = {
-	name: "payments",
+    name: "payments",
 
-	actions: {
-		/*...*/
-	},
+    actions: {
+        /*...*/
+    },
 
-	channels: {
-		// Shorthand format
-		// In this case the consumer group is the service full name
-		async "order.created"(payload) {
-			// Do something with the payload
-			// You should throw error if you want to NACK the message processing.
-		},
+    channels: {
+        // Shorthand format
+        // In this case the consumer group is the service full name
+        async "order.created"(payload) {
+            // Do something with the payload
+            // You should throw error if you want to NACK the message processing.
+        },
 
-		"payment.processed": {
-			// Using custom consumer-group
-			group: "other",
-			async handler(payload) {
-				// Do something with the payload
-				// You should throw error if you want to NACK the message processing.
-			}
-		}
-	},
+        "payment.processed": {
+            // Using custom consumer-group
+            group: "other",
+            async handler(payload) {
+                // Do something with the payload
+                // You should throw error if you want to NACK the message processing.
+            }
+        }
+    },
 
-	methods: {
-		/*...*/
-	}
+    methods: {
+        /*...*/
+    }
 };
 ```
 
@@ -99,10 +99,10 @@ module.exports = {
 
 ```js
 broker.sendToChannel("order.created", {
-	id: 1234,
-	items: [
-		/*...*/
-	]
+    id: 1234,
+    items: [
+        /*...*/
+    ]
 });
 ```
 
@@ -117,29 +117,29 @@ const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 // moleculer.config.js
 module.exports = {
-	logger: true,
-	logLevel: "error",
-	middlewares: [
-		// Default options
-		ChannelsMiddleware({
-			adapter: {
-				type: "Kafka",
-				options: {}
-			}
-		}),
-		ChannelsMiddleware({
-			adapter: "Redis",
-			schemaProperty: "redisChannels",
-			sendMethodName: "sendToRedisChannel",
-			adapterPropertyName: "redisAdapter"
-		}),
-		ChannelsMiddleware({
-			adapter: "AMQP",
-			schemaProperty: "amqpChannels",
-			sendMethodName: "sendToAMQPChannel",
-			adapterPropertyName: "amqpAdapter"
-		})
-	]
+    logger: true,
+    logLevel: "error",
+    middlewares: [
+        // Default options
+        ChannelsMiddleware({
+            adapter: {
+                type: "Kafka",
+                options: {}
+            }
+        }),
+        ChannelsMiddleware({
+            adapter: "Redis",
+            schemaProperty: "redisChannels",
+            sendMethodName: "sendToRedisChannel",
+            adapterPropertyName: "redisAdapter"
+        }),
+        ChannelsMiddleware({
+            adapter: "AMQP",
+            schemaProperty: "amqpChannels",
+            sendMethodName: "sendToAMQPChannel",
+            adapterPropertyName: "amqpAdapter"
+        })
+    ]
 };
 ```
 
@@ -147,36 +147,36 @@ module.exports = {
 
 ```js
 module.exports = {
-	name: "payments",
+    name: "payments",
 
-	actions: {
-		/*...*/
-	},
+    actions: {
+        /*...*/
+    },
 
-	channels: {
-		"default.options.topic": {
-			group: "mygroup",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	},
-	redisChannels: {
-		"redis.topic": {
-			group: "mygroup",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	},
-	amqpChannels: {
-		"amqp.topic": {
-			group: "mygroup",
-			async handler(payload) {
-				/*...*/
-			}
-		}
-	}
+    channels: {
+        "default.options.topic": {
+            group: "mygroup",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    },
+    redisChannels: {
+        "redis.topic": {
+            group: "mygroup",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    },
+    amqpChannels: {
+        "amqp.topic": {
+            group: "mygroup",
+            async handler(payload) {
+                /*...*/
+            }
+        }
+    }
 };
 ```
 
@@ -196,16 +196,16 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	logger: true,
+    logger: true,
 
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "redis://localhost:6379",
-			sendMethodName: "sendToChannel",
-			adapterPropertyName: "channelAdapter",
-			schemaProperty: "channels"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379",
+            sendMethodName: "sendToChannel",
+            adapterPropertyName: "channelAdapter",
+            schemaProperty: "channels"
+        })
+    ]
 };
 ```
 
@@ -278,36 +278,36 @@ It is possible to wrap the handlers and the send method in Moleculer middleware.
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 const MyMiddleware = {
-	name: "MyMiddleware",
+    name: "MyMiddleware",
 
-	// Wrap the channel handlers
-	localChannel(next, chan) {
-		return async (msg, raw) => {
-			this.logger.info(kleur.magenta(`  Before localChannel for '${chan.name}'`), msg);
-			await next(msg, raw);
-			this.logger.info(kleur.magenta(`  After localChannel for '${chan.name}'`), msg);
-		};
-	},
+    // Wrap the channel handlers
+    localChannel(next, chan) {
+        return async (msg, raw) => {
+            this.logger.info(kleur.magenta(`  Before localChannel for '${chan.name}'`), msg);
+            await next(msg, raw);
+            this.logger.info(kleur.magenta(`  After localChannel for '${chan.name}'`), msg);
+        };
+    },
 
-	// Wrap the `broker.sendToChannel` method
-	sendToChannel(next) {
-		return async (channelName, payload, opts) => {
-			this.logger.info(kleur.yellow(`Before sendToChannel for '${channelName}'`), payload);
-			await next(channelName, payload, opts);
-			this.logger.info(kleur.yellow(`After sendToChannel for '${channelName}'`), payload);
-		};
-	}
+    // Wrap the `broker.sendToChannel` method
+    sendToChannel(next) {
+        return async (channelName, payload, opts) => {
+            this.logger.info(kleur.yellow(`Before sendToChannel for '${channelName}'`), payload);
+            await next(channelName, payload, opts);
+            this.logger.info(kleur.yellow(`After sendToChannel for '${channelName}'`), payload);
+        };
+    }
 };
 
 module.exports = {
-	logger: true,
+    logger: true,
 
-	middlewares: [
-		MyMiddleware,
-		ChannelsMiddleware({
-			adapter: "redis://localhost:6379"
-		})
-	]
+    middlewares: [
+        MyMiddleware,
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
 };
 ```
 
@@ -363,11 +363,11 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "redis://localhost:6379"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379"
+        })
+    ]
 };
 ```
 
@@ -378,35 +378,35 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "Redis",
-				options: {
-					redis: {
-						// ioredis constructor options: https://github.com/luin/ioredis#connect-to-redis
-						host: "127.0.0.1",
-						port: 6379,
-						db: 3,
-						password: "pass1234",
-						consumerOptions: {
-							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-							readTimeoutInterval: 0,
-							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-							minIdleTime: 5000,
-							// Interval (in milliseconds) between two claims
-							claimInterval: 100,
-							// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-							// More info: https://redis.io/commands/XGROUP
-							startID: "$",
-							// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-							processingAttemptsInterval: 1000
-						}
-					}
-				}
-			}
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {
+                    redis: {
+                        // ioredis constructor options: https://github.com/luin/ioredis#connect-to-redis
+                        host: "127.0.0.1",
+                        port: 6379,
+                        db: 3,
+                        password: "pass1234",
+                        consumerOptions: {
+                            // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+                            readTimeoutInterval: 0,
+                            // Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+                            minIdleTime: 5000,
+                            // Interval (in milliseconds) between two claims
+                            claimInterval: 100,
+                            // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+                            // More info: https://redis.io/commands/XGROUP
+                            startID: "$",
+                            // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+                            processingAttemptsInterval: 1000
+                        }
+                    }
+                }
+            }
+        })
+    ]
 };
 ```
 
@@ -450,43 +450,43 @@ module.exports = {
 
 ```js
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "Redis",
-				options: {
-					cluster: {
-						nodes: [
-							{ port: 6380, host: "127.0.0.1" },
-							{ port: 6381, host: "127.0.0.1" },
-							{ port: 6382, host: "127.0.0.1" }
-						],
-						options: {
-							/* More information: https://github.com/luin/ioredis#cluster */
-							redisOptions: {
-								password: "fallback-password"
-							}
-						}
-					},
-					redis: {
-						consumerOptions: {
-							// Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
-							readTimeoutInterval: 0,
-							// Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
-							minIdleTime: 5000,
-							// Interval (in milliseconds) between two claims
-							claimInterval: 100,
-							// "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
-							// More info: https://redis.io/commands/XGROUP
-							startID: "$",
-							// Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
-							processingAttemptsInterval: 1000
-						}
-					}
-				}
-			}
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Redis",
+                options: {
+                    cluster: {
+                        nodes: [
+                            { port: 6380, host: "127.0.0.1" },
+                            { port: 6381, host: "127.0.0.1" },
+                            { port: 6382, host: "127.0.0.1" }
+                        ],
+                        options: {
+                            /* More information: https://github.com/luin/ioredis#cluster */
+                            redisOptions: {
+                                password: "fallback-password"
+                            }
+                        }
+                    },
+                    redis: {
+                        consumerOptions: {
+                            // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
+                            readTimeoutInterval: 0,
+                            // Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+                            minIdleTime: 5000,
+                            // Interval (in milliseconds) between two claims
+                            claimInterval: 100,
+                            // "$" is a special ID. Consumers fetching data from the consumer group will only see new elements arriving in the stream.
+                            // More info: https://redis.io/commands/XGROUP
+                            startID: "$",
+                            // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+                            processingAttemptsInterval: 1000
+                        }
+                    }
+                }
+            }
+        })
+    ]
 };
 ```
 
@@ -503,11 +503,11 @@ The AMQP adapter uses the exchange-queue logic of RabbitMQ for creating consumer
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "amqp://localhost:5672"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "amqp://localhost:5672"
+        })
+    ]
 };
 ```
 
@@ -518,35 +518,35 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "AMQP",
-				options: {
-					amqp: {
-						url: "amqp://localhost:5672",
-						// Options for `Amqplib.connect`
-						socketOptions: {},
-						// Options for `assertQueue()`
-						queueOptions: {},
-						// Options for `assertExchange()`
-						exchangeOptions: {},
-						// Options for `channel.publish()`
-						messageOptions: {},
-						// Options for `channel.consume()`
-						consumerOptions: {}
-					},
-					maxInFlight: 10,
-					maxRetries: 3,
-					deadLettering: {
-						enabled: false
-						//queueName: "DEAD_LETTER",
-						//exchangeName: "DEAD_LETTER"
-					}
-				}
-			}
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "AMQP",
+                options: {
+                    amqp: {
+                        url: "amqp://localhost:5672",
+                        // Options for `Amqplib.connect`
+                        socketOptions: {},
+                        // Options for `assertQueue()`
+                        queueOptions: {},
+                        // Options for `assertExchange()`
+                        exchangeOptions: {},
+                        // Options for `channel.publish()`
+                        messageOptions: {},
+                        // Options for `channel.consume()`
+                        consumerOptions: {}
+                    },
+                    maxInFlight: 10,
+                    maxRetries: 3,
+                    deadLettering: {
+                        enabled: false
+                        //queueName: "DEAD_LETTER",
+                        //exchangeName: "DEAD_LETTER"
+                    }
+                }
+            }
+        })
+    ]
 };
 ```
 
@@ -565,11 +565,11 @@ The Kafka adapter uses Apache Kafka topics.
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "kafka://localhost:9092"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "kafka://localhost:9092"
+        })
+    ]
 };
 ```
 
@@ -580,27 +580,27 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "Kafka",
-				options: {
-					kafka: {
-						brokers: ["kafka-1:9092", "kafka-1:9092"],
-						// Options for `producer()`
-						producerOptions: {},
-						// Options for `consumer()`
-						consumerOptions: {}
-					},
-					maxRetries: 3,
-					deadLettering: {
-						enabled: false,
-						queueName: "DEAD_LETTER"
-					}
-				}
-			}
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "Kafka",
+                options: {
+                    kafka: {
+                        brokers: ["kafka-1:9092", "kafka-1:9092"],
+                        // Options for `producer()`
+                        producerOptions: {},
+                        // Options for `consumer()`
+                        consumerOptions: {}
+                    },
+                    maxRetries: 3,
+                    deadLettering: {
+                        enabled: false,
+                        queueName: "DEAD_LETTER"
+                    }
+                }
+            }
+        })
+    ]
 };
 ```
 
@@ -613,11 +613,11 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: "nats://localhost:4222"
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "nats://localhost:4222"
+        })
+    ]
 };
 ```
 
@@ -628,39 +628,39 @@ module.exports = {
 const ChannelsMiddleware = require("@moleculer/channels").Middleware;
 
 module.exports = {
-	middlewares: [
-		ChannelsMiddleware({
-			adapter: {
-				type: "NATS",
-				options: {
-					nats: {
-						url: "nats://localhost:4222",
-						/** @type {ConnectionOptions} */
-						connectionOptions: {},
-						/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
-						streamConfig: {},
-						/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-						consumerOptions: {
-							config: {
-								// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
-								deliver_policy: "new",
-								// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
-								ack_policy: "explicit",
-								// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
-								max_ack_pending: 1
-							}
-						}
-					},
-					maxInFlight: 10,
-					maxRetries: 3,
-					deadLettering: {
-						enabled: false,
-						queueName: "DEAD_LETTER"
-					}
-				}
-			}
-		})
-	]
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: {
+                type: "NATS",
+                options: {
+                    nats: {
+                        url: "nats://localhost:4222",
+                        /** @type {ConnectionOptions} */
+                        connectionOptions: {},
+                        /** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
+                        streamConfig: {},
+                        /** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+                        consumerOptions: {
+                            config: {
+                                // More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+                                deliver_policy: "new",
+                                // More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+                                ack_policy: "explicit",
+                                // More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+                                max_ack_pending: 1
+                            }
+                        }
+                    },
+                    maxInFlight: 10,
+                    maxRetries: 3,
+                    deadLettering: {
+                        enabled: false,
+                        queueName: "DEAD_LETTER"
+                    }
+                }
+            }
+        })
+    ]
 };
 ```
 
