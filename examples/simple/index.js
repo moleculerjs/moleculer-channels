@@ -13,7 +13,7 @@ const broker = new ServiceBroker({
 	},
 	middlewares: [
 		ChannelsMiddleware({
-			adapter: process.env.ADAPTER || "redis://localhost:6379"
+			adapter: process.env.ADAPTER || "Fake"
 		})
 	],
 	replCommands: [
