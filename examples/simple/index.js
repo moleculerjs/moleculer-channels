@@ -7,6 +7,7 @@ let c = 1;
 
 // Create broker
 const broker = new ServiceBroker({
+	namespace: "uat",
 	logLevel: {
 		CHANNELS: "debug",
 		"**": "info"

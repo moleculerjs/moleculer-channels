@@ -96,9 +96,16 @@ class FakeAdapter extends BaseAdapter {
 			}
 
 			const schema = {
-				name: this.opts.servicePrefix + "-" + chan.name + "-" + chan.group,
+				name: this.opts.servicePrefix + ":" + chan.name + ":" + chan.group,
 				events: {
 					[this.opts.eventPrefix + "." + chan.name]: {
+						bulkhead:
+							chan.maxInFlight != null
+								? {
+										enabled: true,
+										concurrency: chan.maxInFlight
+								  }
+								: undefined,
 						group: chan.group,
 						handler: ctx => this.processMessage(chan, ctx)
 					}
