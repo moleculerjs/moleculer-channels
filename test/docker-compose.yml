@@ -19,6 +19,8 @@ services:
     environment:
       - 'ALLOW_EMPTY_PASSWORD=yes'
       - 'REDIS_NODES=redis-node-1 redis-node-2 redis-node-3'
+      - 'REDIS_CLUSTER_REPLICAS=0'
+      - 'REDIS_CLUSTER_CREATOR=yes'
 
   redis-node-2:
     image: docker.io/bitnami/redis-cluster:6.2
@@ -35,6 +37,19 @@ services:
     environment:
       - 'ALLOW_EMPTY_PASSWORD=yes'
       - 'REDIS_NODES=redis-node-1 redis-node-2 redis-node-3'
+
+  #redis-cluster-init:
+  #  image: redis:6.2
+  #  restart: 'no'
+  #  depends_on:
+  #    - redis-node-1
+  #    - redis-node-2
+  #    - redis-node-3
+  #  entrypoint: []
+  #  command:
+  #    - /bin/bash
+  #    - -c
+  #    - redis-cli --cluster create redis-node-1:6379 redis-node-2:6379 redis-node-3:6379 --cluster-replicas 0 --cluster-yes
 
   rabbitmq:
     image: rabbitmq:3-management
