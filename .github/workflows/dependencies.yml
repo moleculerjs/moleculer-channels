@@ -24,7 +24,7 @@ jobs:
         git checkout -b update-deps-$GITHUB_RUN_ID
 
     - run: npm run ci-update-deps
-    - run: npm i
+    - run: npm ci
     - run: npm audit fix || true
 
     - run: |
