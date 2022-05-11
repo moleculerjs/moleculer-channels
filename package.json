@@ -13,6 +13,8 @@
     "bench": "node benchmark/index.js",
     "bench:watch": "nodemon benchmark/index.js",
     "deps": "npm-check -u",
+    "ci-deps": "ncu --target minor",
+    "ci-update-deps": "ncu -u --target minor",
     "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "test:up": "docker-compose -f test/docker-compose.yml up -d",
     "test:down": "docker-compose -f test/docker-compose.yml down -v",
@@ -53,6 +55,7 @@
     "msgpack5": "^5.3.2",
     "nats": "^2.4.0",
     "nodemon": "^2.0.15",
+    "npm-check-updates": "^12.5.11",
     "prettier": "^2.5.1",
     "typescript": "^4.5.4"
   },

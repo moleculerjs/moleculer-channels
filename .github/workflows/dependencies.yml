@@ -1,0 +1,36 @@
+name: Update dependencies
+
+on:
+  schedule:
+    - cron: '0 0 1 1 *'
+  workflow_dispatch:
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '16.x'
+
+    - run: npm ci
+
+    - run: npm run ci-deps >/tmp/ci-deps.txt
+
+    - run: |
+        git config user.name "GitHub Actions Bot"
+        git config user.email "hello@moleculer.services"
+        git checkout -b update-deps-$GITHUB_RUN_ID
+
+    - run: npm run ci-update-deps
+    - run: npm i
+    - run: npm audit fix || true
+
+    - run: |
+        git commit -am "Update dependencies (auto)"
+        git push origin update-deps-$GITHUB_RUN_ID
+    - run: |
+        gh pr create --title "[deps]: Update all dependencies" --body-file /tmp/ci-deps.txt
+      env:
+        GITHUB_TOKEN: ${{secrets.CI_ACCESS_TOKEN}}
