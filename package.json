@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^17.0.33",
-    "amqplib": "^0.8.0",
+    "amqplib": "^0.9.0",
     "benchmarkify": "^3.0.0",
     "coveralls": "^3.1.1",
     "eslint": "^8.15.0",
@@ -45,7 +45,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-promise": "^6.0.0",
     "eslint-plugin-security": "^1.5.0",
-    "ioredis": "^4.28.2",
+    "ioredis": "^5.0.5",
     "jest": "^28.1.0",
     "jest-cli": "^28.1.0",
     "kafkajs": "^1.15.0",
