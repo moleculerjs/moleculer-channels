@@ -48,7 +48,7 @@
     "ioredis": "^5.0.5",
     "jest": "^28.1.0",
     "jest-cli": "^28.1.0",
-    "kafkajs": "^1.15.0",
+    "kafkajs": "^2.0.0",
     "kleur": "^4.1.4",
     "moleculer": "^0.14.21",
     "moleculer-repl": "^0.7.0",
