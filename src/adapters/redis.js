@@ -121,7 +121,10 @@ class RedisAdapter extends BaseAdapter {
 
 		try {
 			Redis = require("ioredis");
-			Redis.Promise = this.Promise;
+			// Custom promise is not supported in ioredis v5
+			// More info: https://github.com/luin/ioredis/wiki/Upgrading-from-v4-to-v5
+			const pkg = require(`ioredis/package.json`);
+			if (pkg.version.split(".")[0] < 5) Redis.Promise = this.Promise;
 		} catch (err) {
 			/* istanbul ignore next */
 			this.broker.fatal(
@@ -131,7 +134,7 @@ class RedisAdapter extends BaseAdapter {
 			);
 		}
 
-		this.checkClientLibVersion("ioredis", "^4.27.9");
+		this.checkClientLibVersion("ioredis", "^4.27.9 || ^5.0.5");
 	}
 
 	/**

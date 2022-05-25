@@ -131,7 +131,7 @@ class KafkaAdapter extends BaseAdapter {
 			);
 		}
 
-		this.checkClientLibVersion("kafkajs", "^1.15.0");
+		this.checkClientLibVersion("kafkajs", "^1.15.0 || ^2.0.0");
 
 		this.opts.kafka.clientId = this.opts.consumerName;
 
