@@ -15,12 +15,14 @@ if (process.env.GITHUB_ACTIONS_CI) {
 			type: "Redis",
 			name: "Redis-Cluster",
 			options: {
-				cluster: {
-					nodes: [
-						{ host: "127.0.0.1", port: 6381 },
-						{ host: "127.0.0.1", port: 6382 },
-						{ host: "127.0.0.1", port: 6383 }
-					]
+				redis: {
+					cluster: {
+						nodes: [
+							{ host: "127.0.0.1", port: 6381 },
+							{ host: "127.0.0.1", port: 6382 },
+							{ host: "127.0.0.1", port: 6383 }
+						]
+					}
 				}
 			}
 		},
@@ -36,12 +38,14 @@ if (process.env.GITHUB_ACTIONS_CI) {
 			type: "Redis",
 			name: "Redis-Cluster",
 			options: {
-				cluster: {
-					nodes: [
-						{ host: "127.0.0.1", port: 6381 },
-						{ host: "127.0.0.1", port: 6382 },
-						{ host: "127.0.0.1", port: 6383 }
-					]
+				redis: {
+					cluster: {
+						nodes: [
+							{ host: "127.0.0.1", port: 6381 },
+							{ host: "127.0.0.1", port: 6382 },
+							{ host: "127.0.0.1", port: 6383 }
+						]
+					}
 				}
 			}
 		},
