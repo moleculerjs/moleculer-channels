@@ -1,6 +1,6 @@
 /*
  * @moleculer/channels
- * Copyright (c) 2021 MoleculerJS (https://github.com/moleculerjs/channels)
+ * Copyright (c) 2022 MoleculerJS (https://github.com/moleculerjs/channels)
  * MIT Licensed
  */
 

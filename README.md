@@ -330,9 +330,9 @@ module.exports = {
 | `redis.consumerOptions` `.claimInterval`              | `Number`                         | `100`                   | Redis              | Interval (in milliseconds) between message claims.                                                                                                                                                                                           |
 | `redis.consumerOptions` `.startID`                    | `String`                         | `$`                     | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).                           |
 | `redis.consumerOptions` `.processingAttemptsInterval` | `Number`                         | `0`                     | Redis              | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.                                                                                                                                                          |
-| `redis.cluster`                                             | `Object`                         | `null`                  | Redis              | Redis cluster connection options. More info [here](https://github.com/luin/ioredis#cluster)                                                                                                                                                  |
-| `redis.cluster.nodes`                                       | `Array`                          | `null`                  | Redis              | Redis Cluster nodes list.                                                                                                                                                                                                                    |
-| `redis.cluster.clusterOptions`                              | `Object`                         | `null`                  | Redis              | Redis Cluster options.                                                                                                                                                                                                                       |
+| `redis.cluster`                                       | `Object`                         | `null`                  | Redis              | Redis cluster connection options. More info [here](https://github.com/luin/ioredis#cluster)                                                                                                                                                  |
+| `redis.cluster.nodes`                                 | `Array`                          | `null`                  | Redis              | Redis Cluster nodes list.                                                                                                                                                                                                                    |
+| `redis.cluster.clusterOptions`                        | `Object`                         | `null`                  | Redis              | Redis Cluster options.                                                                                                                                                                                                                       |
 | `amqp.url`                                            | `String`                         | `null`                  | AMQP               | Connection URI.                                                                                                                                                                                                                              |
 | `amqp.socketOptions`                                  | `Object`                         | `null`                  | AMQP               | AMQP lib socket configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#connect).                                                                                                                             |
 | `amqp.queueOptions`                                   | `Object`                         | `null`                  | AMQP               | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).                                                                                                                  |
@@ -664,17 +664,39 @@ module.exports = {
 };
 ```
 
+### Fake adapter
+
+This adapter is made for unit/integration tests. The adapter uses the built-in Moleculer event bus to send messages instead of an external module. It means that the message sending is not reliable but can be a good option to test the channel handlers in a test environment. The fake adapter is doesn't support retries and dead-letter topic features. For multiple brokers, you should define a transporter (at least the `FakeTransporter`)
+
+> Do NOT use this adapter in production!
+
+**Example**
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "Fake"
+        })
+    ]
+};
+```
+
 ## Benchmark
 
 > Tests are running on Intel i7 4770K, 32GB RAM on Windows 10 with WSL.
 
 ### Tested adapters
 
-| Name         | Adapter | Description                                  |
-| ------------ | ------- | -------------------------------------------- |
-| Redis        | Redis   | Simple Redis Stream adapter.                 |
-| RedisCluster | Redis   | Clustered Redis Stream adapter with 3 nodes. |
-| AMQP         | AMQP    | AMQP adapter with RabbitMQ 3.8.              |
+| Name           | Adapter | Description                                  |
+| -------------- | ------- | -------------------------------------------- |
+| Redis          | Redis   | Simple Redis Stream adapter.                 |
+| RedisCluster   | Redis   | Clustered Redis Stream adapter with 3 nodes. |
+| NATS JetStream | NATS    | NATS JetStream adapter.                      |
+| Kafka          | Kafka   | Kafka adapter.                               |
 
 ### Latency test
 
@@ -724,6 +746,6 @@ The project is available under the [MIT license](https://tldrlegal.com/license/m
 
 ## Contact
 
-Copyright (c) 2021 MoleculerJS
+Copyright (c) 2022 MoleculerJS
 
 [![@MoleculerJS](https://img.shields.io/badge/github-moleculerjs-green.svg)](https://github.com/moleculerjs) [![@MoleculerJS](https://img.shields.io/badge/twitter-MoleculerJS-blue.svg)](https://twitter.com/MoleculerJS)
