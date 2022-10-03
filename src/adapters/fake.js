@@ -13,6 +13,7 @@ const C = require("../constants");
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Context} Context Context instance
+ * @typedef {import("moleculer").Service} Service Service instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
@@ -44,7 +45,7 @@ class FakeAdapter extends BaseAdapter {
 		/** @type {FakeOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			servicePrefix: "$channel",
-			eventPrefix: "$channel"
+			eventPrefix: "channels"
 		});
 
 		this.services = new Map();
@@ -80,8 +81,9 @@ class FakeAdapter extends BaseAdapter {
 	 * Subscribe to a channel with a handler.
 	 *
 	 * @param {Channel} chan
+	 * @param {Service} svc
 	 */
-	async subscribe(chan) {
+	async subscribe(chan, svc) {
 		this.logger.debug(
 			`Subscribing to '${chan.name}' chan with '${chan.group}' group...'`,
 			chan.id
@@ -96,7 +98,14 @@ class FakeAdapter extends BaseAdapter {
 			}
 
 			const schema = {
-				name: this.opts.servicePrefix + ":" + chan.name + ":" + chan.group,
+				name:
+					this.opts.servicePrefix +
+					":" +
+					svc.fullName +
+					":" +
+					chan.name +
+					":" +
+					chan.group,
 				events: {
 					[this.opts.eventPrefix + "." + chan.name]: {
 						bulkhead:
