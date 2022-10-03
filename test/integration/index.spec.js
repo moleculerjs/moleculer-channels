@@ -910,7 +910,8 @@ describe("Integration tests", () => {
 	}
 });
 
-describe.skip("Multiple Adapters", () => {
+/*
+describe("Multiple Adapters", () => {
 	const broker = new ServiceBroker({
 		logger: true,
 		logLevel: "error",
@@ -992,6 +993,7 @@ describe.skip("Multiple Adapters", () => {
 		expect(broker.amqpAdapter).toBeDefined();
 	});
 });
+*/
 
 async function createKafkaTopics(adapter, defs) {
 	const kafka = new Kafka({

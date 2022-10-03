@@ -121,7 +121,7 @@ class RedisAdapter extends BaseAdapter {
 
 		try {
 			Redis = require("ioredis");
-			Redis.Promise = this.Promise;
+			//Redis.Promise = this.Promise;
 		} catch (err) {
 			/* istanbul ignore next */
 			this.broker.fatal(

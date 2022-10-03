@@ -27,7 +27,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 			middlewares: [
 				ChannelMiddleware({
 					adapter: {
-						type: "NATS"
+						type: "Fake"
 					}
 				})
 			]
@@ -58,7 +58,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 				ChannelMiddleware({
 					channelHandlerTrigger: "myTrigger",
 					adapter: {
-						type: "NATS"
+						type: "Fake"
 					}
 				})
 			]
