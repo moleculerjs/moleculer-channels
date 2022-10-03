@@ -330,9 +330,9 @@ module.exports = {
 | `redis.consumerOptions` `.claimInterval`              | `Number`                         | `100`                   | Redis              | Interval (in milliseconds) between message claims.                                                                                                                                                                                           |
 | `redis.consumerOptions` `.startID`                    | `String`                         | `$`                     | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP).                           |
 | `redis.consumerOptions` `.processingAttemptsInterval` | `Number`                         | `0`                     | Redis              | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel.                                                                                                                                                          |
-| `cluster`                                             | `Object`                         | `null`                  | Redis              | Redis cluster connection options. More info [here](https://github.com/luin/ioredis#cluster)                                                                                                                                                  |
-| `cluster.nodes`                                       | `Array`                          | `null`                  | Redis              | Redis Cluster nodes list.                                                                                                                                                                                                                    |
-| `cluster.clusterOptions`                              | `Object`                         | `null`                  | Redis              | Redis Cluster options.                                                                                                                                                                                                                       |
+| `redis.cluster`                                             | `Object`                         | `null`                  | Redis              | Redis cluster connection options. More info [here](https://github.com/luin/ioredis#cluster)                                                                                                                                                  |
+| `redis.cluster.nodes`                                       | `Array`                          | `null`                  | Redis              | Redis Cluster nodes list.                                                                                                                                                                                                                    |
+| `redis.cluster.clusterOptions`                              | `Object`                         | `null`                  | Redis              | Redis Cluster options.                                                                                                                                                                                                                       |
 | `amqp.url`                                            | `String`                         | `null`                  | AMQP               | Connection URI.                                                                                                                                                                                                                              |
 | `amqp.socketOptions`                                  | `Object`                         | `null`                  | AMQP               | AMQP lib socket configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#connect).                                                                                                                             |
 | `amqp.queueOptions`                                   | `Object`                         | `null`                  | AMQP               | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).                                                                                                                  |
@@ -455,20 +455,20 @@ module.exports = {
             adapter: {
                 type: "Redis",
                 options: {
-                    cluster: {
-                        nodes: [
-                            { port: 6380, host: "127.0.0.1" },
-                            { port: 6381, host: "127.0.0.1" },
-                            { port: 6382, host: "127.0.0.1" }
-                        ],
-                        options: {
-                            /* More information: https://github.com/luin/ioredis#cluster */
-                            redisOptions: {
-                                password: "fallback-password"
-                            }
-                        }
-                    },
                     redis: {
+                        cluster: {
+                            nodes: [
+                                { port: 6380, host: "127.0.0.1" },
+                                { port: 6381, host: "127.0.0.1" },
+                                { port: 6382, host: "127.0.0.1" }
+                            ],
+                            options: {
+                                /* More information: https://github.com/luin/ioredis#cluster */
+                                redisOptions: {
+                                    password: "fallback-password"
+                                }
+                            }
+                        },
                         consumerOptions: {
                             // Timeout interval (in milliseconds) while waiting for new messages. By default never timeout
                             readTimeoutInterval: 0,

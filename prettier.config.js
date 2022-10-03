@@ -13,6 +13,13 @@ module.exports = {
 			options: {
 				useTabs: false
 			}
+		},
+		{
+			files: "*.json",
+			options: {
+				tabWidth: 2,
+				useTabs: false
+			}
 		}
 	]
 };
