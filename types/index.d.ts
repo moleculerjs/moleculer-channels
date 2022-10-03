@@ -9,6 +9,7 @@ export function Middleware(mwOpts: import("./src").MiddlewareOptions): {
 export const Adapters: {
     Base: typeof import("./src/adapters/base");
     AMQP: typeof import("./src/adapters/amqp");
+    Fake: typeof import("./src/adapters/fake");
     Kafka: typeof import("./src/adapters/kafka");
     NATS: typeof import("./src/adapters/nats");
     Redis: typeof import("./src/adapters/redis");
