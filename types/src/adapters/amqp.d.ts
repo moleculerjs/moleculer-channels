@@ -33,6 +33,8 @@ export = AmqpAdapter;
  * @extends {BaseAdapter}
  */
 declare class AmqpAdapter extends BaseAdapter {
+    /** @type {AmqpDefaultOptions & BaseDefaultOptions} */
+    opts: AmqpDefaultOptions & BaseDefaultOptions;
     /** @type {AMQPLibConnection} */
     connection: any;
     /** @type {AMQPLibChannel} */
@@ -46,9 +48,19 @@ declare class AmqpAdapter extends BaseAdapter {
     connectAttempt: number;
     connectionCount: number;
     /**
+     * Connect to the adapter with reconnecting logic
+     */
+    connect(): Promise<any>;
+    /**
      * Trying connect to the adapter.
      */
     tryConnect(): Promise<void>;
+    /**
+     * Subscribe to a channel.
+     *
+     * @param {Channel & AmqpDefaultOptions} chan
+     */
+    subscribe(chan: Channel & AmqpDefaultOptions): Promise<void>;
     /**
      * Create a handler for the consumer.
      *
@@ -64,29 +76,29 @@ declare class AmqpAdapter extends BaseAdapter {
      */
     moveToDeadLetter(chan: Channel & AmqpDefaultOptions, msg: any): Promise<void>;
     /**
+     * Unsubscribe from a channel.
+     *
+     * @param {Channel & AmqpDefaultOptions} chan
+     */
+    unsubscribe(chan: Channel & AmqpDefaultOptions): Promise<void>;
+    /**
      * Resubscribe to all channels.
      * @returns {Promise<void>}
      */
     resubscribeAllChannels(): Promise<void>;
+    /**
+     * Publish a payload to a channel.
+     *
+     * @param {String} channelName
+     * @param {any} payload
+     * @param {Object?} opts
+     */
+    publish(channelName: string, payload: any, opts?: any | null): Promise<void>;
 }
 declare namespace AmqpAdapter {
     export { AMQPLibConnection, AMQPLibChannel, ServiceBroker, Logger, Channel, BaseDefaultOptions, AmqpDefaultOptions, SubscriptionEntry };
 }
 import BaseAdapter = require("./base");
-type SubscriptionEntry = {
-    /**
-     * AMQP Channel
-     */
-    chan: Channel & AmqpDefaultOptions;
-    /**
-     * AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
-     */
-    consumerTag: string;
-};
-/**
- * Base channel definition
- */
-type Channel = import("../index").Channel;
 /**
  * AMQP Adapter configuration
  */
@@ -108,6 +120,24 @@ type AmqpDefaultOptions = {
     };
 };
 /**
+ * Base adapter options
+ */
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
+type SubscriptionEntry = {
+    /**
+     * AMQP Channel
+     */
+    chan: Channel & AmqpDefaultOptions;
+    /**
+     * AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
+     */
+    consumerTag: string;
+};
+/**
+ * Base channel definition
+ */
+type Channel = import("../index").Channel;
+/**
  * AMQP connection
  */
 type AMQPLibConnection = any;
@@ -123,7 +153,3 @@ type ServiceBroker = import("moleculer").ServiceBroker;
  * Logger instance
  */
 type Logger = import("moleculer").LoggerInstance;
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;

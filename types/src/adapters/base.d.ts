@@ -115,8 +115,9 @@ declare class BaseAdapter {
      * Subscribe to a channel.
      *
      * @param {Channel} chan
+     * @param {Service} svc
      */
-    subscribe(chan: Channel): Promise<void>;
+    subscribe(chan: Channel, svc: Service): Promise<void>;
     /**
      * Unsubscribe from a channel.
      *

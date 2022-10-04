@@ -6,13 +6,16 @@
 
 "use strict";
 
-const BaseAdapter = require("./base");
+/**
+ * @typedef {import("./base")} BaseAdapter
+ */
 const { isObject, isString } = require("lodash");
 const { ServiceSchemaError } = require("moleculer").Errors;
 
 const Adapters = {
 	Base: require("./base"),
 	AMQP: require("./amqp"),
+	Fake: require("./fake"),
 	Kafka: require("./kafka"),
 	NATS: require("./nats"),
 	Redis: require("./redis")

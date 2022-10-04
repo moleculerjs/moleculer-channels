@@ -291,7 +291,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 						if (started) {
 							// If middleware has already started, we should subscribe to the channel right now.
-							await adapter.subscribe(chan);
+							await adapter.subscribe(chan, svc);
 						}
 					}
 				);
@@ -364,7 +364,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 			logger.info(`Subscribing to ${channelRegistry.length} channels...`);
 			await broker.Promise.mapSeries(
 				channelRegistry,
-				async ({ chan }) => await adapter.subscribe(chan)
+				async ({ chan, svc }) => await adapter.subscribe(chan, svc)
 			);
 
 			started = true;

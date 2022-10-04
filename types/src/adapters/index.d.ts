@@ -1,6 +1,7 @@
 declare const _exports: {
-    Base: typeof BaseAdapter;
+    Base: typeof import("./base");
     AMQP: typeof import("./amqp");
+    Fake: typeof import("./fake");
     Kafka: typeof import("./kafka");
     NATS: typeof import("./nats");
     Redis: typeof import("./redis");
@@ -9,7 +10,7 @@ declare const _exports: {
     register: typeof register;
 };
 export = _exports;
-import BaseAdapter = require("./base");
+export type BaseAdapter = import("./base");
 /**
  * Resolve adapter by name
  *

@@ -37,6 +37,8 @@ export = NatsAdapter;
  */
 declare class NatsAdapter extends BaseAdapter {
     constructor(opts: any);
+    /** @type { BaseDefaultOptions & NatsDefaultOptions } */
+    opts: BaseDefaultOptions & NatsDefaultOptions;
     /** @type {NatsConnection} */
     connection: NatsConnection;
     /** @type {JetStreamManager} */
@@ -46,6 +48,12 @@ declare class NatsAdapter extends BaseAdapter {
     /** @type {Map<string,JetStreamSubscription>} */
     subscriptions: Map<string, JetStreamSubscription>;
     stopping: boolean;
+    /**
+     * Subscribe to a channel with a handler.
+     *
+     * @param {Channel & NatsDefaultOptions} chan
+     */
+    subscribe(chan: Channel & NatsDefaultOptions): Promise<void>;
     /**
      * Creates the callback handler
      *
@@ -70,11 +78,42 @@ declare class NatsAdapter extends BaseAdapter {
      * @param {JsMsg} message JetStream message
      */
     moveToDeadLetter(chan: Channel, message: JsMsg): Promise<void>;
+    /**
+     * Publish a payload to a channel.
+     *
+     * @param {String} channelName
+     * @param {any} payload
+     * @param {Partial<JetStreamPublishOptions>?} opts
+     */
+    publish(channelName: string, payload: any, opts?: Partial<JetStreamPublishOptions> | null): Promise<void>;
 }
 declare namespace NatsAdapter {
     export { NatsConnection, ConnectionOptions, StreamConfig, JetStreamManager, JetStreamClient, JetStreamPublishOptions, ConsumerOptsBuilder, ConsumerOpts, JetStreamOptions, JsMsg, JetStreamSubscription, MsgHdrs, ServiceBroker, Logger, Channel, BaseDefaultOptions, NatsDefaultOptions };
 }
 import BaseAdapter = require("./base");
+/**
+ * Base adapter options
+ */
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
+type NatsDefaultOptions = {
+    /**
+     * NATS lib configuration
+     */
+    nats: any;
+    /**
+     * String containing the URL to NATS server
+     */
+    url: string;
+    connectionOptions: ConnectionOptions;
+    /**
+     * More info: https://docs.nats.io/jetstream/concepts/streams
+     */
+    streamConfig: StreamConfig;
+    /**
+     * More info: https://docs.nats.io/jetstream/concepts/consumers
+     */
+    consumerOptions: ConsumerOpts;
+};
 /**
  * NATS Connection
  */
@@ -104,13 +143,13 @@ type JsMsg = import("nats").JsMsg;
  */
 type StreamConfig = import("nats").StreamConfig;
 /**
- * NATS Connection Opts
- */
-type ConnectionOptions = import("nats").ConnectionOptions;
-/**
  * JetStream Publish Options
  */
 type JetStreamPublishOptions = import("nats").JetStreamPublishOptions;
+/**
+ * NATS Connection Opts
+ */
+type ConnectionOptions = import("nats").ConnectionOptions;
 /**
  * NATS JetStream ConsumerOptsBuilder
  */
@@ -135,26 +174,3 @@ type ServiceBroker = import("moleculer").ServiceBroker;
  * Logger instance
  */
 type Logger = import("moleculer").LoggerInstance;
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;
-type NatsDefaultOptions = {
-    /**
-     * NATS lib configuration
-     */
-    nats: any;
-    /**
-     * String containing the URL to NATS server
-     */
-    url: string;
-    connectionOptions: ConnectionOptions;
-    /**
-     * More info: https://docs.nats.io/jetstream/concepts/streams
-     */
-    streamConfig: StreamConfig;
-    /**
-     * More info: https://docs.nats.io/jetstream/concepts/consumers
-     */
-    consumerOptions: ConsumerOpts;
-};

@@ -7,13 +7,14 @@ let c = 1;
 
 // Create broker
 const broker = new ServiceBroker({
+	namespace: "uat",
 	logLevel: {
 		CHANNELS: "debug",
 		"**": "info"
 	},
 	middlewares: [
 		ChannelsMiddleware({
-			adapter: process.env.ADAPTER || "redis://localhost:6379"
+			adapter: process.env.ADAPTER || "Fake"
 		})
 	],
 	replCommands: [

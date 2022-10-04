@@ -35,6 +35,8 @@ export = RedisAdapter;
  * @extends {BaseAdapter}
  */
 declare class RedisAdapter extends BaseAdapter {
+    /** @type {RedisOpts & BaseDefaultOptions} */
+    opts: RedisOpts & BaseDefaultOptions;
     /**
      * @type {Map<string,Cluster|Redis>}
      */
@@ -43,6 +45,10 @@ declare class RedisAdapter extends BaseAdapter {
     claimName: string;
     nackedName: string;
     stopping: boolean;
+    /**
+     * Disconnect from adapter
+     */
+    disconnect(): Promise<any>;
     /**
      * Return redis or redis.cluster client instance
      *
@@ -53,6 +59,18 @@ declare class RedisAdapter extends BaseAdapter {
      * @returns {Promise<Cluster|Redis>}
      */
     createRedisClient(name: string, opts: any): Promise<Cluster | Redis>;
+    /**
+     * Subscribe to a channel with a handler.
+     *
+     * @param {Channel & RedisChannel & RedisDefaultOptions} chan
+     */
+    subscribe(chan: Channel & RedisChannel & RedisDefaultOptions): Promise<void>;
+    /**
+     * Unsubscribe from a channel.
+     *
+     * @param {Channel & RedisChannel & RedisDefaultOptions} chan
+     */
+    unsubscribe(chan: Channel & RedisChannel & RedisDefaultOptions): Promise<any>;
     /**
      * Process incoming messages.
      *
@@ -76,15 +94,35 @@ declare class RedisAdapter extends BaseAdapter {
      * @param {Object} headers Header contents
      */
     moveToDeadLetter(chan: Channel & RedisChannel & RedisDefaultOptions, originalID: string, message: any, headers: any): Promise<void>;
+    /**
+     * Publish a payload to a channel.
+     *
+     * @param {String} channelName
+     * @param {any} payload
+     * @param {Object?} opts
+     */
+    publish(channelName: string, payload: any, opts?: any | null): Promise<void>;
 }
 declare namespace RedisAdapter {
     export { Cluster, Redis, RedisOptions, ServiceBroker, Logger, Channel, BaseDefaultOptions, RedisDefaultOptions, RedisChannel, RedisOpts };
 }
 import BaseAdapter = require("./base");
+type RedisOpts = {
+    /**
+     * Redis lib configuration
+     */
+    redis: {
+        consumerOptions: RedisDefaultOptions;
+    };
+};
+/**
+ * Base adapter options
+ */
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
 /**
  * Redis cluster instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Cluster
  */
-type Cluster = any;
+type Cluster = import("ioredis").Cluster;
 declare let Redis: any;
 /**
  * Base channel definition
@@ -136,8 +174,8 @@ type RedisDefaultOptions = {
 /**
  * Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
  */
-type Redis = any;
-type RedisOptions = any;
+type Redis = import("ioredis").Redis;
+type RedisOptions = import("ioredis").RedisOptions;
 /**
  * Moleculer Service Broker instance
  */
@@ -146,15 +184,3 @@ type ServiceBroker = import("moleculer").ServiceBroker;
  * Logger instance
  */
 type Logger = import("moleculer").LoggerInstance;
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;
-type RedisOpts = {
-    /**
-     * Redis lib configuration
-     */
-    redis: {
-        consumerOptions: RedisDefaultOptions;
-    };
-};

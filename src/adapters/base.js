@@ -276,8 +276,9 @@ class BaseAdapter {
 	 * Subscribe to a channel.
 	 *
 	 * @param {Channel} chan
+	 * @param {Service} svc
 	 */
-	async subscribe(chan) {
+	async subscribe(chan, svc) {
 		/* istanbul ignore next */
 		throw new Error("This method is not implemented.");
 	}
