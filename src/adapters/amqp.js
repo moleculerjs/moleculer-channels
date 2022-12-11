@@ -311,7 +311,7 @@ class AmqpAdapter extends BaseAdapter {
 				this.opts.amqp.consumerOptions
 			);
 
-			this.initChannelActiveMessages(chan.id);
+			this.initChannelActiveMessages(chan.id, false);
 			this.logger.debug(`Consuming '${queueName}' queue...`, consumerOptions);
 			const res = await this.channel.consume(
 				queueName,
