@@ -157,10 +157,16 @@ class BaseAdapter {
 	/**
 	 * Init active messages list for tracking messages of a channel
 	 * @param {string} channelID
+	 * @param {Boolean?} toThrow Throw error if already exists
 	 */
-	initChannelActiveMessages(channelID) {
+	initChannelActiveMessages(channelID, toThrow = true) {
 		if (this.activeMessages.has(channelID)) {
-			throw new MoleculerError(`Already tracking active messages of channel ${channelID}`);
+			if (toThrow)
+				throw new MoleculerError(
+					`Already tracking active messages of channel ${channelID}`
+				);
+
+			return;
 		}
 
 		this.activeMessages.set(channelID, []);
