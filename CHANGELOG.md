@@ -1,3 +1,10 @@
+<a name="v0.1.3"></a>
+
+# [0.1.3](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.2...v0.1.3) (2022-12-17)
+
+- add `Fake` adapter based on Moleculer built-in events.
+- support amqplib v0.9, kafkajs v2, ioredis v5
+
 <a name="v0.1.2"></a>
 
 # [0.1.2](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.1...v0.1.2) (2022-01-08)
