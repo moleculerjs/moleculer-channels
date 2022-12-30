@@ -27,7 +27,7 @@ declare function _exports(mwOpts: MiddlewareOptions): {
      */
     stopped(): Promise<void>;
 };
-export = _exports;
+export default _exports;
 /**
  * Moleculer Service Broker instance
  */

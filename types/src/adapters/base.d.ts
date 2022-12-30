@@ -3,6 +3,7 @@ export = BaseAdapter;
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
+ * @typedef {import("moleculer").Service} Service Moleculer Service definition
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
  */
@@ -176,6 +177,10 @@ type Logger = import("moleculer").LoggerInstance;
  * Moleculer Serializer
  */
 type Serializer = import("moleculer").Serializer;
+/**
+ * Moleculer service definition
+ */
+type Service = import("moleculer").Service;
 /**
  * Base channel definition
  */
