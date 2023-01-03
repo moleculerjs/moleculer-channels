@@ -67,7 +67,7 @@ const C = require("./constants");
  * @param {MiddlewareOptions} mwOpts
  * @returns Middleware
  */
-module.exports = function ChannelsMiddleware(mwOpts) {
+module.exports.default = function ChannelsMiddleware(mwOpts) {
 	mwOpts = _.defaultsDeep({}, mwOpts, {
 		adapter: null,
 		schemaProperty: "channels",
