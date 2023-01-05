@@ -58,10 +58,13 @@ async function main() {
 						}
 					},
 					streamConfig: {
+						// Create a single stream for all topics that match `streamOneTopic.>`
+						// Note: Will override the streamConfig defined in middleware config
 						name: "streamOne",
 						subjects: ["streamOneTopic.>"]
 					}
 				},
+				// This handler will be called for all topics that match `streamOneTopic.>`
 				async handler(payload) {
 					console.log(`Processing streamOneTopic: ${JSON.stringify(payload)}}`);
 				}
@@ -78,7 +81,7 @@ async function main() {
 	};
 	await broker.sendToStreamOneChannel("streamOneTopic.abc", { ...msg, topic: "abc" });
 	await broker.Promise.delay(200);
-	await broker.sendToStreamOneChannel("streamOneTopic.abc.def", { ...msg, topic: "abc" });
+	await broker.sendToStreamOneChannel("streamOneTopic.abc.def", { ...msg, topic: "abc.def" });
 	await broker.Promise.delay(200);
 	await broker.sendToStreamOneChannel("streamOneTopic.xyz", { ...msg, topic: "xyz" });
 	await broker.Promise.delay(200);
