@@ -62,7 +62,7 @@ class NatsAdapter extends BaseAdapter {
 			nats: {
 				/** @type {ConnectionOptions} */
 				connectionOptions: {},
-				/** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
+				/** @type {Partial<StreamConfig>} More info: https://docs.nats.io/jetstream/concepts/streams */
 				streamConfig: {},
 				/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
 				consumerOptions: {
@@ -179,11 +179,11 @@ class NatsAdapter extends BaseAdapter {
 		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
 		// More info: https://docs.nats.io/jetstream/administration/naming
 		const streamName = chan.name.split(".").join("_");
-		this.createStream(streamName, [chan.name], chan.nats ? chan.nats.streamConfig : {});
+		await this.createStream(streamName, [chan.name], chan.nats ? chan.nats.streamConfig : {});
 
 		if (chan.deadLettering && chan.deadLettering.enabled) {
 			const deadLetteringStreamName = chan.deadLettering.queueName.split(".").join("_");
-			this.createStream(
+			await this.createStream(
 				deadLetteringStreamName,
 				[chan.deadLettering.queueName],
 				chan.nats ? chan.nats.streamConfig : {}
@@ -205,7 +205,7 @@ class NatsAdapter extends BaseAdapter {
 		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
 		// More info: https://docs.nats.io/jetstream/administration/naming
 		consumerOpts.config.durable_name = chan.group.split(".").join("_");
-		consumerOpts.config.deliver_subject = chan.id;
+		consumerOpts.config.deliver_subject = chan.id.replace(/[*|>]/g, "_");
 		consumerOpts.config.max_ack_pending = chan.maxInFlight;
 		consumerOpts.callbackFn = this.createConsumerHandler(chan);
 
@@ -322,8 +322,25 @@ class NatsAdapter extends BaseAdapter {
 	async createStream(streamName, subjects, streamOpts) {
 		const streamConfig = _.defaultsDeep(
 			{
-				name: streamName,
-				subjects: subjects
+				name:
+					// Local stream config
+					streamOpts && streamOpts.name
+						? streamOpts.name
+						: // Global stream config
+						this.opts.nats.streamConfig && this.opts.nats.streamConfig.name
+						? this.opts.nats.streamConfig.name
+						: // Default
+						  streamName,
+
+				subjects:
+					// Local stream subjects
+					streamOpts && streamOpts.subjects
+						? streamOpts.subjects
+						: // Global stream subjects
+						this.opts.nats.streamConfig && this.opts.nats.streamConfig.subjects
+						? this.opts.nats.streamConfig.subjects
+						: // Default
+						  subjects
 			},
 			streamOpts,
 			this.opts.nats.streamConfig
@@ -332,6 +349,7 @@ class NatsAdapter extends BaseAdapter {
 		try {
 			const streamInfo = await this.manager.streams.add(streamConfig);
 			this.logger.debug(streamInfo);
+			return streamInfo;
 		} catch (error) {
 			if (error.message === "stream name already in use") {
 				// Silently ignore the error. Channel or Consumer Group already exists

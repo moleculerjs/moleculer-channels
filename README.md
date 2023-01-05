@@ -664,6 +664,10 @@ module.exports = {
 };
 ```
 
+#### Jetstream - Single stream with multiple topics
+
+It is possible to configure single stream to handle multiple topics (e.g., `streamOneTopic.abc` and `streamOneTopic.xyz`). Moreover it possible for a single handler to receive any message that matches the filter `streamOneTopic.*`. Please check the [example](examples/nats-wildcard/index.js) for all the details.
+
 ### Fake adapter
 
 This adapter is made for unit/integration tests. The adapter uses the built-in Moleculer event bus to send messages instead of an external module. It means that the message sending is not reliable but can be a good option to test the channel handlers in a test environment. The fake adapter is doesn't support retries and dead-letter topic features. For multiple brokers, you should define a transporter (at least the `FakeTransporter`)
