@@ -70,7 +70,7 @@ declare class NatsAdapter extends BaseAdapter {
      * @param {Array<String>} subjects A list of subjects/topics to store in a stream
      * @param {StreamConfig} streamOpts JetStream stream configs
      */
-    createStream(streamName: string, subjects: Array<string>, streamOpts: StreamConfig): Promise<void>;
+    createStream(streamName: string, subjects: Array<string>, streamOpts: StreamConfig): Promise<import("nats").StreamInfo>;
     /**
      * Moves message into dead letter
      *

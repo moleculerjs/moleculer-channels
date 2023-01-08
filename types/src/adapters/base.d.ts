@@ -1,6 +1,7 @@
 export = BaseAdapter;
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
+ * @typedef {import("moleculer").Service} Service Moleculer Service definition
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -65,8 +66,9 @@ declare class BaseAdapter {
     /**
      * Init active messages list for tracking messages of a channel
      * @param {string} channelID
+     * @param {Boolean?} toThrow Throw error if already exists
      */
-    initChannelActiveMessages(channelID: string): void;
+    initChannelActiveMessages(channelID: string, toThrow?: boolean | null): void;
     /**
      * Remove active messages list of a channel
      * @param {string} channelID
@@ -133,7 +135,7 @@ declare class BaseAdapter {
     publish(channelName: string, payload: any, opts: any | null): Promise<void>;
 }
 declare namespace BaseAdapter {
-    export { ServiceBroker, Logger, Serializer, Channel, DeadLetteringOptions, BaseDefaultOptions };
+    export { ServiceBroker, Service, Logger, Serializer, Channel, DeadLetteringOptions, BaseDefaultOptions };
 }
 /**
  * Base Adapter configuration
@@ -180,6 +182,10 @@ type Serializer = import("moleculer").Serializer;
  * Base channel definition
  */
 type Channel = import("../index").Channel;
+/**
+ * Moleculer Service definition
+ */
+type Service = import("moleculer").Service;
 /**
  * Dead-letter-queue options
  */
