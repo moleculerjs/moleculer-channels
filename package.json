@@ -18,7 +18,7 @@
     "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "test:up": "docker-compose -f test/docker-compose.yml up -d",
     "test:down": "docker-compose -f test/docker-compose.yml down -v",
-    "release": "npm publish --access public && git push --tags"
+    "release": "npm publish --access public && git push --follow-tags"
   },
   "keywords": [
     "moleculer",
