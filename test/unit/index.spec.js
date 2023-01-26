@@ -31,7 +31,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 		}
 	};
 
-	describe.only("Test service default value", () => {
+	describe("Test service default value", () => {
 		let broker = new ServiceBroker({
 			logger: false,
 			middlewares: [
