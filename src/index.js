@@ -321,7 +321,16 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 								)
 							);
 
-						return svc.schema[mwOpts.schemaProperty][channelName].call(
+						// Shorthand definition
+						if (typeof svc.schema[mwOpts.schemaProperty][channelName] === "function")
+							return svc.schema[mwOpts.schemaProperty][channelName].call(
+								svc, // Attach reference to service
+								payload,
+								raw
+							);
+
+						// Object definition
+						return svc.schema[mwOpts.schemaProperty][channelName].handler.call(
 							svc, // Attach reference to service
 							payload,
 							raw
