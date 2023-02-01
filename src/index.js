@@ -189,6 +189,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							if (opts.ctx.service) {
 								opts.headers.$caller = opts.ctx.service.fullName;
 							}
+							opts.headers.$meta = adapter.serializer
+								.serialize(opts.ctx.meta)
+								.toString("base64");
 
 							delete opts.ctx;
 						}
@@ -265,7 +268,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						let handler2 = handler;
 						if (chan.context) {
 							handler2 = (msg, raw) => {
-								let parentCtx, caller;
+								let parentCtx, caller, meta;
 								if (raw.headers && raw.headers.$requestID) {
 									parentCtx = {
 										id: raw.headers.$parentID,
@@ -275,9 +278,17 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 									};
 									caller = raw.headers.$caller;
 								}
+
+								if (raw.headers && raw.headers.$meta) {
+									meta = adapter.serializer.deserialize(
+										Buffer.from(raw.headers.$meta, "base64")
+									);
+								}
+
 								const ctx = Context.create(broker, null, msg, {
 									parentCtx,
-									caller
+									caller,
+									meta
 								});
 
 								return handler(ctx, raw);

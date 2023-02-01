@@ -39,7 +39,20 @@ const broker = new ServiceBroker({
 					pid: process.pid
 				};
 
-				await broker.call("publisher.publish", { payload, headers: { a: "123" } });
+				await broker.call(
+					"publisher.publish",
+					{ payload, headers: { a: "123" } },
+					{
+						meta: {
+							loggedInUser: {
+								id: 12345,
+								name: "John Doe",
+								roles: ["admin"],
+								status: true
+							}
+						}
+					}
+				);
 			}
 		}
 	]
@@ -69,7 +82,7 @@ broker.createService({
 
 				await Promise.delay(100);
 
-				this.logger.info("Processed!", ctx.params, raw.headers);
+				this.logger.info("Processed!", ctx.params, ctx.meta, raw.headers);
 			}
 		}
 	}
