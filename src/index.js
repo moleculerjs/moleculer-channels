@@ -7,7 +7,7 @@
 "use strict";
 
 const _ = require("lodash");
-const { METRIC } = require("moleculer");
+const { Context, METRIC } = require("moleculer");
 const { BrokerOptionsError, ServiceSchemaError, MoleculerError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
 const C = require("./constants");
@@ -16,6 +16,7 @@ const C = require("./constants");
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
+ * @typedef {import("moleculer").Context} Context Moleculer Context
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
  */
@@ -32,6 +33,7 @@ const C = require("./constants");
  * @property {String} id Consumer ID
  * @property {String} name Channel/Queue/Stream name
  * @property {String} group Consumer group name
+ * @property {Boolean} context Create Moleculer Context
  * @property {Boolean} unsubscribing Flag denoting if service is stopping
  * @property {Number?} maxInFlight Maximum number of messages that can be processed simultaneously
  * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
@@ -175,6 +177,22 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							{ channel: channelName },
 							1
 						);
+
+						// Transfer Context properties
+						if (opts && opts.ctx) {
+							if (!opts.headers) opts.headers = {};
+
+							opts.headers.$requestID = opts.ctx.requestID;
+							opts.headers.$parentID = opts.ctx.id;
+							opts.headers.$tracing = opts.ctx.tracing;
+							opts.headers.$level = opts.ctx.level;
+							if (opts.ctx.service) {
+								opts.headers.$caller = opts.ctx.service.fullName;
+							}
+
+							delete opts.ctx;
+						}
+
 						return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 					}
 				);
@@ -210,7 +228,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 				await broker.Promise.mapSeries(
 					Object.entries(svc.schema[mwOpts.schemaProperty]),
 					async ([name, def]) => {
-						/** @type {Channel} */
+						/** @type {Partial<Channel>} */
 						let chan;
 
 						if (_.isFunction(def)) {
@@ -241,15 +259,38 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						chan.unsubscribing = false;
 
 						// Wrap the original handler
-						let handler = chan.handler;
-						handler = broker.Promise.method(handler).bind(svc);
+						let handler = broker.Promise.method(chan.handler).bind(svc);
+
+						// Wrap the handler with context creating
+						let handler2 = handler;
+						if (chan.context) {
+							handler2 = (msg, raw) => {
+								let parentCtx, caller;
+								if (raw.headers && raw.headers.$requestID) {
+									parentCtx = {
+										id: raw.headers.$parentID,
+										requestID: raw.headers.$requestID,
+										tracing: raw.headers.$tracing,
+										level: raw.headers.$level
+									};
+									caller = raw.headers.$caller;
+								}
+								const ctx = Context.create(broker, null, msg, {
+									parentCtx,
+									caller
+								});
+
+								return handler(ctx, raw);
+							};
+						}
 
 						// Wrap the handler with middleware
 						const wrappedHandler = broker.middlewares.wrapHandler(
 							"localChannel",
-							handler,
+							handler2,
 							chan
 						);
+
 						chan.handler = wrappedHandler;
 
 						// Add metrics for the handler
@@ -303,7 +344,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 					 *
 					 * @param {String} channelName
 					 * @param {Object} payload
-					 * @param {Object} rawMessage
+					 * @param {Object} raw
 					 * @returns
 					 */
 					svc[mwOpts.channelHandlerTrigger] = (channelName, payload, raw) => {
