@@ -32,6 +32,14 @@ let Amqplib;
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
  * @property {Object} amqp.messageOptions AMQP lib message configuration
  * @property {Object} amqp.consumerOptions AMQP lib consume configuration
+ * @property {publishAssertExchangeOptions} amqp.publishAssertExOptions AMQP lib exchange configuration for one-time calling assertExchange() before publishing in new exchange by sendToChannel
+ */
+
+/**
+ * @typedef {Object} publishAssertExchangeOptions
+ * @property {Boolean} assertExBeforePublish Enable/disable one-time calling channel.assertExchange() before publishing in new exchange by sendToChannel
+ * @property {String} exchangeType AMQP lib exchange type. More info: https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
+ * @property {Object} exchangeOptions AMQP lib exchange configuration  https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
  */
 
 /**
@@ -98,6 +106,10 @@ class AmqpAdapter extends BaseAdapter {
 		this.stopping = false;
 		this.connectAttempt = 0;
 		this.connectionCount = 0; // To detect reconnections
+		/**
+		 * @type {Set<string>}
+		 */
+		this.assertedExchanges = new Set(); // For a collecting exchange names on which assetExchange() was called
 	}
 
 	/**
@@ -254,6 +266,7 @@ class AmqpAdapter extends BaseAdapter {
 		} catch (err) {
 			this.logger.error("Error while closing AMQP connection.", err);
 		}
+		this.assertedExchanges.clear();
 		this.stopping = false;
 	}
 
@@ -533,6 +546,23 @@ class AmqpAdapter extends BaseAdapter {
 		);
 
 		const data = opts.raw ? payload : this.serializer.serialize(payload);
+
+		opts = _.defaultsDeep(opts, this.opts.amqp.publishAssertExOptions, {
+			assertExBeforePublish: false,
+			exchangeType: "direct",
+			publishExchangeOptions: {}
+		});
+
+		if (opts.assertExBeforePublish && !this.assertedExchanges.has(channelName)) {
+			this.logger.debug(`Asserting exchange ${channelName}`);
+			this.assertedExchanges.add(channelName);
+			await this.channel.assertExchange(
+				channelName,
+				opts.exchangeType,
+				opts.publishExchangeOptions
+			);
+		}
+
 		const res = this.channel.publish(channelName, opts.routingKey || "", data, messageOptions);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 		this.logger.debug(`Message was published at '${channelName}'`);

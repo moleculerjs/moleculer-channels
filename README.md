@@ -339,6 +339,9 @@ module.exports = {
 | `amqp.exchangeOptions`                                | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
 | `amqp.messageOptions`                                 | `Object`                         | `null`                  | AMQP               | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).                                                                                                                    |
 | `amqp.consumerOptions`                                | `Object`                         | `null`                  | AMQP               | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).                                                                                                                    |
+| `amqp.publishAssertExOptions.assertExBeforePublish`   | `Boolean`                        | `false`                 | AMQP               | Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel()`. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                             |
+| `amqp.publishAssertExOptions.exchangeType`            | `String`                         | `direct`                | AMQP               | AMQP lib exchange type. More info [here](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange).                                                                                                                       |
+| `amqp.publishAssertExOptions.publishExchangeOptions`  | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
 | `nats.streamConfig`                                   | `Object`                         | `null`                  | NATS               | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).                                                                                                                                     |
 | `nats.consumerOptions`                                | `Object`                         | `null`                  | NATS               | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).                                                                                                                                  |
 | `kafka.brokers`                                       | `String[]`                       | `null`                  | Kafka              | Kafka bootstrap brokers.                                                                                                                                                                                                                     |
@@ -534,7 +537,17 @@ module.exports = {
                         // Options for `channel.publish()`
                         messageOptions: {},
                         // Options for `channel.consume()`
-                        consumerOptions: {}
+                        consumerOptions: {},
+						// Note: options for `channel.assertExchange()` before first publishing in new exchange
+						publishAssertExOptions: {
+							// Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+							assertExBeforePublish: false,
+							// Define exchange type
+							// Available values: "direct", "fanout", "topic", "headers"
+							exchangeType: "direct",
+							// Options for `channel.assertExchange()` before publishing by `sendToChannel`
+							publishExchangeOptions: {}
+						},
                     },
                     maxInFlight: 10,
                     maxRetries: 3,
@@ -549,6 +562,25 @@ module.exports = {
     ]
 };
 ```
+
+**Example Producing messages with options**
+
+```js
+broker.sendToChannel("order.created", {
+    id: 1234,
+    items: [
+        /*...*/
+    ]
+},{
+    // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+    assertExBeforePublish: true,
+    // Available values: "direct", "fanout", "topic", "headers"
+    exchangeType: "direct",
+    // Options for `channel.assertExchange()` before publishing 
+	publishExchangeOptions: {}
+});
+```
+> Note: If you know that the exchange will be created before `sendToChannel` is called by someone else, then it is better not to use `assertExBeforePublish` option
 
 ### Kafka
 
