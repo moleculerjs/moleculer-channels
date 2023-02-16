@@ -254,9 +254,7 @@ class NatsAdapter extends BaseAdapter {
 					// Working on the message and thus prevent receiving the message again as a redelivery.
 					message.working();
 					await chan.handler(
-						this.serializer.deserialize(
-							Buffer.isBuffer(message.data) ? message.data : Buffer.from(message.data)
-						),
+						this.serializer.deserialize(Buffer.from(message.data)),
 						message
 					);
 					message.ack();
