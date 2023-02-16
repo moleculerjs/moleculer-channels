@@ -16,7 +16,6 @@ const C = require("./constants");
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
- * @typedef {import("moleculer").Context} Context Moleculer Context
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
  */
@@ -61,6 +60,7 @@ const C = require("./constants");
  * @property {String} sendMethodName Method name to send messages.
  * @property {String} adapterPropertyName Property name of the adapter instance in broker instance.
  * @property {String} channelHandlerTrigger Method name to add to service in order to trigger channel handlers.
+ * @property {boolean} context Using Moleculer context in channel handlers by default.
  */
 
 /**
@@ -75,7 +75,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		schemaProperty: "channels",
 		sendMethodName: "sendToChannel",
 		adapterPropertyName: "channelAdapter",
-		channelHandlerTrigger: "emitLocalChannelHandler"
+		channelHandlerTrigger: "emitLocalChannelHandler",
+		context: false
 	});
 
 	/** @type {ServiceBroker} */
@@ -254,6 +255,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 						if (!chan.name) chan.name = adapter.addPrefixTopic(name);
 						if (!chan.group) chan.group = svc.fullName;
+						if (chan.context == null) chan.context = mwOpts.context;
 
 						// Consumer ID
 						chan.id = adapter.addPrefixTopic(

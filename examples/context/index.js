@@ -25,7 +25,8 @@ const broker = new ServiceBroker({
 					redis: "localhost:6379"
 					//serializer: "MsgPack"
 				}
-			}
+			},
+			context: true
 		})
 	],
 	replCommands: [
@@ -76,7 +77,7 @@ broker.createService({
 	name: "sub1",
 	channels: {
 		"my.topic": {
-			context: true,
+			//context: true,
 			async handler(ctx, raw) {
 				this.logger.info("Processing...", ctx, raw.headers);
 
