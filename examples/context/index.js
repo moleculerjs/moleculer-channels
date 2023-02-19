@@ -2,6 +2,7 @@
 
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
+const TracingMiddleware = require("../..").Tracing;
 
 let c = 1;
 
@@ -42,7 +43,8 @@ const broker = new ServiceBroker({
 			},
 			*/
 			context: true
-		})
+		}),
+		TracingMiddleware()
 	],
 	replCommands: [
 		{
@@ -98,8 +100,19 @@ broker.createService({
 
 				await Promise.delay(100);
 
+				await ctx.call("test.demo");
+
 				this.logger.info("Processed!", ctx.params, ctx.meta);
 			}
+		}
+	}
+});
+
+broker.createService({
+	name: "test",
+	actions: {
+		async demo(ctx) {
+			this.logger.info("Demo service called");
 		}
 	}
 });

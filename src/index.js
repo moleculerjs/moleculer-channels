@@ -272,10 +272,18 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Wrap the original handler
 						let handler = broker.Promise.method(chan.handler).bind(svc);
 
+						// Wrap the handler with custom middlewares
+						const handler2 = broker.middlewares.wrapHandler(
+							"localChannel",
+							handler,
+							chan
+						);
+
+						let wrappedHandler = handler2;
+
 						// Wrap the handler with context creating
-						let handler2 = handler;
 						if (chan.context) {
-							handler2 = (msg, raw) => {
+							wrappedHandler = (msg, raw) => {
 								let parentCtx, caller, meta, ctxHeaders;
 								const headers = adapter.parseMessageHeaders(raw);
 								if (headers) {
@@ -309,16 +317,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 									headers: ctxHeaders
 								});
 
-								return handler(ctx, raw);
+								return handler2(ctx, raw);
 							};
 						}
-
-						// Wrap the handler with middleware
-						const wrappedHandler = broker.middlewares.wrapHandler(
-							"localChannel",
-							handler2,
-							chan
-						);
 
 						chan.handler = wrappedHandler;
 
