@@ -14,9 +14,7 @@ const broker = new ServiceBroker({
 	},
 	tracing: {
 		enabled: true,
-		exporter: {
-			type: "Console"
-		}
+		exporter: [{ type: "Console" }, { type: "Event" }]
 	},
 	middlewares: [
 		ChannelsMiddleware({
@@ -95,8 +93,16 @@ broker.createService({
 	channels: {
 		"my.topic": {
 			//context: true,
+			tracing: {
+				//spanName: ctx => `My custom span: ${ctx.params.id}`,
+				tags: {
+					params: true,
+					meta: true
+				}
+			},
 			async handler(ctx, raw) {
 				this.logger.info("Processing...", ctx);
+				this.logger.info("RAW:", raw);
 
 				await Promise.delay(100);
 
@@ -113,6 +119,19 @@ broker.createService({
 	actions: {
 		async demo(ctx) {
 			this.logger.info("Demo service called");
+		}
+	}
+});
+
+broker.createService({
+	name: "event-handler",
+	events: {
+		"$tracing.spans": {
+			tracing: false,
+			handler(ctx) {
+				this.logger.info("Tracing event received");
+				ctx.params.forEach(span => this.logger.info(span));
+			}
 		}
 	}
 });

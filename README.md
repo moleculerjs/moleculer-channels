@@ -220,6 +220,7 @@ module.exports = {
 | `deadLettering.enabled`                | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
 | `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
 | `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.  |
+| `tracing`                              | `Object`                                 | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`. |
 | `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
 | `redis.startID`                        | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
 | `redis.minIdleTime`                    | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
@@ -386,6 +387,56 @@ module.exports = {
 }
 ```
 
+### Tracing
+To enable tracing for context-based handlers, you should register `Tracing` middleware in broker options.
+
+> The middleware works only with `context: true`.
+
+**Register channel tracing middleware**
+```js
+//moleculer.config.js
+const TracingMiddleware = require("@moleculer/channels").Tracing;
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379",
+            // Enable context in all channel handlers 
+            context: true
+        }),
+        TracingMiddleware()
+    ]
+};
+```
+
+You can fine-tuning tracing tags and span name in `tracing` channel property similar to [actions](https://moleculer.services/docs/0.14/tracing.html#Customizing).
+
+**Customize tags and span name**
+
+```js
+broker.createService({
+	name: "sub1",
+	channels: {
+		"my.topic": {
+			context: true,
+			tracing: {
+                spanName: ctx => `My custom span: ${ctx.params.id}`
+				tags: {
+					params: true,
+					meta: true
+				}
+			},
+			async handler(ctx, raw) {
+                // ...
+			}
+		}
+	}
+});
+```
+
+> To disable tracing, set `tracing: false in channel definition.
 
 ## Adapters
 

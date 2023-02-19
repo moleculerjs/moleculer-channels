@@ -18,7 +18,7 @@ module.exports = function TracingMiddleware() {
 		opts = _.defaultsDeep({}, opts, { enabled: true });
 
 		if (broker.isTracingEnabled() && opts.enabled) {
-			return function tracingLocalChannelMiddleware(ctx) {
+			return function tracingLocalChannelMiddleware(ctx, ...rest) {
 				ctx.requestID = ctx.requestID || tracer.getCurrentTraceID();
 				ctx.parentID = ctx.parentID || tracer.getActiveSpanID();
 
@@ -93,7 +93,7 @@ module.exports = function TracingMiddleware() {
 				ctx.tracing = span.sampled;
 
 				// Call the handler
-				return handler(ctx)
+				return handler(ctx, ...rest)
 					.then(res => {
 						ctx.finishSpan(span);
 						return res;
