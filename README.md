@@ -417,22 +417,22 @@ You can fine-tuning tracing tags and span name in `tracing` channel property sim
 
 ```js
 broker.createService({
-	name: "sub1",
-	channels: {
-		"my.topic": {
-			context: true,
-			tracing: {
+    name: "sub1",
+    channels: {
+        "my.topic": {
+            context: true,
+            tracing: {
                 spanName: ctx => `My custom span: ${ctx.params.id}`
-				tags: {
-					params: true,
-					meta: true
-				}
-			},
-			async handler(ctx, raw) {
+                tags: {
+                    params: true,
+                    meta: true
+                }
+            },
+            async handler(ctx, raw) {
                 // ...
-			}
-		}
-	}
+            }
+        }
+    }
 });
 ```
 
