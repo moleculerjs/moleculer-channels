@@ -314,9 +314,8 @@ module.exports = {
 ```
 
 ## Context-based messages
+
 In order to use Moleculer Context in handlers (transferring `ctx.meta` and tracing information) you should set the `context: true` option in channel definition object or in middleware options to enable it for all channel handlers.
-
-
 
 **Example to enable context for all handlers**
 
@@ -351,7 +350,7 @@ module.exports = {
         "default.options.topic": {
             context: true, // Unless not enabled it globally
             async handler(ctx/*, raw*/) {
-                // The `ctx` is regular Moleculer Context
+                // The `ctx` is a regular Moleculer Context
                 if (ctx.meta.loggedInUser) {
                     // The `ctx.params` contains the original payload of the message
                     await ctx.call("some.action", ctx.params);
@@ -827,6 +826,6 @@ The project is available under the [MIT license](https://tldrlegal.com/license/m
 
 ## Contact
 
-Copyright (c) 2022 MoleculerJS
+Copyright (c) 2023 MoleculerJS
 
 [![@MoleculerJS](https://img.shields.io/badge/github-moleculerjs-green.svg)](https://github.com/moleculerjs) [![@MoleculerJS](https://img.shields.io/badge/twitter-MoleculerJS-blue.svg)](https://twitter.com/MoleculerJS)
