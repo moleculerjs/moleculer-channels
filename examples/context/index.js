@@ -20,12 +20,27 @@ const broker = new ServiceBroker({
 	middlewares: [
 		ChannelsMiddleware({
 			adapter: {
+				type: "Fake"
+			},
+			/*adapter: {
+				type: "Kafka",
+				options: { kafka: { brokers: ["localhost:9093"] } }
+			},*/
+			/*adapter: {
+				type: "AMQP"
+			},*/
+			/*adapter: {
+				type: "NATS"
+			},*/
+			/*
+			adapter: {
 				type: "Redis",
 				options: {
 					redis: "localhost:6379"
 					//serializer: "MsgPack"
 				}
 			},
+			*/
 			context: true
 		})
 	],
@@ -79,11 +94,11 @@ broker.createService({
 		"my.topic": {
 			//context: true,
 			async handler(ctx, raw) {
-				this.logger.info("Processing...", ctx, raw.headers);
+				this.logger.info("Processing...", ctx);
 
 				await Promise.delay(100);
 
-				this.logger.info("Processed!", ctx.params, ctx.meta, raw.headers);
+				this.logger.info("Processed!", ctx.params, ctx.meta);
 			}
 		}
 	}

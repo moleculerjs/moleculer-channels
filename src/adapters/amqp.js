@@ -537,6 +537,15 @@ class AmqpAdapter extends BaseAdapter {
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 		this.logger.debug(`Message was published at '${channelName}'`);
 	}
+
+	/**
+	 * Parse the headers from incoming message to a POJO.
+	 * @param {any} raw
+	 * @returns {object}
+	 */
+	parseMessageHeaders(raw) {
+		return raw && raw.properties ? raw.properties.headers : null;
+	}
 }
 
 module.exports = AmqpAdapter;

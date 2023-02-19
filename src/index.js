@@ -194,6 +194,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 								.serialize(opts.ctx.meta)
 								.toString("base64");
 
+							if (opts.ctx.headers) {
+								opts.headers.$headers = adapter.serializer
+									.serialize(opts.ctx.headers)
+									.toString("base64");
+							}
+
 							delete opts.ctx;
 						}
 
@@ -270,27 +276,37 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						let handler2 = handler;
 						if (chan.context) {
 							handler2 = (msg, raw) => {
-								let parentCtx, caller, meta;
-								if (raw.headers && raw.headers.$requestID) {
-									parentCtx = {
-										id: raw.headers.$parentID,
-										requestID: raw.headers.$requestID,
-										tracing: raw.headers.$tracing === "true",
-										level: raw.headers.$level ? parseInt(raw.headers.$level) : 0
-									};
-									caller = raw.headers.$caller;
-								}
+								let parentCtx, caller, meta, ctxHeaders;
+								const headers = adapter.parseMessageHeaders(raw);
+								if (headers) {
+									if (headers.$requestID) {
+										parentCtx = {
+											id: headers.$parentID,
+											requestID: headers.$requestID,
+											tracing: headers.$tracing === "true",
+											level: headers.$level ? parseInt(headers.$level) : 0
+										};
+										caller = headers.$caller;
+									}
 
-								if (raw.headers && raw.headers.$meta) {
-									meta = adapter.serializer.deserialize(
-										Buffer.from(raw.headers.$meta, "base64")
-									);
+									if (headers.$meta) {
+										meta = adapter.serializer.deserialize(
+											Buffer.from(headers.$meta, "base64")
+										);
+									}
+
+									if (headers.$headers) {
+										ctxHeaders = adapter.serializer.deserialize(
+											Buffer.from(headers.$headers, "base64")
+										);
+									}
 								}
 
 								const ctx = Context.create(broker, null, msg, {
 									parentCtx,
 									caller,
-									meta
+									meta,
+									headers: ctxHeaders
 								});
 
 								return handler(ctx, raw);

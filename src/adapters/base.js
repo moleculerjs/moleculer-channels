@@ -310,6 +310,15 @@ class BaseAdapter {
 		/* istanbul ignore next */
 		throw new Error("This method is not implemented.");
 	}
+
+	/**
+	 * Parse the headers from incoming message to a POJO.
+	 * @param {any} raw
+	 * @returns {object}
+	 */
+	parseMessageHeaders(raw) {
+		return raw ? raw.headers : null;
+	}
 }
 
 module.exports = BaseAdapter;

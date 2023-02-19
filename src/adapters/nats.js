@@ -351,7 +351,7 @@ class NatsAdapter extends BaseAdapter {
 
 		try {
 			const streamInfo = await this.manager.streams.add(streamConfig);
-			this.logger.debug(streamInfo);
+			this.logger.debug("streamInfo:", streamInfo);
 			return streamInfo;
 		} catch (error) {
 			if (error.message === "stream name already in use") {
@@ -480,6 +480,23 @@ class NatsAdapter extends BaseAdapter {
 			this.logger.error(`An error ocurred while publishing message to ${channelName}`, error);
 			throw error;
 		}
+	}
+
+	/**
+	 * Parse the headers from incoming message to a POJO.
+	 * @param {any} raw
+	 * @returns {object}
+	 */
+	parseMessageHeaders(raw) {
+		if (raw.headers) {
+			const res = {};
+			for (const [key, values] of raw.headers) {
+				res[key] = values[0];
+			}
+
+			return res;
+		}
+		return null;
 	}
 }
 
