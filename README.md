@@ -9,9 +9,9 @@
 
 Reliable messages for Moleculer services via external queue/channel/topic. Unlike moleculer built-in events, this is **not** a fire-and-forget solution. It's a persistent, durable and reliable message sending solution. The module uses an external message queue/streaming server that stores messages until they are successfully processed. It supports consumer groups, which means that you can run multiple instances of consumer services, incoming messages will be balanced between them.
 
-**This project is a work-in-progress. Don't use it in production.**
+<!-- **This project is a work-in-progress. Don't use it in production.**
 
-> **FAQ**: When it's going to be production safe? **Response**: `moleculer-channels` is a wrapper around well-known and battle tested tech (Redis Streams, Kafka, AMQP and NATS JetStream) so there shouldn't be any critical issues. Feature wise this module is pretty much complete. In order for us to remove the "work-in-progress" label we need people to test it and check if the wrapper is working properly and that it's stable.
+> **FAQ**: When it's going to be production safe? **Response**: `moleculer-channels` is a wrapper around well-known and battle tested tech (Redis Streams, Kafka, AMQP and NATS JetStream) so there shouldn't be any critical issues. Feature wise this module is pretty much complete. In order for us to remove the "work-in-progress" label we need people to test it and check if the wrapper is working properly and that it's stable. -->
 
 ## Features
 
