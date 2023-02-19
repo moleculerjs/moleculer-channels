@@ -185,8 +185,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 							opts.headers.$requestID = opts.ctx.requestID;
 							opts.headers.$parentID = opts.ctx.id;
-							opts.headers.$tracing = opts.ctx.tracing;
-							opts.headers.$level = opts.ctx.level;
+							opts.headers.$tracing = "" + opts.ctx.tracing;
+							opts.headers.$level = "" + opts.ctx.level;
 							if (opts.ctx.service) {
 								opts.headers.$caller = opts.ctx.service.fullName;
 							}
@@ -275,8 +275,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 									parentCtx = {
 										id: raw.headers.$parentID,
 										requestID: raw.headers.$requestID,
-										tracing: raw.headers.$tracing,
-										level: raw.headers.$level
+										tracing: raw.headers.$tracing === "true",
+										level: raw.headers.$level ? parseInt(raw.headers.$level) : 0
 									};
 									caller = raw.headers.$caller;
 								}
