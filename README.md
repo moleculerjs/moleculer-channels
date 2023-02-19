@@ -188,6 +188,7 @@ module.exports = {
 | `schemaProperty`      | `String`           | `"channels"`       | Name of the property in service schema.                                                                                                          |
 | `sendMethodName`      | `String`           | `"sendToChannel"`  | Name of the method in ServiceBroker to send message to the channels.                                                                             |
 | `adapterPropertyName` | `String`           | `"channelAdapter"` | Name of the property in ServiceBroker to access the `Adapter` instance directly.                                                                 |
+| `context` | `boolean`           | `false` | Using Moleculer context in channel handlers by default.                                                                |
 
 **Examples**
 
@@ -218,6 +219,7 @@ module.exports = {
 | `maxRetries`                           | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
 | `deadLettering.enabled`                | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
 | `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
+| `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.  |
 | `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
 | `redis.startID`                        | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
 | `redis.minIdleTime`                    | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
@@ -310,6 +312,81 @@ module.exports = {
     ]
 };
 ```
+
+## Context-based messages
+In order to use Moleculer Context in handlers (transferring `ctx.meta` and tracing information) you should set the `context: true` option in channel definition object or in middleware options to enable it for all channel handlers.
+
+
+
+**Example to enable context for all handlers**
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379",
+            // Enable context in all channel handlers 
+            context: true
+        })
+    ]
+};
+```
+
+**Using `Context` in handlers**
+
+```js
+module.exports = {
+    name: "payments",
+
+    actions: {
+        /*...*/
+    },
+
+    channels: {
+        "default.options.topic": {
+            context: true, // Unless not enabled it globally
+            async handler(ctx/*, raw*/) {
+                // The `ctx` is regular Moleculer Context
+                if (ctx.meta.loggedInUser) {
+                    // The `ctx.params` contains the original payload of the message
+                    await ctx.call("some.action", ctx.params);
+                }
+            }
+        }
+    }
+};
+```
+
+**Send message with parent Context**
+
+In this case the `ctx.meta` and other tracing information is transferred to the channel handler.
+
+```js
+module.exports = {
+    name: "payments",
+
+    actions: {
+        submitOrder: {
+            async handler(ctx) {
+                await broker.sendToChannel("order.created", {
+                    id: 1234,
+                    items: [/*...*/]
+                }, {
+                    // Pass the `ctx` in options of `sendToChannel`
+                    ctx
+                });
+
+            }
+        }
+    },
+}
+```
+
 
 ## Adapters
 
