@@ -133,6 +133,12 @@ declare class BaseAdapter {
      * @param {Object?} opts
      */
     publish(channelName: string, payload: any, opts: any | null): Promise<void>;
+    /**
+     * Parse the headers from incoming message to a POJO.
+     * @param {any} raw
+     * @returns {object}
+     */
+    parseMessageHeaders(raw: any): object;
 }
 declare namespace BaseAdapter {
     export { ServiceBroker, Service, Logger, Serializer, Channel, DeadLetteringOptions, BaseDefaultOptions };
