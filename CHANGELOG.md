@@ -1,3 +1,9 @@
+<a name="v0.1.6"></a>
+
+# [0.1.6](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.5...v0.1.6) (2023-02-26)
+
+- add Context-based handlers [64](https://github.com/moleculerjs/moleculer-channels/pull/64). Read more about [here](https://github.com/moleculerjs/moleculer-channels#context-based-messages)
+
 <a name="v0.1.5"></a>
 
 # [0.1.5](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.4...v0.1.5) (2023-02-19)
