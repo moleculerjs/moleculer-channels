@@ -1,6 +1,6 @@
 {
   "name": "@moleculer/channels",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Reliable messages for Moleculer services",
   "main": "index.js",
   "scripts": {
