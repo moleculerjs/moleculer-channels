@@ -252,20 +252,22 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 
 ### Method options
 
-| Name            | Type      | Supported adapters            | Description                                                                                                                                                                                   |
-| --------------- | --------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `raw`           | `Boolean` | \*                            | If truthy, the payload won't be serialized.                                                                                                                                                   |
-| `persistent`    | `Boolean` | AMQP                          | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts.                                                                                     |
-| `ttl`           | `Number`  | AMQP                          | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds.                                                                    |
-| `priority`      | `Number`  | AMQP                          | Priority of the message.                                                                                                                                                                      |
-| `correlationId` | `String`  | AMQP                          | Request identifier.                                                                                                                                                                           |
-| `headers`       | `Object`  | AMQP, JetStream, Kafka, Redis | Application specific headers to be carried along with the message content.                                                                                                                    |
-| `routingKey`    | `Object`  | AMQP                          | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
-| `key`           | `String`  | Kafka                         | Key of Kafka message.                                                                                                                                                                         |
-| `partition`     | `String`  | Kafka                         | Partition of Kafka message.                                                                                                                                                                   |
-| `acks`          | `Number`  | Kafka                         | Control the number of required acks.                                                                                                                                                          |
-| `timeout`       | `Number`  | Kafka                         | The time to await a response in ms. Default: `30000`                                                                                                                                          |
-| `compression`   | `any`     | Kafka                         | Compression codec. Default: `CompressionTypes.None`                                                                                                                                           |
+| Name                                    | Type                 | Supported adapters            | Description                                                                                                                                                                                   |
+| --------------------------------------- | -------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `raw`                                   | `Boolean`            | \*                            | If truthy, the payload won't be serialized.                                                                                                                                                   |
+| `persistent`                            | `Boolean`            | AMQP                          | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts.                                                                                     |
+| `ttl`                                   | `Number`             | AMQP                          | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds.                                                                    |
+| `priority`                              | `Number`             | AMQP                          | Priority of the message.                                                                                                                                                                      |
+| `correlationId`                         | `String`             | AMQP                          | Request identifier.                                                                                                                                                                           |
+| `headers`                               | `Object`             | AMQP, JetStream, Kafka, Redis | Application specific headers to be carried along with the message content.                                                                                                                    |
+| `routingKey`                            | `Object`             | AMQP                          | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
+| `publishAssertExchange.enabled`         | `Boolean`            | AMQP                          | Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel()`                                                                           |
+| `publishAssertExchange.exchangeOptions` | `Object`             | AMQP                          | AMQP lib exchange configuration when publishAssertExchange enabled                                                                                                                            |
+| `key`                                   | `String`             | Kafka                         | Key of Kafka message.                                                                                                                                                                         |
+| `partition`                             | `String`             | Kafka                         | Partition of Kafka message.                                                                                                                                                                   |
+| `acks`                                  | `Number`             | Kafka                         | Control the number of required acks.                                                                                                                                                          |
+| `timeout`                               | `Number`             | Kafka                         | The time to await a response in ms. Default: `30000`                                                                                                                                          |
+| `compression`                           | `any`                | Kafka                         | Compression codec. Default: `CompressionTypes.None`                                                                                                                                           |
 
 ## Middleware hooks
 
@@ -339,9 +341,8 @@ module.exports = {
 | `amqp.exchangeOptions`                                | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
 | `amqp.messageOptions`                                 | `Object`                         | `null`                  | AMQP               | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).                                                                                                                    |
 | `amqp.consumerOptions`                                | `Object`                         | `null`                  | AMQP               | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).                                                                                                                    |
-| `amqp.publishAssertExOptions.assertExBeforePublish`   | `Boolean`                        | `false`                 | AMQP               | Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel()`. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                             |
-| `amqp.publishAssertExOptions.exchangeType`            | `String`                         | `direct`                | AMQP               | AMQP lib exchange type. More info [here](https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange).                                                                                                                       |
-| `amqp.publishAssertExOptions.publishExchangeOptions`  | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
+| `amqp.publishAssertExchange.enabled`                  | `Boolean`                        | `false`                 | AMQP               | Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel()`. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                        |
+| `amqp.publishAssertExchange.exchangeOptions`          | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
 | `nats.streamConfig`                                   | `Object`                         | `null`                  | NATS               | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).                                                                                                                                     |
 | `nats.consumerOptions`                                | `Object`                         | `null`                  | NATS               | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).                                                                                                                                  |
 | `kafka.brokers`                                       | `String[]`                       | `null`                  | Kafka              | Kafka bootstrap brokers.                                                                                                                                                                                                                     |
@@ -539,14 +540,11 @@ module.exports = {
                         // Options for `channel.consume()`
                         consumerOptions: {},
 						// Note: options for `channel.assertExchange()` before first publishing in new exchange
-						publishAssertExOptions: {
+						publishAssertExchange: {
 							// Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
-							assertExBeforePublish: false,
-							// Define exchange type
-							// Available values: "direct", "fanout", "topic", "headers"
-							exchangeType: "direct",
+							enabled: false,
 							// Options for `channel.assertExchange()` before publishing by `sendToChannel`
-							publishExchangeOptions: {}
+							exchangeOptions: {}
 						},
                     },
                     maxInFlight: 10,
@@ -572,15 +570,18 @@ broker.sendToChannel("order.created", {
         /*...*/
     ]
 },{
-    // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
-    assertExBeforePublish: true,
-    // Available values: "direct", "fanout", "topic", "headers"
-    exchangeType: "direct",
-    // Options for `channel.assertExchange()` before publishing 
-	publishExchangeOptions: {}
+    // Using specific `assertExchange()` options only for the current sending case
+    publishAssertExchange:{
+        // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+		enabled: true,
+        // Options for `channel.assertExchange()` before publishing 
+		exchangeOptions: {
+			/*...*/
+		}
+	},
 });
 ```
-> Note: If you know that the exchange will be created before `sendToChannel` is called by someone else, then it is better not to use `assertExBeforePublish` option
+> Note: If you know that the exchange will be created before `sendToChannel` is called by someone else, then it is better to skip `publishAssertExchange` option
 
 ### Kafka
 
