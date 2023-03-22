@@ -108,7 +108,8 @@ class AmqpAdapter extends BaseAdapter {
 		/**
 		 * @type {Set<string>}
 		 */
-		this.assertedExchanges = new Set(); // For a collecting exchange names on which assetExchange() was called
+		this.assertedExchanges = new Set(); // For a collecting exchange names on which assertExchange() was called
+		this.setupDeadLetter = false;
 	}
 
 	/**
@@ -280,23 +281,55 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
+		const exchangeOptions = _.defaultsDeep(
+			{},
+			chan.amqp ? chan.amqp.exchangeOptions : {},
+			this.opts.amqp.exchangeOptions
+		);
+
+		const queueOptions = _.defaultsDeep(
+			{},
+			chan.amqp ? chan.amqp.queueOptions : {},
+			this.opts.amqp.queueOptions
+		);
+
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
 			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
-			if (chan.deadLettering.enabled) {
+			if (chan.deadLettering.enabled && !this.setupDeadLetter) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 				chan.deadLettering.exchangeName = this.addPrefixTopic(
 					chan.deadLettering.exchangeName
 				);
+
+				this.logger.warn(`Asserting exchange ${chan.deadLettering.exchangeName}`);
+				this.assertedExchanges.add(chan.deadLettering.exchangeName);
+				await this.channel.assertExchange(
+					chan.deadLettering.exchangeName,
+					"fanout",
+					exchangeOptions
+				);
+
+				// assert dead letter queue
+				this.logger.warn(`Asserting queue '${chan.deadLettering.queueName}'`);
+				await this.channel.assertQueue(chan.deadLettering.queueName, queueOptions);
+
+				// bind queue to exchange
+				this.logger.warn(
+					`Binding '${chan.deadLettering.exchangeName}' -> '${chan.deadLettering.queueName}'...`
+				);
+				this.channel.bindQueue(
+					chan.deadLettering.queueName,
+					chan.deadLettering.exchangeName,
+					""
+				);
+
+				this.setupDeadLetter = true;
 			}
 
 			// --- CREATE EXCHANGE ---
 			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
-			const exchangeOptions = _.defaultsDeep(
-				{},
-				chan.amqp ? chan.amqp.exchangeOptions : {},
-				this.opts.amqp.exchangeOptions
-			);
+
 			this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
 			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
@@ -304,11 +337,7 @@ class AmqpAdapter extends BaseAdapter {
 			const queueName = `${chan.group}.${chan.name}`;
 
 			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
-			const queueOptions = _.defaultsDeep(
-				{},
-				chan.amqp ? chan.amqp.queueOptions : {},
-				this.opts.amqp.queueOptions
-			);
+
 			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
 			await this.channel.assertQueue(queueName, queueOptions);
 
