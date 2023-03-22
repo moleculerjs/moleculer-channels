@@ -302,7 +302,7 @@ class AmqpAdapter extends BaseAdapter {
 					chan.deadLettering.exchangeName
 				);
 
-				this.logger.warn(`Asserting exchange ${chan.deadLettering.exchangeName}`);
+				this.logger.debug(`Asserting exchange ${chan.deadLettering.exchangeName}`);
 				this.assertedExchanges.add(chan.deadLettering.exchangeName);
 				await this.channel.assertExchange(
 					chan.deadLettering.exchangeName,
@@ -311,11 +311,11 @@ class AmqpAdapter extends BaseAdapter {
 				);
 
 				// assert dead letter queue
-				this.logger.warn(`Asserting queue '${chan.deadLettering.queueName}'`);
+				this.logger.debug(`Asserting queue '${chan.deadLettering.queueName}'`);
 				await this.channel.assertQueue(chan.deadLettering.queueName, queueOptions);
 
 				// bind queue to exchange
-				this.logger.warn(
+				this.logger.debug(
 					`Binding '${chan.deadLettering.exchangeName}' -> '${chan.deadLettering.queueName}'...`
 				);
 				this.channel.bindQueue(
