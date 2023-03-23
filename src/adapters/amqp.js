@@ -327,7 +327,7 @@ class AmqpAdapter extends BaseAdapter {
 					""
 				);
 
-				// sest up RabbitMQ dead-letter config
+				// set up RabbitMQ dead-letter config
 				queueOptions.deadLetterExchange = chan.deadLettering.exchangeName;
 				queueOptions.deadLetterRoutingKey = chan.deadLettering.queueName;
 			}
