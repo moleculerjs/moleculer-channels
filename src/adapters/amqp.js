@@ -109,7 +109,6 @@ class AmqpAdapter extends BaseAdapter {
 		 * @type {Set<string>}
 		 */
 		this.assertedExchanges = new Set(); // For a collecting exchange names on which assertExchange() was called
-		this.setupDeadLetter = false;
 	}
 
 	/**
@@ -293,10 +292,14 @@ class AmqpAdapter extends BaseAdapter {
 			this.opts.amqp.queueOptions
 		);
 
+		chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
+
+		const queueName = `${chan.group}.${chan.name}`;
+
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
-			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
-			if (chan.deadLettering.enabled && !this.setupDeadLetter) {
+
+			if (chan.deadLettering.enabled) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 				chan.deadLettering.exchangeName = this.addPrefixTopic(
 					chan.deadLettering.exchangeName
@@ -324,7 +327,9 @@ class AmqpAdapter extends BaseAdapter {
 					""
 				);
 
-				this.setupDeadLetter = true;
+				// sest up RabbitMQ dead-letter config
+				queueOptions.deadLetterExchange = chan.deadLettering.exchangeName;
+				queueOptions.deadLetterRoutingKey = chan.deadLettering.queueName;
 			}
 
 			// --- CREATE EXCHANGE ---
@@ -334,8 +339,6 @@ class AmqpAdapter extends BaseAdapter {
 			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
 			// --- CREATE QUEUE ---
-			const queueName = `${chan.group}.${chan.name}`;
-
 			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
 
 			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
@@ -463,22 +466,10 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Object} msg
 	 */
 	async moveToDeadLetter(chan, msg) {
-		const res = this.channel.publish(
-			chan.deadLettering.exchangeName || "",
-			chan.deadLettering.queueName,
-			msg.content,
-			{
-				headers: {
-					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[C.HEADER_ORIGINAL_GROUP]: chan.group
-				}
-			}
-		);
-		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
+		// nack the message; it should go into the queue's dead-letter queue
+		this.channel.nack(msg, false, false);
 
 		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
-
-		this.channel.ack(msg);
 	}
 
 	/**
