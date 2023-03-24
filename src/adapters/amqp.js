@@ -303,6 +303,8 @@ class AmqpAdapter extends BaseAdapter {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 				chan.deadLettering.exchangeName = this.addPrefixTopic(
 					chan.deadLettering.exchangeName
+						? chan.deadLettering.exchangeName
+						: "DEAD_LETTER"
 				);
 
 				this.logger.debug(`Asserting exchange ${chan.deadLettering.exchangeName}`);
