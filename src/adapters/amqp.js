@@ -312,12 +312,25 @@ class AmqpAdapter extends BaseAdapter {
 				await this.channel.assertExchange(
 					chan.deadLettering.exchangeName,
 					"fanout",
-					exchangeOptions
+					_.defaultsDeep(
+						{},
+						chan.deadLettering && chan.deadLettering.exchangeOptions
+							? chan.deadLettering.exchangeOptions
+							: {},
+						this.opts.amqp.exchangeOptions
+					)
 				);
 
 				// assert dead letter queue
 				this.logger.debug(`Asserting queue '${chan.deadLettering.queueName}'`);
-				await this.channel.assertQueue(chan.deadLettering.queueName, queueOptions);
+				await this.channel.assertQueue(
+					chan.deadLettering.queueName,
+					_.defaultsDeep(
+						{},
+						chan.deadLettering ? chan.deadLettering.queueOptions : {},
+						this.opts.amqp.queueOptions
+					)
+				);
 
 				// bind queue to exchange
 				this.logger.debug(
@@ -468,10 +481,26 @@ class AmqpAdapter extends BaseAdapter {
 	 * @param {Object} msg
 	 */
 	async moveToDeadLetter(chan, msg) {
-		// nack the message; it should go into the queue's dead-letter queue
-		this.channel.nack(msg, false, false);
+		const res = this.channel.publish(
+			chan.deadLettering.exchangeName || "",
+			chan.deadLettering.queueName,
+			msg.content,
+			{
+				headers: {
+					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+					[C.HEADER_ORIGINAL_GROUP]: chan.group
+				}
+			}
+		);
+		if (res === false) {
+			this.broker.logger.error(
+				"AMQP publish error. Write buffer is full. Throwing away message"
+			);
+		} else {
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
+		}
 
-		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
+		this.channel.ack(msg);
 	}
 
 	/**

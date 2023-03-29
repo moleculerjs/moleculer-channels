@@ -25,6 +25,8 @@ const C = require("./constants");
  * @property {Boolean} enabled Enable dead-letter-queue
  * @property {String} queueName Name of the dead-letter queue
  * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
+ * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
+ * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
  */
 
 /**
