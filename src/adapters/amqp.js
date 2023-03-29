@@ -280,10 +280,9 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
-		chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
-
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
+			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
 
 			if (chan.deadLettering.enabled) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
@@ -348,7 +347,6 @@ class AmqpAdapter extends BaseAdapter {
 				chan.amqp ? chan.amqp.queueOptions : {},
 				this.opts.amqp.queueOptions
 			);
-
 			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
 			await this.channel.assertQueue(queueName, queueOptions);
 
