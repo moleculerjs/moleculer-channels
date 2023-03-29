@@ -280,21 +280,7 @@ class AmqpAdapter extends BaseAdapter {
 			chan.id
 		);
 
-		const exchangeOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.exchangeOptions : {},
-			this.opts.amqp.exchangeOptions
-		);
-
-		const queueOptions = _.defaultsDeep(
-			{},
-			chan.amqp ? chan.amqp.queueOptions : {},
-			this.opts.amqp.queueOptions
-		);
-
 		chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
-
-		const queueName = `${chan.group}.${chan.name}`;
 
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
@@ -341,20 +327,27 @@ class AmqpAdapter extends BaseAdapter {
 					chan.deadLettering.exchangeName,
 					""
 				);
-
-				// set up RabbitMQ dead-letter config
-				queueOptions.deadLetterExchange = chan.deadLettering.exchangeName;
-				queueOptions.deadLetterRoutingKey = chan.deadLettering.queueName;
 			}
 
 			// --- CREATE EXCHANGE ---
 			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange
-
+			const exchangeOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.exchangeOptions : {},
+				this.opts.amqp.exchangeOptions
+			);
 			this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
 			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
 
 			// --- CREATE QUEUE ---
+			const queueName = `${chan.group}.${chan.name}`;
+
 			// More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue
+			const queueOptions = _.defaultsDeep(
+				{},
+				chan.amqp ? chan.amqp.queueOptions : {},
+				this.opts.amqp.queueOptions
+			);
 
 			this.logger.debug(`Asserting '${queueName}' queue...`, queueOptions);
 			await this.channel.assertQueue(queueName, queueOptions);
