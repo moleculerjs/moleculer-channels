@@ -271,6 +271,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | `acks`                                  | `Number`             | Kafka                         | Control the number of required acks.                                                                                                                                                          |
 | `timeout`                               | `Number`             | Kafka                         | The time to await a response in ms. Default: `30000`                                                                                                                                          |
 | `compression`                           | `any`                | Kafka                         | Compression codec. Default: `CompressionTypes.None`                                                                                                                                           |
+| `xaddMaxLen`                           | `Number` or `String`  | Redis                         | Define `MAXLEN` for `XADD` command                                                                                                                                         |
 
 ## Middleware hooks
 
@@ -619,6 +620,23 @@ module.exports = {
         })
     ]
 };
+```
+
+#### Capped Streams
+
+To support Redis ["capped streams"](https://redis.io/docs/data-types/streams-tutorial/#capped-streams), you can define the `MAXLEN` value in `sendToChannel` options as `xaddMaxLen`. It can be a number or a string with `~` prefix like `~1000`. It will be transformed to `...MAXLEN ~ 1000 ...`
+
+**Example**
+
+```js
+broker.sendToChannel("order.created", {
+    id: 1234,
+    items: [
+        /*...*/
+    ]
+},{
+    xaddMaxLen: "~1000"
+});
 ```
 
 ### AMQP (RabbitMQ)

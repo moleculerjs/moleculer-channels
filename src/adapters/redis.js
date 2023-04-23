@@ -688,15 +688,27 @@ class RedisAdapter extends BaseAdapter {
 
 		try {
 			let args = [
-				channelName, // Stream name
-				"*", // Auto ID
-				"payload", // Entry
-				opts.raw ? payload : this.serializer.serialize(payload) // Actual payload
+				channelName // Stream name
 			];
+
+			// Support Capped Streams. More info: https://redis.io/docs/data-types/streams-tutorial/#capped-streams
+			if (opts && opts.xaddMaxLen) {
+				const maxLen = "" + opts.xaddMaxLen;
+				if (maxLen.startsWith("~")) {
+					args.push("MAXLEN", "~", maxLen.substring(1));
+				} else {
+					args.push("MAXLEN", maxLen);
+				}
+			}
+
+			// Auto ID
+			args.push("*");
+			// Add payload
+			args.push("payload", opts.raw ? payload : this.serializer.serialize(payload));
 
 			// Add headers
 			if (opts.headers) {
-				args.push(...["headers", this.serializer.serialize(opts.headers)]);
+				args.push("headers", this.serializer.serialize(opts.headers));
 			}
 
 			// https://redis.io/commands/XADD
