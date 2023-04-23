@@ -299,9 +299,7 @@ class AmqpAdapter extends BaseAdapter {
 					"fanout",
 					_.defaultsDeep(
 						{},
-						chan.deadLettering && chan.deadLettering.exchangeOptions
-							? chan.deadLettering.exchangeOptions
-							: {},
+						chan.deadLettering.exchangeOptions,
 						this.opts.amqp.exchangeOptions
 					)
 				);
@@ -310,11 +308,7 @@ class AmqpAdapter extends BaseAdapter {
 				this.logger.debug(`Asserting queue '${chan.deadLettering.queueName}'`);
 				await this.channel.assertQueue(
 					chan.deadLettering.queueName,
-					_.defaultsDeep(
-						{},
-						chan.deadLettering ? chan.deadLettering.queueOptions : {},
-						this.opts.amqp.queueOptions
-					)
+					_.defaultsDeep({}, chan.deadLettering.queueOptions, this.opts.amqp.queueOptions)
 				);
 
 				// bind queue to exchange
