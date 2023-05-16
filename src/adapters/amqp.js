@@ -108,7 +108,7 @@ class AmqpAdapter extends BaseAdapter {
 		/**
 		 * @type {Set<string>}
 		 */
-		this.assertedExchanges = new Set(); // For a collecting exchange names on which assetExchange() was called
+		this.assertedExchanges = new Set(); // For a collecting exchange names on which assertExchange() was called
 	}
 
 	/**
@@ -283,10 +283,42 @@ class AmqpAdapter extends BaseAdapter {
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
 			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
+
 			if (chan.deadLettering.enabled) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 				chan.deadLettering.exchangeName = this.addPrefixTopic(
 					chan.deadLettering.exchangeName
+						? chan.deadLettering.exchangeName
+						: "DEAD_LETTER"
+				);
+
+				this.logger.debug(`Asserting exchange ${chan.deadLettering.exchangeName}`);
+				this.assertedExchanges.add(chan.deadLettering.exchangeName);
+				await this.channel.assertExchange(
+					chan.deadLettering.exchangeName,
+					"fanout",
+					_.defaultsDeep(
+						{},
+						chan.deadLettering.exchangeOptions,
+						this.opts.amqp.exchangeOptions
+					)
+				);
+
+				// assert dead letter queue
+				this.logger.debug(`Asserting queue '${chan.deadLettering.queueName}'`);
+				await this.channel.assertQueue(
+					chan.deadLettering.queueName,
+					_.defaultsDeep({}, chan.deadLettering.queueOptions, this.opts.amqp.queueOptions)
+				);
+
+				// bind queue to exchange
+				this.logger.debug(
+					`Binding '${chan.deadLettering.exchangeName}' -> '${chan.deadLettering.queueName}'...`
+				);
+				this.channel.bindQueue(
+					chan.deadLettering.queueName,
+					chan.deadLettering.exchangeName,
+					""
 				);
 			}
 
@@ -445,9 +477,13 @@ class AmqpAdapter extends BaseAdapter {
 				}
 			}
 		);
-		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
-
-		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
+		if (res === false) {
+			this.broker.logger.error(
+				"AMQP publish error. Write buffer is full. Throwing away message"
+			);
+		} else {
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
+		}
 
 		this.channel.ack(msg);
 	}

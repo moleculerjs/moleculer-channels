@@ -71,6 +71,7 @@ jobs:
 
     - name: Run tests
       run: npm test
+      timeout-minutes: 15
       env:
         GITHUB_ACTIONS_CI: true
 
