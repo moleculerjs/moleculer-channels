@@ -30,6 +30,7 @@ let Amqplib;
  * @property {Object} amqp.socketOptions AMQP lib socket configuration
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
+ * @property {String} amqp.exchangeType AMQP lib exchange type
  * @property {Object} amqp.messageOptions AMQP lib message configuration
  * @property {Object} amqp.consumerOptions AMQP lib consume configuration
  */
@@ -72,6 +73,7 @@ class AmqpAdapter extends BaseAdapter {
 				socketOptions: {},
 				queueOptions: {},
 				exchangeOptions: {},
+				exchangeType: null,
 				messageOptions: {},
 				consumerOptions: {}
 			}
@@ -285,8 +287,15 @@ class AmqpAdapter extends BaseAdapter {
 				chan.amqp ? chan.amqp.exchangeOptions : {},
 				this.opts.amqp.exchangeOptions
 			);
-			this.logger.debug(`Asserting '${chan.name}' fanout exchange...`, exchangeOptions);
-			this.channel.assertExchange(chan.name, "fanout", exchangeOptions);
+			const exchangeType = this.opts.amqp.exchangeType
+				? this.opts.amqp.exchangeType
+				: "fanout";
+
+			this.logger.debug(
+				`Asserting '${chan.name}' ${exchangeType} exchange...`,
+				exchangeOptions
+			);
+			this.channel.assertExchange(chan.name, exchangeType, exchangeOptions);
 
 			// --- CREATE QUEUE ---
 			const queueName = `${chan.group}.${chan.name}`;

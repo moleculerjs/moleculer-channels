@@ -115,6 +115,7 @@ type AmqpDefaultOptions = {
         socketOptions: any;
         queueOptions: any;
         exchangeOptions: any;
+        exchangeType: string;
         messageOptions: any;
         consumerOptions: any;
     };
