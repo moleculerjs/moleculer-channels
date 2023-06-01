@@ -530,6 +530,23 @@ class KafkaAdapter extends BaseAdapter {
 		}
 		this.logger.debug(`Message was published at '${channelName}'`, res);
 	}
+
+	/**
+	 * Parse the headers from incoming message to a POJO.
+	 * @param {any} raw
+	 * @returns {object}
+	 */
+	parseMessageHeaders(raw) {
+		if (raw.headers) {
+			const res = {};
+			for (const [key, value] of Object.entries(raw.headers)) {
+				res[key] = value != null ? value.toString() : null;
+			}
+
+			return res;
+		}
+		return null;
+	}
 }
 
 module.exports = KafkaAdapter;

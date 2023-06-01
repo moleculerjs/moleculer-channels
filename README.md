@@ -9,9 +9,9 @@
 
 Reliable messages for Moleculer services via external queue/channel/topic. Unlike moleculer built-in events, this is **not** a fire-and-forget solution. It's a persistent, durable and reliable message sending solution. The module uses an external message queue/streaming server that stores messages until they are successfully processed. It supports consumer groups, which means that you can run multiple instances of consumer services, incoming messages will be balanced between them.
 
-**This project is a work-in-progress. Don't use it in production.**
+<!-- **This project is a work-in-progress. Don't use it in production.**
 
-> **FAQ**: When it's going to be production safe? **Response**: `moleculer-channels` is a wrapper around well-known and battle tested tech (Redis Streams, Kafka, AMQP and NATS JetStream) so there shouldn't be any critical issues. Feature wise this module is pretty much complete. In order for us to remove the "work-in-progress" label we need people to test it and check if the wrapper is working properly and that it's stable.
+> **FAQ**: When it's going to be production safe? **Response**: `moleculer-channels` is a wrapper around well-known and battle tested tech (Redis Streams, Kafka, AMQP and NATS JetStream) so there shouldn't be any critical issues. Feature wise this module is pretty much complete. In order for us to remove the "work-in-progress" label we need people to test it and check if the wrapper is working properly and that it's stable. -->
 
 ## Features
 
@@ -188,6 +188,7 @@ module.exports = {
 | `schemaProperty`      | `String`           | `"channels"`       | Name of the property in service schema.                                                                                                          |
 | `sendMethodName`      | `String`           | `"sendToChannel"`  | Name of the method in ServiceBroker to send message to the channels.                                                                             |
 | `adapterPropertyName` | `String`           | `"channelAdapter"` | Name of the property in ServiceBroker to access the `Adapter` instance directly.                                                                 |
+| `context` | `boolean`           | `false` | Using Moleculer context in channel handlers by default.                                                                |
 
 **Examples**
 
@@ -218,6 +219,8 @@ module.exports = {
 | `maxRetries`                           | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
 | `deadLettering.enabled`                | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
 | `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
+| `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.  |
+| `tracing`                              | `Object`                                 | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`. |
 | `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
 | `redis.startID`                        | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
 | `redis.minIdleTime`                    | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
@@ -253,20 +256,22 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 
 ### Method options
 
-| Name            | Type      | Supported adapters            | Description                                                                                                                                                                                   |
-| --------------- | --------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `raw`           | `Boolean` | \*                            | If truthy, the payload won't be serialized.                                                                                                                                                   |
-| `persistent`    | `Boolean` | AMQP                          | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts.                                                                                     |
-| `ttl`           | `Number`  | AMQP                          | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds.                                                                    |
-| `priority`      | `Number`  | AMQP                          | Priority of the message.                                                                                                                                                                      |
-| `correlationId` | `String`  | AMQP                          | Request identifier.                                                                                                                                                                           |
-| `headers`       | `Object`  | AMQP, JetStream, Kafka, Redis | Application specific headers to be carried along with the message content.                                                                                                                    |
-| `routingKey`    | `Object`  | AMQP                          | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
-| `key`           | `String`  | Kafka                         | Key of Kafka message.                                                                                                                                                                         |
-| `partition`     | `String`  | Kafka                         | Partition of Kafka message.                                                                                                                                                                   |
-| `acks`          | `Number`  | Kafka                         | Control the number of required acks.                                                                                                                                                          |
-| `timeout`       | `Number`  | Kafka                         | The time to await a response in ms. Default: `30000`                                                                                                                                          |
-| `compression`   | `any`     | Kafka                         | Compression codec. Default: `CompressionTypes.None`                                                                                                                                           |
+| Name                                    | Type                 | Supported adapters            | Description                                                                                                                                                                                   |
+| --------------------------------------- | -------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `raw`                                   | `Boolean`            | \*                            | If truthy, the payload won't be serialized.                                                                                                                                                   |
+| `persistent`                            | `Boolean`            | AMQP                          | If truthy, the message will survive broker restarts provided it’s in a queue that also survives restarts.                                                                                     |
+| `ttl`                                   | `Number`             | AMQP                          | If supplied, the message will be discarded from a queue once it’s been there longer than the given number of milliseconds.                                                                    |
+| `priority`                              | `Number`             | AMQP                          | Priority of the message.                                                                                                                                                                      |
+| `correlationId`                         | `String`             | AMQP                          | Request identifier.                                                                                                                                                                           |
+| `headers`                               | `Object`             | AMQP, JetStream, Kafka, Redis | Application specific headers to be carried along with the message content.                                                                                                                    |
+| `routingKey`                            | `Object`             | AMQP                          | The AMQP `publish` method's second argument. If you want to send the message into an external queue instead of exchange, set the `channelName` to `""` and set the queue name to `routingKey` |
+| `publishAssertExchange.enabled`         | `Boolean`            | AMQP                          | Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel()`                                                                           |
+| `publishAssertExchange.exchangeOptions` | `Object`             | AMQP                          | AMQP lib exchange configuration when publishAssertExchange enabled                                                                                                                            |
+| `key`                                   | `String`             | Kafka                         | Key of Kafka message.                                                                                                                                                                         |
+| `partition`                             | `String`             | Kafka                         | Partition of Kafka message.                                                                                                                                                                   |
+| `acks`                                  | `Number`             | Kafka                         | Control the number of required acks.                                                                                                                                                          |
+| `timeout`                               | `Number`             | Kafka                         | The time to await a response in ms. Default: `30000`                                                                                                                                          |
+| `compression`                           | `any`                | Kafka                         | Compression codec. Default: `CompressionTypes.None`                                                                                                                                           |
 
 ## Middleware hooks
 
@@ -312,6 +317,130 @@ module.exports = {
 };
 ```
 
+## Context-based messages
+
+In order to use Moleculer Context in handlers (transferring `ctx.meta` and tracing information) you should set the `context: true` option in channel definition object or in middleware options to enable it for all channel handlers.
+
+**Example to enable context for all handlers**
+
+```js
+// moleculer.config.js
+const ChannelsMiddleware = require("@moleculer/channels").Middleware;
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379",
+            // Enable context in all channel handlers 
+            context: true
+        })
+    ]
+};
+```
+
+**Using `Context` in handlers**
+
+```js
+module.exports = {
+    name: "payments",
+
+    actions: {
+        /*...*/
+    },
+
+    channels: {
+        "default.options.topic": {
+            context: true, // Unless not enabled it globally
+            async handler(ctx/*, raw*/) {
+                // The `ctx` is a regular Moleculer Context
+                if (ctx.meta.loggedInUser) {
+                    // The `ctx.params` contains the original payload of the message
+                    await ctx.call("some.action", ctx.params);
+                }
+            }
+        }
+    }
+};
+```
+
+**Send message with parent Context**
+
+In this case the `ctx.meta` and other tracing information is transferred to the channel handler.
+
+```js
+module.exports = {
+    name: "payments",
+
+    actions: {
+        submitOrder: {
+            async handler(ctx) {
+                await broker.sendToChannel("order.created", {
+                    id: 1234,
+                    items: [/*...*/]
+                }, {
+                    // Pass the `ctx` in options of `sendToChannel`
+                    ctx
+                });
+
+            }
+        }
+    },
+}
+```
+
+### Tracing
+To enable tracing for context-based handlers, you should register `Tracing` middleware in broker options.
+
+> The middleware works only with `context: true`.
+
+**Register channel tracing middleware**
+```js
+//moleculer.config.js
+const TracingMiddleware = require("@moleculer/channels").Tracing;
+
+module.exports = {
+    logger: true,
+
+    middlewares: [
+        ChannelsMiddleware({
+            adapter: "redis://localhost:6379",
+            // Enable context in all channel handlers 
+            context: true
+        }),
+        TracingMiddleware()
+    ]
+};
+```
+
+You can fine-tuning tracing tags and span name in `tracing` channel property similar to [actions](https://moleculer.services/docs/0.14/tracing.html#Customizing).
+
+**Customize tags and span name**
+
+```js
+broker.createService({
+    name: "sub1",
+    channels: {
+        "my.topic": {
+            context: true,
+            tracing: {
+                spanName: ctx => `My custom span: ${ctx.params.id}`
+                tags: {
+                    params: true,
+                    meta: true
+                }
+            },
+            async handler(ctx, raw) {
+                // ...
+            }
+        }
+    }
+});
+```
+
+> To disable tracing, set `tracing: false in channel definition.
+
 ## Adapters
 
 ### Adapter options
@@ -341,6 +470,8 @@ module.exports = {
 | `amqp.exchangeType`                                   | `string`                         | `fanout`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
 | `amqp.messageOptions`                                 | `Object`                         | `null`                  | AMQP               | AMQP lib message configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_publish).                                                                                                                    |
 | `amqp.consumerOptions`                                | `Object`                         | `null`                  | AMQP               | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).                                                                                                                    |
+| `amqp.publishAssertExchange.enabled`                  | `Boolean`                        | `false`                 | AMQP               | Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel()`. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                        |
+| `amqp.publishAssertExchange.exchangeOptions`          | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                            |
 | `nats.streamConfig`                                   | `Object`                         | `null`                  | NATS               | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).                                                                                                                                     |
 | `nats.consumerOptions`                                | `Object`                         | `null`                  | NATS               | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).                                                                                                                                  |
 | `kafka.brokers`                                       | `String[]`                       | `null`                  | Kafka              | Kafka bootstrap brokers.                                                                                                                                                                                                                     |
@@ -538,7 +669,14 @@ module.exports = {
                         // Options for `channel.publish()`
                         messageOptions: {},
                         // Options for `channel.consume()`
-                        consumerOptions: {}
+                        consumerOptions: {},
+						// Note: options for `channel.assertExchange()` before first publishing in new exchange
+						publishAssertExchange: {
+							// Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+							enabled: false,
+							// Options for `channel.assertExchange()` before publishing by `sendToChannel`
+							exchangeOptions: {}
+						},
                     },
                     maxInFlight: 10,
                     maxRetries: 3,
@@ -553,6 +691,28 @@ module.exports = {
     ]
 };
 ```
+
+**Example Producing messages with options**
+
+```js
+broker.sendToChannel("order.created", {
+    id: 1234,
+    items: [
+        /*...*/
+    ]
+},{
+    // Using specific `assertExchange()` options only for the current sending case
+    publishAssertExchange:{
+        // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+		enabled: true,
+        // Options for `channel.assertExchange()` before publishing 
+		exchangeOptions: {
+			/*...*/
+		}
+	},
+});
+```
+> Note: If you know that the exchange will be created before `sendToChannel` is called by someone else, then it is better to skip `publishAssertExchange` option
 
 ### Kafka
 
@@ -668,6 +828,10 @@ module.exports = {
 };
 ```
 
+#### Jetstream - Single stream with multiple topics
+
+It is possible to configure single stream to handle multiple topics (e.g., `streamOneTopic.abc` and `streamOneTopic.xyz`). Moreover it possible for a single handler to receive any message that matches the filter `streamOneTopic.*`. Please check the [example](examples/nats-wildcard/index.js) for all the details.
+
 ### Fake adapter
 
 This adapter is made for unit/integration tests. The adapter uses the built-in Moleculer event bus to send messages instead of an external module. It means that the message sending is not reliable but can be a good option to test the channel handlers in a test environment. The fake adapter is doesn't support retries and dead-letter topic features. For multiple brokers, you should define a transporter (at least the `FakeTransporter`)
@@ -750,6 +914,6 @@ The project is available under the [MIT license](https://tldrlegal.com/license/m
 
 ## Contact
 
-Copyright (c) 2022 MoleculerJS
+Copyright (c) 2023 MoleculerJS
 
 [![@MoleculerJS](https://img.shields.io/badge/github-moleculerjs-green.svg)](https://github.com/moleculerjs) [![@MoleculerJS](https://img.shields.io/badge/twitter-MoleculerJS-blue.svg)](https://twitter.com/MoleculerJS)

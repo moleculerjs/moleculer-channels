@@ -33,6 +33,13 @@ let Amqplib;
  * @property {String} amqp.exchangeType AMQP lib exchange type
  * @property {Object} amqp.messageOptions AMQP lib message configuration
  * @property {Object} amqp.consumerOptions AMQP lib consume configuration
+ * @property {publishAssertExchange} amqp.publishAssertExchange AMQP lib exchange configuration for one-time calling assertExchange() before publishing in new exchange by sendToChannel
+ */
+
+/**
+ * @typedef {Object} publishAssertExchange
+ * @property {Boolean} enabled Enable/disable one-time calling channel.assertExchange() before publishing in new exchange by sendToChannel
+ * @property {Object} exchangeOptions AMQP lib exchange configuration  https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
  */
 
 /**
@@ -100,6 +107,10 @@ class AmqpAdapter extends BaseAdapter {
 		this.stopping = false;
 		this.connectAttempt = 0;
 		this.connectionCount = 0; // To detect reconnections
+		/**
+		 * @type {Set<string>}
+		 */
+		this.assertedExchanges = new Set(); // For a collecting exchange names on which assertExchange() was called
 	}
 
 	/**
@@ -256,6 +267,7 @@ class AmqpAdapter extends BaseAdapter {
 		} catch (err) {
 			this.logger.error("Error while closing AMQP connection.", err);
 		}
+		this.assertedExchanges.clear();
 		this.stopping = false;
 	}
 
@@ -273,10 +285,42 @@ class AmqpAdapter extends BaseAdapter {
 		try {
 			if (chan.maxRetries == null) chan.maxRetries = this.opts.maxRetries;
 			chan.deadLettering = _.defaultsDeep({}, chan.deadLettering, this.opts.deadLettering);
+
 			if (chan.deadLettering.enabled) {
 				chan.deadLettering.queueName = this.addPrefixTopic(chan.deadLettering.queueName);
 				chan.deadLettering.exchangeName = this.addPrefixTopic(
 					chan.deadLettering.exchangeName
+						? chan.deadLettering.exchangeName
+						: "DEAD_LETTER"
+				);
+
+				this.logger.debug(`Asserting exchange ${chan.deadLettering.exchangeName}`);
+				this.assertedExchanges.add(chan.deadLettering.exchangeName);
+				await this.channel.assertExchange(
+					chan.deadLettering.exchangeName,
+					"fanout",
+					_.defaultsDeep(
+						{},
+						chan.deadLettering.exchangeOptions,
+						this.opts.amqp.exchangeOptions
+					)
+				);
+
+				// assert dead letter queue
+				this.logger.debug(`Asserting queue '${chan.deadLettering.queueName}'`);
+				await this.channel.assertQueue(
+					chan.deadLettering.queueName,
+					_.defaultsDeep({}, chan.deadLettering.queueOptions, this.opts.amqp.queueOptions)
+				);
+
+				// bind queue to exchange
+				this.logger.debug(
+					`Binding '${chan.deadLettering.exchangeName}' -> '${chan.deadLettering.queueName}'...`
+				);
+				this.channel.bindQueue(
+					chan.deadLettering.queueName,
+					chan.deadLettering.exchangeName,
+					""
 				);
 			}
 
@@ -442,9 +486,13 @@ class AmqpAdapter extends BaseAdapter {
 				}
 			}
 		);
-		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
-
-		this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
+		if (res === false) {
+			this.broker.logger.error(
+				"AMQP publish error. Write buffer is full. Throwing away message"
+			);
+		} else {
+			this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL, chan);
+		}
 
 		this.channel.ack(msg);
 	}
@@ -542,9 +590,38 @@ class AmqpAdapter extends BaseAdapter {
 		);
 
 		const data = opts.raw ? payload : this.serializer.serialize(payload);
+
+		const publishAssertExchange = _.defaultsDeep(
+			opts.publishAssertExchange,
+			this.opts.amqp.publishAssertExchange,
+			{
+				enabled: false,
+				exchangeOptions: {}
+			}
+		);
+
+		if (publishAssertExchange.enabled && !this.assertedExchanges.has(channelName)) {
+			this.logger.debug(`Asserting exchange ${channelName}`);
+			this.assertedExchanges.add(channelName);
+			await this.channel.assertExchange(
+				channelName,
+				"fanout",
+				publishAssertExchange.exchangeOptions
+			);
+		}
+
 		const res = this.channel.publish(channelName, opts.routingKey || "", data, messageOptions);
 		if (res === false) throw new MoleculerError("AMQP publish error. Write buffer is full.");
 		this.logger.debug(`Message was published at '${channelName}'`);
+	}
+
+	/**
+	 * Parse the headers from incoming message to a POJO.
+	 * @param {any} raw
+	 * @returns {object}
+	 */
+	parseMessageHeaders(raw) {
+		return raw && raw.properties ? raw.properties.headers : null;
 	}
 }
 

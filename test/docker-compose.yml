@@ -8,12 +8,12 @@ services:
     command: "-js"
 
   redis:
-    image: redis:6-alpine
+    image: redis:7-alpine
     ports:
       - "6379:6379"
 
   redis-node-1:
-    image: docker.io/bitnami/redis-cluster:6.2
+    image: docker.io/bitnami/redis-cluster:7.0
     ports:
       - "6381:6379"
     environment:
@@ -23,7 +23,7 @@ services:
       - 'REDIS_CLUSTER_CREATOR=yes'
 
   redis-node-2:
-    image: docker.io/bitnami/redis-cluster:6.2
+    image: docker.io/bitnami/redis-cluster:7.0
     ports:
       - "6382:6379"
     environment:
@@ -31,7 +31,7 @@ services:
       - 'REDIS_NODES=redis-node-1 redis-node-2 redis-node-3'
 
   redis-node-3:
-    image: docker.io/bitnami/redis-cluster:6.2
+    image: docker.io/bitnami/redis-cluster:7.0
     ports:
       - "6383:6379"
     environment:
@@ -58,20 +58,21 @@ services:
       - "15672:15672"
 
   zookeeper:
-    image: bitnami/zookeeper:3.7
+    image: bitnami/zookeeper:3.8
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
     ports:
       - "2181:2181"
 
   kafka:
-    image: bitnami/kafka:2
+    image: bitnami/kafka:3.4
     environment:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       - KAFKA_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:9093
       - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://127.0.0.1:9093
       - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_ENABLE_KRAFT=no
     depends_on:
       - zookeeper
     ports:
