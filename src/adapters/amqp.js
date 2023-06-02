@@ -287,9 +287,10 @@ class AmqpAdapter extends BaseAdapter {
 				chan.amqp ? chan.amqp.exchangeOptions : {},
 				this.opts.amqp.exchangeOptions
 			);
-			const exchangeType = this.opts.amqp.exchangeType
-				? this.opts.amqp.exchangeType
-				: "fanout";
+			let exchangeType = "fanout";
+			if (chan.amqp && chan.amqp.exchangeType) {
+				exchangeType = chan.amqp.exchangeType;
+			}
 
 			this.logger.debug(
 				`Asserting '${chan.name}' ${exchangeType} exchange...`,
