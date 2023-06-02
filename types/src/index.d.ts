@@ -82,6 +82,10 @@ export type Channel = {
      */
     group: string;
     /**
+     * Create Moleculer Context
+     */
+    context: boolean;
+    /**
      * Flag denoting if service is stopping
      */
     unsubscribing: boolean;
@@ -153,4 +157,8 @@ export type MiddlewareOptions = {
      * Method name to add to service in order to trigger channel handlers.
      */
     channelHandlerTrigger: string;
+    /**
+     * Using Moleculer context in channel handlers by default.
+     */
+    context: boolean;
 };

@@ -11,12 +11,22 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 			async "helper.sum"(payload) {
 				// Calls the sum method
 				return this.sum(payload.a, payload.b);
+			},
+
+			"helper.subtract": {
+				handler(payload) {
+					return this.subtract(payload.a, payload.b);
+				}
 			}
 		},
 
 		methods: {
 			sum(a, b) {
 				return a + b;
+			},
+
+			subtract(a, b) {
+				return a - b;
 			}
 		}
 	};
@@ -36,7 +46,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 		beforeAll(() => broker.start());
 		afterAll(() => broker.stop());
 
-		it("should register default 'emitLocalChannelHandler'", async () => {
+		it("should register default 'emitLocalChannelHandler' function declaration", async () => {
 			// Mock the "sum" method
 			service.sum = jest.fn();
 
@@ -48,6 +58,20 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 
 			// Restore the "sum" method
 			service.sum.mockRestore();
+		});
+
+		it("should register default 'emitLocalChannelHandler' object declaration", async () => {
+			// Mock the "sum" method
+			service.subtract = jest.fn();
+
+			// Call the "helper.sum" handler
+			await service.emitLocalChannelHandler("helper.subtract", { a: 5, b: 5 });
+			// Check if "subtract" method was called
+			expect(service.subtract).toBeCalledTimes(1);
+			expect(service.subtract).toBeCalledWith(5, 5);
+
+			// Restore the "subtract" method
+			service.subtract.mockRestore();
 		});
 	});
 

@@ -12,8 +12,9 @@
 			"program": "examples/index.js",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"headers"
+				"context"
 			],
+			"console": "integratedTerminal",
 			"env": {
 				//"ADAPTER": "kafka://localhost:9093"
 			}

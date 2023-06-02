@@ -1,3 +1,23 @@
+<a name="v0.1.6"></a>
+
+# [0.1.6](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.5...v0.1.6) (2023-02-26)
+
+- add Context-based handlers [64](https://github.com/moleculerjs/moleculer-channels/pull/64). Read more about [here](https://github.com/moleculerjs/moleculer-channels#context-based-messages)
+
+<a name="v0.1.5"></a>
+
+# [0.1.5](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.4...v0.1.5) (2023-02-19)
+
+- fix emitLocalChannelHandler [62](https://github.com/moleculerjs/moleculer-channels/pull/62)
+- enforce buffer type on data passed to serializer [58](https://github.com/moleculerjs/moleculer-channels/pull/58)
+
+<a name="v0.1.4"></a>
+
+# [0.1.4](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.3...v0.1.4) (2023-01-08)
+
+- allow to subscribe with wildcard in NATS JetStream adapter [57](https://github.com/moleculerjs/moleculer-channels/pull/57)
+- update dependencies
+
 <a name="v0.1.3"></a>
 
 # [0.1.3](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.2...v0.1.3) (2022-12-17)

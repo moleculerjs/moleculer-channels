@@ -7,7 +7,7 @@
 "use strict";
 
 const _ = require("lodash");
-const { METRIC } = require("moleculer");
+const { Context, METRIC } = require("moleculer");
 const { BrokerOptionsError, ServiceSchemaError, MoleculerError } = require("moleculer").Errors;
 const Adapters = require("./adapters");
 const C = require("./constants");
@@ -25,6 +25,8 @@ const C = require("./constants");
  * @property {Boolean} enabled Enable dead-letter-queue
  * @property {String} queueName Name of the dead-letter queue
  * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
+ * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
+ * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
  */
 
 /**
@@ -32,6 +34,7 @@ const C = require("./constants");
  * @property {String} id Consumer ID
  * @property {String} name Channel/Queue/Stream name
  * @property {String} group Consumer group name
+ * @property {Boolean} context Create Moleculer Context
  * @property {Boolean} unsubscribing Flag denoting if service is stopping
  * @property {Number?} maxInFlight Maximum number of messages that can be processed simultaneously
  * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
@@ -59,6 +62,7 @@ const C = require("./constants");
  * @property {String} sendMethodName Method name to send messages.
  * @property {String} adapterPropertyName Property name of the adapter instance in broker instance.
  * @property {String} channelHandlerTrigger Method name to add to service in order to trigger channel handlers.
+ * @property {boolean} context Using Moleculer context in channel handlers by default.
  */
 
 /**
@@ -73,7 +77,8 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 		schemaProperty: "channels",
 		sendMethodName: "sendToChannel",
 		adapterPropertyName: "channelAdapter",
-		channelHandlerTrigger: "emitLocalChannelHandler"
+		channelHandlerTrigger: "emitLocalChannelHandler",
+		context: false
 	});
 
 	/** @type {ServiceBroker} */
@@ -175,6 +180,31 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 							{ channel: channelName },
 							1
 						);
+
+						// Transfer Context properties
+						if (opts && opts.ctx) {
+							if (!opts.headers) opts.headers = {};
+
+							opts.headers.$requestID = opts.ctx.requestID;
+							opts.headers.$parentID = opts.ctx.id;
+							opts.headers.$tracing = "" + opts.ctx.tracing;
+							opts.headers.$level = "" + opts.ctx.level;
+							if (opts.ctx.service) {
+								opts.headers.$caller = opts.ctx.service.fullName;
+							}
+							opts.headers.$meta = adapter.serializer
+								.serialize(opts.ctx.meta)
+								.toString("base64");
+
+							if (opts.ctx.headers) {
+								opts.headers.$headers = adapter.serializer
+									.serialize(opts.ctx.headers)
+									.toString("base64");
+							}
+
+							delete opts.ctx;
+						}
+
 						return adapter.publish(adapter.addPrefixTopic(channelName), payload, opts);
 					}
 				);
@@ -210,7 +240,7 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 				await broker.Promise.mapSeries(
 					Object.entries(svc.schema[mwOpts.schemaProperty]),
 					async ([name, def]) => {
-						/** @type {Channel} */
+						/** @type {Partial<Channel>} */
 						let chan;
 
 						if (_.isFunction(def)) {
@@ -233,6 +263,7 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 
 						if (!chan.name) chan.name = adapter.addPrefixTopic(name);
 						if (!chan.group) chan.group = svc.fullName;
+						if (chan.context == null) chan.context = mwOpts.context;
 
 						// Consumer ID
 						chan.id = adapter.addPrefixTopic(
@@ -241,15 +272,57 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 						chan.unsubscribing = false;
 
 						// Wrap the original handler
-						let handler = chan.handler;
-						handler = broker.Promise.method(handler).bind(svc);
+						let handler = broker.Promise.method(chan.handler).bind(svc);
 
-						// Wrap the handler with middleware
-						const wrappedHandler = broker.middlewares.wrapHandler(
+						// Wrap the handler with custom middlewares
+						const handler2 = broker.middlewares.wrapHandler(
 							"localChannel",
 							handler,
 							chan
 						);
+
+						let wrappedHandler = handler2;
+
+						// Wrap the handler with context creating
+						if (chan.context) {
+							wrappedHandler = (msg, raw) => {
+								let parentCtx, caller, meta, ctxHeaders;
+								const headers = adapter.parseMessageHeaders(raw);
+								if (headers) {
+									if (headers.$requestID) {
+										parentCtx = {
+											id: headers.$parentID,
+											requestID: headers.$requestID,
+											tracing: headers.$tracing === "true",
+											level: headers.$level ? parseInt(headers.$level) : 0
+										};
+										caller = headers.$caller;
+									}
+
+									if (headers.$meta) {
+										meta = adapter.serializer.deserialize(
+											Buffer.from(headers.$meta, "base64")
+										);
+									}
+
+									if (headers.$headers) {
+										ctxHeaders = adapter.serializer.deserialize(
+											Buffer.from(headers.$headers, "base64")
+										);
+									}
+								}
+
+								const ctx = Context.create(broker, null, msg, {
+									parentCtx,
+									caller,
+									meta,
+									headers: ctxHeaders
+								});
+
+								return handler2(ctx, raw);
+							};
+						}
+
 						chan.handler = wrappedHandler;
 
 						// Add metrics for the handler
@@ -303,7 +376,7 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 					 *
 					 * @param {String} channelName
 					 * @param {Object} payload
-					 * @param {Object} rawMessage
+					 * @param {Object} raw
 					 * @returns
 					 */
 					svc[mwOpts.channelHandlerTrigger] = (channelName, payload, raw) => {
@@ -321,7 +394,16 @@ module.exports.default = function ChannelsMiddleware(mwOpts) {
 								)
 							);
 
-						return svc.schema[mwOpts.schemaProperty][channelName].call(
+						// Shorthand definition
+						if (typeof svc.schema[mwOpts.schemaProperty][channelName] === "function")
+							return svc.schema[mwOpts.schemaProperty][channelName].call(
+								svc, // Attach reference to service
+								payload,
+								raw
+							);
+
+						// Object definition
+						return svc.schema[mwOpts.schemaProperty][channelName].handler.call(
 							svc, // Attach reference to service
 							payload,
 							raw

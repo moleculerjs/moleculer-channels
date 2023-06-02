@@ -1,7 +1,7 @@
 "use strict";
 
 const _ = require("lodash");
-const { ServiceBroker } = require("moleculer");
+const { ServiceBroker, Context } = require("moleculer");
 const ChannelMiddleware = require("./../../").Middleware;
 
 const Kafka = require("kafkajs").Kafka;
@@ -34,8 +34,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 } else {
 	// Local development tests
 	Adapters = [
-		{ type: "Fake", options: {} }
-		/*{ type: "Redis", options: {} },
+		{ type: "Fake", options: {} },
+		{ type: "Redis", options: {} },
 		{
 			type: "Redis",
 			name: "Redis-Cluster",
@@ -54,7 +54,6 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
 		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
-		*/
 	];
 }
 
@@ -150,6 +149,78 @@ describe("Integration tests", () => {
 					// ---- ˇ ASSERTS ˇ ---
 					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
 					expect(subTestTopicHandler).toHaveBeenCalledWith(msg, expect.anything());
+				});
+			});
+
+			describe("Test publish/subscribe logic with context", () => {
+				const broker = createBroker(adapter);
+
+				const subTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
+				});
+
+				broker.createService({
+					name: "sub",
+					channels: {
+						"test.simple.topic": {
+							context: true,
+							handler: subTestTopicHandler
+						}
+					}
+				});
+
+				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				afterAll(() => broker.stop());
+
+				it("should receive the published message as Context", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.simple.topic", msg);
+					await broker.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(subTestTopicHandler).toHaveBeenCalledWith(
+						expect.any(Context),
+						expect.anything()
+					);
+					expect(subTestTopicHandler.mock.calls[0][0].params).toEqual(msg);
+				});
+
+				it("should receive the published message as Context with meta", async () => {
+					subTestTopicHandler.mockClear();
+
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+
+					const ctx = Context.create(broker, null);
+					ctx.meta = { a: 5, b: { c: "Hello" } };
+
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.simple.topic", msg, { ctx });
+					await broker.Promise.delay(200);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(subTestTopicHandler).toHaveBeenCalledWith(
+						expect.any(Context),
+						expect.anything()
+					);
+
+					const ctx2 = subTestTopicHandler.mock.calls[0][0];
+					expect(ctx2.params).toEqual(msg);
+					expect(ctx2.meta).toEqual({
+						a: 5,
+						b: { c: "Hello" }
+					});
+					expect(ctx2.parentID).toEqual(ctx.id);
+					expect(ctx2.requestID).toEqual(ctx.requestID);
 				});
 			});
 

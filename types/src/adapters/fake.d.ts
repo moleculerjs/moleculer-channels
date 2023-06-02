@@ -24,13 +24,6 @@ declare class FakeAdapter extends BaseAdapter {
     services: Map<any, any>;
     stopping: boolean;
     /**
-     * Subscribe to a channel with a handler.
-     *
-     * @param {Channel} chan
-     * @param {Service} svc
-     */
-    subscribe(chan: Channel, svc: Service): Promise<void>;
-    /**
      * Process incoming messages.
      *
      * @param {Channel} chan
@@ -72,10 +65,6 @@ type BaseDefaultOptions = import("./base").BaseDefaultOptions;
  */
 type Channel = import("../index").Channel;
 /**
- * Service instance
- */
-type Service = import("moleculer").Service;
-/**
  * Context instance
  */
 type Context = import("moleculer").Context;
@@ -83,6 +72,10 @@ type Context = import("moleculer").Context;
  * Moleculer Service Broker instance
  */
 type ServiceBroker = import("moleculer").ServiceBroker;
+/**
+ * Service instance
+ */
+type Service = import("moleculer").Service;
 /**
  * Logger instance
  */
