@@ -142,23 +142,33 @@ export type MiddlewareOptions = {
      */
     adapter: string | AdapterConfig;
     /**
-     * Property name of channels definition in service schema.
+     * Property name of channels definition in service schema
+     *
+     * @default "channels"
      */
-    schemaProperty: string;
+    schemaProperty?: string;
     /**
-     * Method name to send messages.
+     * Method name to send messages. Default is "sendToChannel"
+     *
+     * @default "sendToChannel"
      */
-    sendMethodName: string;
+    sendMethodName?: string;
     /**
      * Property name of the adapter instance in broker instance.
+     *
+     * @default "channelAdapter"
      */
-    adapterPropertyName: string;
+    adapterPropertyName?: string;
     /**
      * Method name to add to service in order to trigger channel handlers.
+     *
+     * @default "emitLocalChannelHandler"
      */
-    channelHandlerTrigger: string;
+    channelHandlerTrigger?: string;
     /**
      * Using Moleculer context in channel handlers by default.
+     *
+     * @default false
      */
-    context: boolean;
+    context?: boolean;
 };
