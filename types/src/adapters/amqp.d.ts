@@ -15,8 +15,15 @@ export = AmqpAdapter;
  * @property {Object} amqp.socketOptions AMQP lib socket configuration
  * @property {Object} amqp.queueOptions AMQP lib queue configuration
  * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
+ * @property {String} amqp.exchangeType AMQP lib exchange type
  * @property {Object} amqp.messageOptions AMQP lib message configuration
  * @property {Object} amqp.consumerOptions AMQP lib consume configuration
+ * @property {publishAssertExchange} amqp.publishAssertExchange AMQP lib exchange configuration for one-time calling assertExchange() before publishing in new exchange by sendToChannel
+ */
+/**
+ * @typedef {Object} publishAssertExchange
+ * @property {Boolean} enabled Enable/disable one-time calling channel.assertExchange() before publishing in new exchange by sendToChannel
+ * @property {Object} exchangeOptions AMQP lib exchange configuration  https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
  */
 /**
  * @typedef {Object} SubscriptionEntry
@@ -47,6 +54,10 @@ declare class AmqpAdapter extends BaseAdapter {
     stopping: boolean;
     connectAttempt: number;
     connectionCount: number;
+    /**
+     * @type {Set<string>}
+     */
+    assertedExchanges: Set<string>;
     /**
      * Connect to the adapter with reconnecting logic
      */
@@ -96,7 +107,7 @@ declare class AmqpAdapter extends BaseAdapter {
     publish(channelName: string, payload: any, opts?: any | null): Promise<void>;
 }
 declare namespace AmqpAdapter {
-    export { AMQPLibConnection, AMQPLibChannel, ServiceBroker, Logger, Channel, BaseDefaultOptions, AmqpDefaultOptions, SubscriptionEntry };
+    export { AMQPLibConnection, AMQPLibChannel, ServiceBroker, Logger, Channel, BaseDefaultOptions, AmqpDefaultOptions, publishAssertExchange, SubscriptionEntry };
 }
 import BaseAdapter = require("./base");
 /**
@@ -118,6 +129,7 @@ type AmqpDefaultOptions = {
         exchangeType: string;
         messageOptions: any;
         consumerOptions: any;
+        publishAssertExchange: publishAssertExchange;
     };
 };
 /**
@@ -154,3 +166,13 @@ type ServiceBroker = import("moleculer").ServiceBroker;
  * Logger instance
  */
 type Logger = import("moleculer").LoggerInstance;
+type publishAssertExchange = {
+    /**
+     * Enable/disable one-time calling channel.assertExchange() before publishing in new exchange by sendToChannel
+     */
+    enabled: boolean;
+    /**
+     * AMQP lib exchange configuration  https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
+     */
+    exchangeOptions: any;
+};

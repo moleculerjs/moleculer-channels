@@ -1,10 +1,8 @@
-export function Middleware(mwOpts: import("./src").MiddlewareOptions): {
+export const Middleware: typeof import("./src");
+export const Tracing: () => {
     name: string;
-    created(_broker: import("moleculer").ServiceBroker): void;
-    serviceCreated(svc: import("moleculer").Service<import("moleculer").ServiceSettingSchema>): Promise<void>;
-    serviceStopping(svc: import("moleculer").Service<import("moleculer").ServiceSettingSchema>): Promise<void>;
-    started(): Promise<void>;
-    stopped(): Promise<void>;
+    created(_broker: any): void;
+    localChannel: (handler: any, chan: any) => any;
 };
 export const Adapters: {
     Base: typeof import("./src/adapters/base");

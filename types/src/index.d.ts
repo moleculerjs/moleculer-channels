@@ -1,4 +1,4 @@
-declare function _exports(mwOpts: MiddlewareOptions): {
+declare function _default(mwOpts: MiddlewareOptions): {
     name: string;
     /**
      * Create lifecycle hook of service
@@ -27,7 +27,7 @@ declare function _exports(mwOpts: MiddlewareOptions): {
      */
     stopped(): Promise<void>;
 };
-export default _exports;
+export default _default;
 /**
  * Moleculer Service Broker instance
  */
@@ -64,6 +64,14 @@ export type DeadLetteringOptions = {
      * Name of the dead-letter exchange (only for AMQP adapter)
      */
     exchangeName: string;
+    /**
+     * Options for the dead-letter exchange (only for AMQP adapter)
+     */
+    exchangeOptions: any;
+    /**
+     * Options for the dead-letter queue (only for AMQP adapter)
+     */
+    queueOptions: any;
 };
 /**
  * Base consumer configuration
