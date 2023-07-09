@@ -58,11 +58,11 @@ const C = require("./constants");
 /**
  * @typedef {Object} MiddlewareOptions Middleware options
  * @property {String|AdapterConfig} adapter Adapter name or connection string or configuration object.
- * @property {String} schemaProperty Property name of channels definition in service schema.
- * @property {String} sendMethodName Method name to send messages.
- * @property {String} adapterPropertyName Property name of the adapter instance in broker instance.
- * @property {String} channelHandlerTrigger Method name to add to service in order to trigger channel handlers.
- * @property {boolean} context Using Moleculer context in channel handlers by default.
+ * @property {String?} schemaProperty Property name of channels definition in service schema.
+ * @property {String?} sendMethodName Method name to send messages.
+ * @property {String?} adapterPropertyName Property name of the adapter instance in broker instance.
+ * @property {String?} channelHandlerTrigger Method name to add to service in order to trigger channel handlers.
+ * @property {boolean?} context Using Moleculer context in channel handlers by default.
  */
 
 /**
