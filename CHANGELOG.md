@@ -1,3 +1,10 @@
+<a name="v0.1.7"></a>
+
+# [0.1.7](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.6...v0.1.7) (2023-07-15)
+
+- add options for enable one-time assertExchange calling [63](https://github.com/moleculerjs/moleculer-channels/pull/63).
+- asserting dead-letter exchange and queue [68](https://github.com/moleculerjs/moleculer-channels/pull/68).
+
 <a name="v0.1.6"></a>
 
 # [0.1.6](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.5...v0.1.6) (2023-02-26)
