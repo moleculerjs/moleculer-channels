@@ -8,11 +8,11 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"name": "Launch selected demo",
+			"name": "Launch demo",
 			"program": "examples/index.js",
 			"cwd": "${workspaceRoot}",
 			"args": [
-				"context"
+				"simple"
 			],
 			"console": "integratedTerminal",
 			"env": {

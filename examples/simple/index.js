@@ -14,7 +14,7 @@ const broker = new ServiceBroker({
 	},
 	middlewares: [
 		ChannelsMiddleware({
-			adapter: process.env.ADAPTER || "Fake"
+			adapter: process.env.ADAPTER || "redis://localhost:6379"
 		})
 	],
 	replCommands: [
@@ -33,7 +33,7 @@ const broker = new ServiceBroker({
 						count: ++c,
 						pid: process.pid
 					},
-					{ key: "" + c, headers: { a: "something" } }
+					{ key: "" + c, headers: { a: "something" }, xaddMaxLen: "~10" }
 				);
 			}
 		},
