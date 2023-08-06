@@ -31,7 +31,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "NATS", options: {} },
 		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } },
 		{ type: "Fake", name: "Multi", options: {} }
-	].filter(a => a.name == process.env.ADAPTER || a.type == process.env.ADAPTER);
+	].filter(a => (a.name || a.type) == process.env.ADAPTER);
 } else {
 	// Local development tests
 	Adapters = [
@@ -448,9 +448,7 @@ describe("Integration tests", () => {
 						expect(subWrongHandler.mock.calls.length).toBeGreaterThanOrEqual(1);
 					});
 				});
-			}
 
-			if (adapter.type != "Fake") {
 				describe("Test Connection/Reconnection logic", () => {
 					const broker = createBroker(adapter);
 
@@ -558,9 +556,7 @@ describe("Integration tests", () => {
 						expect(sub2Handler).toHaveBeenCalledWith({ id: 12 }, expect.anything());
 					});
 				});
-			}
 
-			if (adapter.type != "Fake") {
 				describe("Test Failed Message logic", () => {
 					const broker = createBroker(adapter);
 
@@ -572,6 +568,7 @@ describe("Integration tests", () => {
 					afterAll(() => broker.stop());
 
 					beforeEach(() => {
+						subGoodHandler.mockClear();
 						subWrongHandler.mockClear();
 					});
 
@@ -612,7 +609,7 @@ describe("Integration tests", () => {
 						await broker.Promise.delay(DELAY_AFTER_BROKER_START);
 						// -> Publish a message <- //
 						await broker.sendToChannel("test.fail.topic", { test: 1 });
-						await broker.Promise.delay(1000);
+						await broker.Promise.delay(2000);
 
 						// ---- ˇ ASSERT ˇ ---
 						expect(subGoodHandler).toHaveBeenCalledTimes(1);
