@@ -16,8 +16,8 @@
     "ci-deps": "ncu --target minor",
     "ci-update-deps": "ncu -u --target minor",
     "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
-    "test:up": "docker-compose -f test/docker-compose.yml up -d",
-    "test:down": "docker-compose -f test/docker-compose.yml down -v",
+    "test:up": "docker compose -f test/docker-compose.yml up -d",
+    "test:down": "docker compose -f test/docker-compose.yml down -v",
     "release": "npm publish --access public && git push --follow-tags"
   },
   "keywords": [
