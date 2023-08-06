@@ -1,3 +1,10 @@
+<a name="v0.1.8"></a>
+
+# [0.1.8](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.7...v0.1.8) (2023-08-06)
+
+- chore(types): update MiddlewareOptions [72](https://github.com/moleculerjs/moleculer-channels/pull/72).
+- Support Redis capped streams [70](https://github.com/moleculerjs/moleculer-channels/pull/70).
+
 <a name="v0.1.7"></a>
 
 # [0.1.7](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.6...v0.1.7) (2023-07-15)
