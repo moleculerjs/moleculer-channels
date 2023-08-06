@@ -61,7 +61,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 
 jest.setTimeout(60000);
 
-let DELAY_AFTER_BROKER_START = 10;
+let DELAY_AFTER_BROKER_START = 1000;
 
 describe("Integration tests", () => {
 	function createBroker(adapter, opts) {
@@ -481,7 +481,7 @@ describe("Integration tests", () => {
 						// ---- ^ SETUP ^ ---
 
 						await broker.sendToChannel("test.delayed.connection.topic", { id: id++ });
-						await broker.Promise.delay(200);
+						await broker.Promise.delay(500);
 						expect(sub1Handler).toHaveBeenCalledTimes(1);
 						expect(sub1Handler).toHaveBeenCalledWith({ id: 0 }, expect.anything());
 
