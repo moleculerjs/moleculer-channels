@@ -26,7 +26,7 @@ jobs:
     strategy:
       matrix:
         node-version: [14.x, 16.x, 18.x, 20.x]
-        adapter: [Fake, Redis, Redis-Cluster, AMQP, NATS, Kafka]
+        adapter: [Fake, Redis, Redis-Cluster, AMQP, NATS, Kafka, Multi]
       fail-fast: false
     steps:
     - uses: actions/checkout@v3
@@ -56,17 +56,17 @@ jobs:
     #  run: npm run test:unit
 
     - name: Start containers for Redis adapter
-      if: ${{ matrix.adapter == 'Redis' }}
+      if: ${{ matrix.adapter == 'Redis' || matrix.adapter == 'Multi' }}
       run: docker-compose up -d redis
       working-directory: ./test
 
     - name: Start containers for Redis cluster adapter
       if: ${{ matrix.adapter == 'Redis-Cluster' }}
-      run: docker-compose up -d redis-node1 redis-node2 redis-node3
+      run: docker-compose up -d redis-node-1 redis-node-2 redis-node-3
       working-directory: ./test
 
     - name: Start containers for AMQP adapter
-      if: ${{ matrix.adapter == 'AMQP' }}
+      if: ${{ matrix.adapter == 'AMQP' || matrix.adapter == 'Multi' }}
       run: docker-compose up -d rabbitmq
       working-directory: ./test
 

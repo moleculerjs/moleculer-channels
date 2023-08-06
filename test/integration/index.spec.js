@@ -29,7 +29,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } },
+		{ type: "Fake", name: "Multi", options: {} }
 	].filter(a => a.name == process.env.ADAPTER || a.type == process.env.ADAPTER);
 } else {
 	// Local development tests
@@ -995,7 +996,7 @@ describe("Integration tests", () => {
 	}
 });
 
-if (process.env.GITHUB_ACTIONS_CI) {
+if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 	describe("Multiple Adapters", () => {
 		const broker = new ServiceBroker({
 			logger: true,
