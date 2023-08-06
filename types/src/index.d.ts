@@ -64,6 +64,14 @@ export type DeadLetteringOptions = {
      * Name of the dead-letter exchange (only for AMQP adapter)
      */
     exchangeName: string;
+    /**
+     * Options for the dead-letter exchange (only for AMQP adapter)
+     */
+    exchangeOptions: any;
+    /**
+     * Options for the dead-letter queue (only for AMQP adapter)
+     */
+    queueOptions: any;
 };
 /**
  * Base consumer configuration
@@ -142,33 +150,23 @@ export type MiddlewareOptions = {
      */
     adapter: string | AdapterConfig;
     /**
-     * Property name of channels definition in service schema
-     *
-     * @default "channels"
+     * Property name of channels definition in service schema.
      */
-    schemaProperty?: string;
+    schemaProperty: string | null;
     /**
-     * Method name to send messages. Default is "sendToChannel"
-     *
-     * @default "sendToChannel"
+     * Method name to send messages.
      */
-    sendMethodName?: string;
+    sendMethodName: string | null;
     /**
      * Property name of the adapter instance in broker instance.
-     *
-     * @default "channelAdapter"
      */
-    adapterPropertyName?: string;
+    adapterPropertyName: string | null;
     /**
      * Method name to add to service in order to trigger channel handlers.
-     *
-     * @default "emitLocalChannelHandler"
      */
-    channelHandlerTrigger?: string;
+    channelHandlerTrigger: string | null;
     /**
      * Using Moleculer context in channel handlers by default.
-     *
-     * @default false
      */
-    context?: boolean;
+    context: boolean | null;
 };

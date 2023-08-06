@@ -6,6 +6,11 @@ export function Middleware(mwOpts: import("./src").MiddlewareOptions): {
     started(): Promise<void>;
     stopped(): Promise<void>;
 };
+export const Tracing: () => {
+    name: string;
+    created(_broker: any): void;
+    localChannel: (handler: any, chan: any) => any;
+};
 export const Adapters: {
     Base: typeof import("./src/adapters/base");
     AMQP: typeof import("./src/adapters/amqp");
