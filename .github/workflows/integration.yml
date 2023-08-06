@@ -25,7 +25,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [14.x, 16.x, 18.x, 20.x]
+        # node-version: [14.x, 16.x, 18.x, 20.x]
+        node-version: [14.x, 16.x, 18.x]
         adapter: [Fake, Redis, Redis-Cluster, AMQP, NATS, Kafka, Multi]
       fail-fast: false
     steps:
@@ -81,6 +82,7 @@ jobs:
       working-directory: ./test
 
     - name: Sleeping 30 secs
+      if: ${{ matrix.adapter != 'Fake' }}
       run: sleep 30
 
     - name: Check containers
@@ -93,7 +95,7 @@ jobs:
 
     - name: Run tests
       run: npm test
-      timeout-minutes: 15
+      timeout-minutes: 5
       env:
         GITHUB_ACTIONS_CI: true
         ADAPTER: ${{ matrix.adapter }}

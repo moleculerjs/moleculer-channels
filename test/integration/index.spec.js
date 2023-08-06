@@ -35,9 +35,9 @@ if (process.env.GITHUB_ACTIONS_CI) {
 } else {
 	// Local development tests
 	Adapters = [
-		{ type: "Fake", options: {} },
-		{ type: "Redis", options: {} }
-		/*{
+		/*{ type: "Fake", options: {} },
+		{ type: "Redis", options: {} },
+		{
 			type: "Redis",
 			name: "Redis-Cluster",
 			options: {
@@ -51,11 +51,11 @@ if (process.env.GITHUB_ACTIONS_CI) {
 					}
 				}
 			}
-		},
-		{ type: "AMQP", options: {} },
-		{ type: "NATS", options: {} },
+		},*/
+		{ type: "AMQP", options: {} }
+		/*{ type: "NATS", options: {} },
 		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
-		*/
+		 */
 	];
 }
 

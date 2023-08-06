@@ -8,7 +8,7 @@
     "check": "tsc --noEmit true",
     "types": "tsc --emitDeclarationOnly true --noEmitOnError false",
     "ci": "jest --watch",
-    "test": "jest --coverage",
+    "test": "jest --coverage --verbose",
     "lint": "eslint --ext=.js src examples test",
     "bench": "node benchmark/index.js",
     "bench:watch": "nodemon benchmark/index.js",
