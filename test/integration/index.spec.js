@@ -30,13 +30,13 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
 		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
-	];
+	].filter(a => a.name == process.env.ADAPTER || a.type == process.env.ADAPTER);
 } else {
 	// Local development tests
 	Adapters = [
 		{ type: "Fake", options: {} },
-		{ type: "Redis", options: {} },
-		{
+		{ type: "Redis", options: {} }
+		/*{
 			type: "Redis",
 			name: "Redis-Cluster",
 			options: {
@@ -54,6 +54,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
 		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		*/
 	];
 }
 
