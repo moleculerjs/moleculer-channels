@@ -86,7 +86,7 @@ class KafkaAdapter extends BaseAdapter {
 					() =>
 					({ namespace, level, log }) => {
 						this.kafkaLogger[convertLogLevel(level)](
-							`[${namespace}${log.groupId != null ? ":" + log.groupId : ""}]`,
+							`[${namespace}${log.groupId != null ? "-" + log.groupId : ""}]`,
 							log.message
 						);
 					},
@@ -252,7 +252,7 @@ class KafkaAdapter extends BaseAdapter {
 			}
 
 			let consumer = this.client.consumer({
-				groupId: `${chan.group}:${chan.name}`,
+				groupId: `${chan.group}-${chan.name}`,
 				maxInFlightRequests: chan.maxInFlight,
 				...(this.opts.kafka.consumerOptions || {}),
 				...chan.kafka
