@@ -1,5 +1,5 @@
 {
-  "name": "@moleculer/channels-ludeo",
+  "name": "@ludeo/channels-ludeo",
   "version": "0.0.1",
   "description": "Reliable messages for Moleculer services",
   "main": "index.js",
@@ -24,6 +24,10 @@
     "moleculer",
     "microservice"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EdgeGamingGG/moleculer-channels-forked.git"
+  },
   "typings": "types/index.d.ts",
   "author": "MoleculerJS",
   "license": "MIT",
@@ -72,5 +76,13 @@
   "dependencies": {
     "lodash": "^4.17.21",
     "semver": "^7.5.4"
+  },
+  "bugs": {
+    "url": "https://github.com/EdgeGamingGG/moleculer-channels-forked/issues"
+  },
+  "homepage": "https://github.com/EdgeGamingGG/moleculer-channels-forked#readme",
+  "directories": {
+    "example": "examples",
+    "test": "test"
   }
 }
