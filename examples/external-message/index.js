@@ -39,7 +39,7 @@ const broker = new ServiceBroker({
 						count: ++counter,
 						pid: process.pid
 					},
-					{ key: "" + counter, headers: { a: "something" }, xaddMaxLen: "~10" }
+					{ key: "" + counter, headers: { a: "something" } }
 				);
 			}
 		},
@@ -88,7 +88,11 @@ const broker = new ServiceBroker({
 	},
 	async stopped() {
 		if (nc) {
-			await nc.close();
+			try {
+				await nc.close();
+			} catch (error) {
+				console.error(error);
+			}
 		}
 	}
 });
@@ -98,7 +102,7 @@ broker.createService({
 	version: 1,
 	channels: {
 		async "my.first.topic"(msg, raw) {
-			this.logger.info("[POSTS] Channel One msg received", msg, raw.key, raw.headers);
+			this.logger.info("[POSTS] Channel One msg received", msg, raw.headers);
 		}
 	}
 });
