@@ -77,6 +77,19 @@ const broker = new ServiceBroker({
 					console.error(error);
 				}
 			}
+		},
+		{
+			command: "natsStringify",
+			alias: ["nsf"],
+			async action(broker, args) {
+				const { options } = args;
+				//console.log(options);
+				try {
+					nc.publish("uat.my.first.topic", JSON.stringify("Hello World"));
+				} catch (error) {
+					console.error(error);
+				}
+			}
 		}
 	],
 	async started() {
