@@ -1050,6 +1050,8 @@ describe("Integration tests", () => {
 
 		beforeEach(() => {
 			mockLogger.mockReset()
+			jsonTopicHandler.mockReset()
+			msgPackTopicHandler.mockReset()
 		});
 		beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 		afterAll(() => broker.stop());
@@ -1073,7 +1075,6 @@ describe("Integration tests", () => {
 		});
 
 		it("should support multiple serializers", async () => {
-			// This works (as intended)
 			await broker.sendFromJsonAdapter("test.json", jsonAdapterMsg);
 			await broker.sendFromMsgPackAdapter("test.msgPack", msgPackAdapterMsg);
 			await broker.Promise.delay(500);
@@ -1086,6 +1087,18 @@ describe("Integration tests", () => {
 			expect(msgPackTopicHandler).toHaveBeenCalledWith(msgPackAdapterMsg, expect.anything());
 
 			expect(broker.jsonAdapter).toBeDefined();
+			expect(broker.msgPackAdapter).toBeDefined();
+		});
+
+		it("should not call the handler if the serializers are mismatched", async () => {
+			// This deserializes without error, but to a wrong data (coincidentally, despite the serializer mismatch)
+			await broker.sendFromJsonAdapter("test.msgPack", jsonAdapterMsg);
+			await broker.Promise.delay(500);
+
+			// ---- ˇ ASSERT ˇ ---
+			expect(msgPackTopicHandler).toHaveBeenCalledTimes(1);
+			expect(msgPackTopicHandler).toHaveBeenCalledWith(jsonAdapterMsg, expect.anything())
+
 			expect(broker.msgPackAdapter).toBeDefined();
 		});
 	});
