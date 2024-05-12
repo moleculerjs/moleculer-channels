@@ -1,7 +1,7 @@
 "use strict";
 
 const _ = require("lodash");
-const { ServiceBroker, Context } = require("moleculer");
+const { ServiceBroker, Context, Loggers } = require("moleculer");
 const ChannelMiddleware = require("./../../").Middleware;
 
 const Kafka = require("kafkajs").Kafka;
@@ -990,6 +990,118 @@ describe("Integration tests", () => {
 			}
 		});
 	}
+
+	describe("Test multiple serializers with NATS adapter", () => {
+
+		const mockLogger = jest.fn();
+
+		class MockLogger extends Loggers.Base {
+			getLogHandler(bindings) {
+				return (type, args) => mockLogger(type, args);
+			}
+		}
+
+		const msgPackAdapterMsg = { test: 123, other: "MsgPack" };
+		const jsonAdapterMsg = { test: 123, other: "JSON" };
+
+		const broker = new ServiceBroker({
+			logger: new MockLogger(),
+			middlewares: [
+				ChannelMiddleware({
+					adapter: { type: "NATS", options: { serializer: "JSON" } },
+					schemaProperty: "jsonChannels",
+					sendMethodName: "sendFromJsonAdapter",
+					adapterPropertyName: "jsonAdapter",
+					channelHandlerTrigger: "jsonTrigger"
+				}),
+				ChannelMiddleware({
+					adapter: { type: "NATS", options: { serializer: "MsgPack" } },
+					schemaProperty: "msgPackChannels",
+					sendMethodName: "sendFromMsgPackAdapter",
+					adapterPropertyName: "msgPackAdapter",
+					channelHandlerTrigger: "msgPackTrigger"
+				}),
+			]
+		});
+
+		const jsonTopicHandler = jest.fn(() => {
+			return Promise.resolve();
+		});
+
+		const msgPackTopicHandler = jest.fn(() => {
+			return Promise.resolve();
+		});
+
+		broker.createService({
+			name: "sub",
+			jsonChannels: {
+				"test.json": {
+					group: "mygroup",
+					handler: jsonTopicHandler
+				}
+			},
+			msgPackChannels: {
+				"test.msgPack": {
+					group: "mygroup",
+					handler: msgPackTopicHandler
+				}
+			}
+		});
+
+		beforeEach(() => {
+			mockLogger.mockReset()
+			jsonTopicHandler.mockReset()
+			msgPackTopicHandler.mockReset()
+		});
+		beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+		afterAll(() => broker.stop());
+
+		// TODO: This is expected to fail, remove this comment after implementing https://github.com/moleculerjs/moleculer-channels/issues/76
+		it("should not report message redelivery error with mismatched serializers", async () => {
+			await broker.sendFromMsgPackAdapter("test.json", msgPackAdapterMsg); // This fails
+			await broker.Promise.delay(500);
+
+			// ---- ˇ ASSERT ˇ ---
+			expect(mockLogger).toHaveBeenCalled();
+			expect(
+				mockLogger.mock.calls
+					.map(([type, args]) => args)
+					.flat()
+					.some(arg => arg.toString().includes('Message redelivered too many times'))
+			).not.toBe(true);
+
+			expect(broker.jsonAdapter).toBeDefined();
+			expect(broker.msgPackAdapter).toBeDefined();
+		});
+
+		it("should support multiple serializers", async () => {
+			await broker.sendFromJsonAdapter("test.json", jsonAdapterMsg);
+			await broker.sendFromMsgPackAdapter("test.msgPack", msgPackAdapterMsg);
+			await broker.Promise.delay(500);
+
+			// ---- ˇ ASSERT ˇ ---
+			expect(jsonTopicHandler).toHaveBeenCalledTimes(1);
+			expect(jsonTopicHandler).toHaveBeenCalledWith(jsonAdapterMsg, expect.anything());
+
+			expect(msgPackTopicHandler).toHaveBeenCalledTimes(1);
+			expect(msgPackTopicHandler).toHaveBeenCalledWith(msgPackAdapterMsg, expect.anything());
+
+			expect(broker.jsonAdapter).toBeDefined();
+			expect(broker.msgPackAdapter).toBeDefined();
+		});
+
+		it("should not call the handler if the serializers are mismatched", async () => {
+			// This deserializes without error, but to a wrong data (coincidentally, despite the serializer mismatch)
+			await broker.sendFromJsonAdapter("test.msgPack", jsonAdapterMsg);
+			await broker.Promise.delay(500);
+
+			// ---- ˇ ASSERT ˇ ---
+			expect(msgPackTopicHandler).toHaveBeenCalledTimes(1);
+			expect(msgPackTopicHandler).toHaveBeenCalledWith(jsonAdapterMsg, expect.anything())
+
+			expect(broker.msgPackAdapter).toBeDefined();
+		});
+	});
 });
 
 if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
