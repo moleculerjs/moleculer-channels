@@ -505,15 +505,32 @@ class RedisAdapter extends BaseAdapter {
 									})
 									.then(() => {
 										const pubClient = this.clients.get(this.pubName);
-										// 1. Delete consumer from the consumer group
-										// 2. Do NOT destroy the consumer group
-										// https://redis.io/commands/XGROUP
-										return pubClient.xgroup(
-											"DELCONSUMER",
-											chan.name, // Stream Name
-											chan.group, // Consumer Group
-											chan.id // Consumer ID
-										);
+										return pubClient
+											.xpending(
+												chan.name,
+												chan.group,
+												"-", // Start
+												"+", // End
+												10 // Max reported entries
+											)
+											.then(pending => {
+												if (pending.length !== 0) {
+													// Don't destroy the consumer group if there are pending messages
+													// It might come back online in the future and process the messages
+													// More info: https://github.com/moleculerjs/moleculer-channels/issues/74
+													return;
+												}
+
+												// 1. Delete consumer from the consumer group
+												// 2. Do NOT destroy the consumer group
+												// https://redis.io/commands/XGROUP
+												return pubClient.xgroup(
+													"DELCONSUMER",
+													chan.name, // Stream Name
+													chan.group, // Consumer Group
+													chan.id // Consumer ID
+												);
+											});
 									})
 									.then(() => resolve())
 									.catch(err => reject(err));
