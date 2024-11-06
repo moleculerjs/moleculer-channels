@@ -1,0 +1,9 @@
+name: PR Commit Message Check
+
+on:
+  pull_request:
+    types: [opened, synchronize] 
+
+jobs:
+  call-pr-check:
+    uses: EdgeGamingGG/ReusableWorkflows/.github/workflows/pr-check.yml@main
