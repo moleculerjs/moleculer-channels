@@ -436,9 +436,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		},
 
 		/**
-		 * This hook is called before broker starting.
+		 * This hook is called after broker starting.
 		 */
-		async staring() {
+		async started() {
 			logger.info("Channel adapter is connecting...");
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
