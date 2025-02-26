@@ -436,9 +436,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		},
 
 		/**
-		 * Start lifecycle hook of service
+		 * This hook is called before broker starting.
 		 */
-		async started() {
+		async staring() {
 			logger.info("Channel adapter is connecting...");
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
@@ -453,7 +453,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		},
 
 		/**
-		 * Stop lifecycle hook of service
+		 * This hook is called after broker stopped.
 		 */
 		async stopped() {
 			logger.info("Channel adapter is disconnecting...");
