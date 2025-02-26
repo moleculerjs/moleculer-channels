@@ -18,14 +18,14 @@ jobs:
       run: npm ci
 
     - name: Start containers
-      run: docker-compose up -d
+      run: docker compose up -d
       working-directory: ./test
 
     - name: Sleeping 30 secs
       run: sleep 30
 
     - name: Check containers
-      run: docker-compose ps
+      run: docker compose ps
       working-directory: ./test
 
     - name: Run benchmark tests
@@ -35,12 +35,12 @@ jobs:
         GITHUB_ACTIONS_CI: true
 
     - name: Show container logs (in case of failure)
-      run: docker-compose logs
+      run: docker compose logs
       if: failure()
       working-directory: ./test
 
     - name: Stop containers
-      run: docker-compose down -v
+      run: docker compose down -v
       working-directory: ./test
 
     - name: Commit the result
