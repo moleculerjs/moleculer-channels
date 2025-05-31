@@ -19,8 +19,6 @@ export = FakeAdapter;
  * @extends {BaseAdapter}
  */
 declare class FakeAdapter extends BaseAdapter {
-    /** @type {FakeOptions & BaseDefaultOptions} */
-    opts: FakeOptions & BaseDefaultOptions;
     services: Map<any, any>;
     stopping: boolean;
     /**
@@ -44,6 +42,30 @@ declare namespace FakeAdapter {
 }
 import BaseAdapter = require("./base");
 /**
+ * Moleculer Service Broker instance
+ */
+type ServiceBroker = import("moleculer").ServiceBroker;
+/**
+ * Context instance
+ */
+type Context = import("moleculer").Context;
+/**
+ * Service instance
+ */
+type Service = import("moleculer").Service;
+/**
+ * Logger instance
+ */
+type Logger = import("moleculer").LoggerInstance;
+/**
+ * Base channel definition
+ */
+type Channel = import("../index").Channel;
+/**
+ * Base adapter options
+ */
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
+/**
  * Fake Adapter configuration
  */
 type FakeOptions = {
@@ -56,27 +78,3 @@ type FakeOptions = {
      */
     eventPrefix: number;
 };
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;
-/**
- * Base channel definition
- */
-type Channel = import("../index").Channel;
-/**
- * Context instance
- */
-type Context = import("moleculer").Context;
-/**
- * Moleculer Service Broker instance
- */
-type ServiceBroker = import("moleculer").ServiceBroker;
-/**
- * Service instance
- */
-type Service = import("moleculer").Service;
-/**
- * Logger instance
- */
-type Logger = import("moleculer").LoggerInstance;

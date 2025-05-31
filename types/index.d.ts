@@ -1,17 +1,17 @@
-export function Middleware(mwOpts: import("./src").MiddlewareOptions): {
+export function Middleware(mwOpts: MiddlewareOptions): {
     name: string;
-    created(_broker: import("moleculer").ServiceBroker): void;
-    serviceCreated(svc: import("moleculer").Service<import("moleculer").ServiceSettingSchema>): Promise<void>;
-    serviceStopping(svc: import("moleculer").Service<import("moleculer").ServiceSettingSchema>): Promise<void>;
+    created(_broker: ServiceBroker): void;
+    serviceCreated(svc: Service): Promise<void>;
+    serviceStopping(svc: Service): Promise<void>;
     started(): Promise<void>;
     stopped(): Promise<void>;
 };
-export const Tracing: () => {
+export let Tracing: () => {
     name: string;
     created(_broker: any): void;
     localChannel: (handler: any, chan: any) => any;
 };
-export const Adapters: {
+export let Adapters: {
     Base: typeof import("./src/adapters/base");
     AMQP: typeof import("./src/adapters/amqp");
     Fake: typeof import("./src/adapters/fake");
@@ -19,6 +19,6 @@ export const Adapters: {
     NATS: typeof import("./src/adapters/nats");
     Redis: typeof import("./src/adapters/redis");
 } & {
-    resolve: (opt: any) => import("./src/adapters/base");
-    register: (name: string, value: import("./src/adapters/base")) => void;
+    resolve: (opt: object | string) => BaseAdapter;
+    register: (name: string, value: BaseAdapter) => void;
 };

@@ -1,3 +1,6 @@
+declare namespace _exports {
+    export { BaseAdapter };
+}
 declare const _exports: {
     Base: typeof import("./base");
     AMQP: typeof import("./amqp");
@@ -10,7 +13,7 @@ declare const _exports: {
     register: typeof register;
 };
 export = _exports;
-export type BaseAdapter = import("./base");
+type BaseAdapter = import("./base");
 /**
  * Resolve adapter by name
  *
