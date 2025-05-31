@@ -58,27 +58,27 @@ jobs:
 
     - name: Start containers for Redis adapter
       if: ${{ matrix.adapter == 'Redis' || matrix.adapter == 'Multi' }}
-      run: docker-compose up -d redis
+      run: docker compose up -d redis
       working-directory: ./test
 
     - name: Start containers for Redis cluster adapter
       if: ${{ matrix.adapter == 'Redis-Cluster' }}
-      run: docker-compose up -d redis-node-1 redis-node-2 redis-node-3
+      run: docker compose up -d redis-node-1 redis-node-2 redis-node-3
       working-directory: ./test
 
     - name: Start containers for AMQP adapter
       if: ${{ matrix.adapter == 'AMQP' || matrix.adapter == 'Multi' }}
-      run: docker-compose up -d rabbitmq
+      run: docker compose up -d rabbitmq
       working-directory: ./test
 
     - name: Start containers for NATS adapter
       if: ${{ matrix.adapter == 'NATS' }}
-      run: docker-compose up -d nats
+      run: docker compose up -d nats
       working-directory: ./test
 
     - name: Start containers for Kafka adapter
       if: ${{ matrix.adapter == 'Kafka' }}
-      run: docker-compose up -d zookeeper kafka
+      run: docker compose up -d zookeeper kafka
       working-directory: ./test
 
     - name: Sleeping 30 secs
@@ -86,11 +86,11 @@ jobs:
       run: sleep 30
 
     - name: Check containers
-      run: docker-compose ps
+      run: docker compose ps
       working-directory: ./test
 
     - name: Check logs
-      run: docker-compose logs
+      run: docker compose logs
       working-directory: ./test
 
     - name: Run tests
@@ -106,12 +106,12 @@ jobs:
     #     GITHUB_ACTIONS_CI: true
 
     - name: Show container logs (in case of failure)
-      run: docker-compose logs
+      run: docker compose logs
       if: failure()
       working-directory: ./test
 
     - name: Stop containers
-      run: docker-compose down -v
+      run: docker compose down -v
       working-directory: ./test
 
     # - name: Upload code coverage
