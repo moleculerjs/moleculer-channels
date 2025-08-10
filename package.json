@@ -18,6 +18,7 @@
     "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
     "test:up": "docker compose -f test/docker-compose.yml up -d",
     "test:down": "docker compose -f test/docker-compose.yml down -v",
+    "test:ts": "tsc --project test/typescript/tsconfig.json",
     "release": "npm publish --access public && git push --follow-tags"
   },
   "keywords": [

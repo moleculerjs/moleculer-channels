@@ -455,7 +455,7 @@ declare module "@moleculer/channels" {
 			 */
 			channels?: {
 				[channelName: string]:
-					| Channels.Channel
+					| Channel
 					| ((payload: any, raw?: any) => Promise<any> | any);
 			};
 		}
@@ -466,7 +466,7 @@ declare module "@moleculer/channels" {
 	/**
 	 * Create Channels middleware
 	 */
-	declare function ChannelsMiddleware(opts: Channels.MiddlewareOptions): Middleware;
+	declare function ChannelsMiddleware(opts: MiddlewareOptions): Middleware;
 
 	/**
 	 * Tracing middleware factory
