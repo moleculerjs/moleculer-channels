@@ -35,7 +35,7 @@ declare module "@moleculer/channels" {
 	/**
 	 * Base consumer configuration
 	 */
-	export interface Channel {
+	export interface Channel<TThis = Service> {
 		/** Consumer ID */
 		id?: string;
 		/** Channel/Queue/Stream name */
@@ -53,7 +53,7 @@ declare module "@moleculer/channels" {
 		/** Dead-letter-queue options */
 		deadLettering?: DeadLetteringOptions;
 		/** User defined handler */
-		handler?: (payload: any, raw?: any) => Promise<any> | any;
+		handler?: (this: TThis, payload: any, raw?: any) => Promise<any> | any;
 		/** Tracing options */
 		tracing?: boolean | TracingOptions;
 	}
@@ -449,14 +449,17 @@ declare module "@moleculer/channels" {
 			sendToChannel(channelName: string, payload: any, opts?: { ctx?: Context<any, any> });
 		}
 
-		export interface ServiceSchema {
+		export interface ServiceSchema<TSettings = ServiceSettingSchema,
+		TMethods = Record<string, any>,
+		TVars = Record<string, any>,
+		TThis = Service<TSettings> & TVars & TMethods> {
 			/**
 			 * Channel definitions for the service
 			 */
 			channels?: {
 				[channelName: string]:
-					| Channel
-					| ((payload: any, raw?: any) => Promise<any> | any);
+					| Channel<TThis>
+					| ((this: TThis, payload: any, raw?: any) => Promise<any> | any);
 			};
 		}
 	}
