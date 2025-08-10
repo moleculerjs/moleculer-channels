@@ -473,9 +473,9 @@ declare module "@moleculer/channels" {
 	 */
 	declare function TracingMiddleware(): Middleware;
 
-	export default {
-		Middleware: ChannelsMiddleware,
-		Tracing: TracingMiddleware,
-		Adapters: AdaptersRegistry
+	export {
+		ChannelsMiddleware as Middleware,
+		TracingMiddleware as Tracing,
+		AdaptersRegistry as Adapters
 	}
 }
