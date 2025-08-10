@@ -1,4 +1,4 @@
-import { ServiceBroker, Context, Service as MoleculerService, ServiceSchema } from "moleculer";
+import { ServiceBroker, Context, ServiceSchema, ServiceSettingSchema } from "moleculer";
 import { Middleware as ChannelsMiddleware } from "@moleculer/channels";
 
 const broker = new ServiceBroker({
@@ -14,6 +14,10 @@ const broker = new ServiceBroker({
 	]
 });
 
+interface LocalMethods {
+	foo(payload: object): Promise<string>;
+}
+
 broker.createService({
 	name: "test",
 	channels: {
@@ -23,17 +27,31 @@ broker.createService({
 				enabled: true,
 				queueName: "dead-letter-queue"
 			},
-			handler: async (ctx) => {
+			async handler(ctx: Context) {
 				// Process the incoming message
 				console.log("Received message:", ctx.params);
+				await this.foo(ctx);
 				return "Message processed";
 			}
+		},
+		test2(payload: object) {
+			// Process the incoming message
+			console.log("Received message:", payload);
+			return this.foo(payload);
+		}
+	},
+	methods: {
+		foo(payload: object): Promise<string> {
+			return Promise.resolve("Hello from foo");
 		}
 	}
-});
+} as ServiceSchema<ServiceSettingSchema, LocalMethods>);
 
 async function start() {
 	await broker.start();
+
+	await broker.sendToChannel("test", { foo: "bar" });
+	await broker.sendToChannel("test2", { baz: "qux" });
 };
 
 start();
