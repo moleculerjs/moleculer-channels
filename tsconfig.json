@@ -3,10 +3,11 @@
 		"allowJs": true,
 		"strict": false,
 		"checkJs": true,
-		"declaration": true,
-		"declarationDir": "types",
-		"outDir": "dist",
+		"noEmit": true,
+		"skipLibCheck": true,
+		"skipDefaultLibCheck": true,
+		"resolveJsonModule": true
 	},
-	"include": ["**.js"],
+	"include": ["index.d.ts", "./src/**/*.js"],
 	"exclude": ["node_modules", ".eslintrc.js", "prettier.config.js", "types"]
 }

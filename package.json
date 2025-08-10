@@ -3,10 +3,10 @@
   "version": "0.2.0",
   "description": "Reliable messages for Moleculer services",
   "main": "index.js",
+  "typings": "index.d.ts",
   "scripts": {
     "dev": "nodemon examples/index.js",
-    "check": "tsc --noEmit true",
-    "types": "tsc --emitDeclarationOnly true --noEmitOnError false",
+    "typecheck": "tsc --project tsconfig.json",
     "ci": "jest --watch",
     "test": "jest --coverage --verbose",
     "lint": "eslint --ext=.js src examples test",
@@ -28,7 +28,6 @@
     "type": "git",
     "url": "https://github.com/moleculerjs/moleculer-channels.git"
   },
-  "typings": "types/index.d.ts",
   "author": "MoleculerJS",
   "license": "MIT",
   "peerDependencies": {
@@ -50,7 +49,7 @@
     "jest-cli": "^29.7.0",
     "kafkajs": "^2.2.4",
     "kleur": "^4.1.5",
-    "moleculer": "^0.14.35",
+    "moleculer": "github:moleculerjs/moleculer#next",
     "moleculer-repl": "^0.7.4",
     "msgpack5": "^6.0.2",
     "nats": "^2.29.3",

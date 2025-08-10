@@ -27,18 +27,13 @@ let NATS;
  * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
  * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("../index").Channel} Channel Base channel definition
- * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("moleculer").Logger} Logger Logger instance
+ * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
+ * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {Object} NatsDefaultOptions
- * @property {Object} nats NATS lib configuration
- * @property {String} url String containing the URL to NATS server
- * @property {ConnectionOptions} nats.connectionOptions
- * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
- * @property {ConsumerOpts} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
+ * @typedef {import("@moleculer/channels").NatsDefaultOptions} NatsDefaultOptions
  */
 
 /**
@@ -57,7 +52,7 @@ class NatsAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type { BaseDefaultOptions & NatsDefaultOptions } */
+		/** @type { NatsDefaultOptions } */
 		this.opts = _.defaultsDeep(this.opts, {
 			nats: {
 				/** @type {ConnectionOptions} */

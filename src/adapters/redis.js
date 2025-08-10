@@ -20,32 +20,18 @@ let Redis;
  * @typedef {import("ioredis").Redis} Redis Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
  * @typedef {import("ioredis").RedisOptions} RedisOptions
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("../index").Channel} Channel Base channel definition
- * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("moleculer").Logger} Logger Logger instance
+ * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
+ * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {Object} RedisDefaultOptions Redis Adapter configuration
- * @property {Number} readTimeoutInterval Timeout interval (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout
- * @property {Number} minIdleTime Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
- * @property {Number} claimInterval Interval (in milliseconds) between message claims
- * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
- * @property {Number} processingAttemptsInterval Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
- */
-
-/**
+ * @typedef {import("@moleculer/channels").RedisDefaultOptions} RedisDefaultOptions
  * @typedef {Object} RedisChannel Redis specific channel options
  * @property {Function} xreadgroup Function for fetching new messages from redis stream
  * @property {Function} xclaim Function for claiming pending messages
  * @property {Function} failed_messages Function for checking NACKed messages and moving them into dead letter queue
  * @property {RedisDefaultOptions} redis
- */
-
-/**
- * @typedef {Object} RedisOpts
- * @property {Object} redis Redis lib configuration
- * @property {RedisDefaultOptions} redis.consumerOptions
  */
 
 /**
@@ -79,7 +65,7 @@ class RedisAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type {RedisOpts & BaseDefaultOptions} */
+		/** @type {RedisDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			redis: {
 				consumerOptions: {

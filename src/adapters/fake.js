@@ -14,15 +14,13 @@ const C = require("../constants");
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Context} Context Context instance
  * @typedef {import("moleculer").Service} Service Service instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("../index").Channel} Channel Base channel definition
- * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("moleculer").Logger} Logger Logger instance
+ * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
+ * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {Object} FakeOptions Fake Adapter configuration
- * @property {Number} servicePrefix Prefix for service names
- * @property {Number} eventPrefix Prefix for event names
+ * @typedef {import("@moleculer/channels").FakeOptions} FakeOptions
  */
 
 /**

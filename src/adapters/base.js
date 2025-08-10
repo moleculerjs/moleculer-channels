@@ -15,20 +15,11 @@ const C = require("../constants");
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Service} Service Moleculer Service definition
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
- * @typedef {import("../index").Channel} Channel Base channel definition
- * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
- */
-
-/**
- * @typedef {Object} BaseDefaultOptions Base Adapter configuration
- * @property {String?} prefix Adapter prefix
- * @property {String} consumerName Name of the consumer
- * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
- * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue or drop
- * @property {Number} maxInFlight Maximum number of messages that can be processed in parallel.
- * @property {DeadLetteringOptions} deadLettering Dead-letter-queue options
+ * @typedef {import("moleculer").Logger} Logger Logger instance
+ * @typedef {import("moleculer").Serializers.Base} Serializer Moleculer Serializer
+ * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
+ * @typedef {import("@moleculer/channels").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
+ * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions
  */
 
 class BaseAdapter {

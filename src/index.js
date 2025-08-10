@@ -1,6 +1,6 @@
 /*
  * @moleculer/channels
- * Copyright (c) 2021 MoleculerJS (https://github.com/moleculerjs/channels)
+ * Copyright (c) 2025 MoleculerJS (https://github.com/moleculerjs/channels)
  * MIT Licensed
  */
 
@@ -14,55 +14,15 @@ const C = require("./constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
- * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
- */
-
-/**
- * @typedef {Object} DeadLetteringOptions Dead-letter-queue options
- * @property {Boolean} enabled Enable dead-letter-queue
- * @property {String} queueName Name of the dead-letter queue
- * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
- * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
- * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
- */
-
-/**
- * @typedef {Object} Channel Base consumer configuration
- * @property {String} id Consumer ID
- * @property {String} name Channel/Queue/Stream name
- * @property {String} group Consumer group name
- * @property {Boolean} context Create Moleculer Context
- * @property {Boolean} unsubscribing Flag denoting if service is stopping
- * @property {Number?} maxInFlight Maximum number of messages that can be processed simultaneously
- * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
- * @property {DeadLetteringOptions?} deadLettering Dead-letter-queue options
- * @property {Function} handler User defined handler
- */
-
-/**
- * @typedef {Object} ChannelRegistryEntry Registry entry
- * @property {Service} svc Service instance class
- * @property {String} name Channel name
- * @property {Channel} chan Channel object
- */
-
-/**
- * @typedef {Object} AdapterConfig
- * @property {String} type Adapter name
- * @property {import("./adapters/base").BaseDefaultOptions & import("./adapters/amqp").AmqpDefaultOptions & import("./adapters/kafka").KafkaDefaultOptions & import("./adapters/nats").NatsDefaultOptions & import("./adapters/redis").RedisDefaultOptions} options Adapter options
- */
-
-/**
- * @typedef {Object} MiddlewareOptions Middleware options
- * @property {String|AdapterConfig} adapter Adapter name or connection string or configuration object.
- * @property {String?} schemaProperty Property name of channels definition in service schema.
- * @property {String?} sendMethodName Method name to send messages.
- * @property {String?} adapterPropertyName Property name of the adapter instance in broker instance.
- * @property {String?} channelHandlerTrigger Method name to add to service in order to trigger channel handlers.
- * @property {boolean?} context Using Moleculer context in channel handlers by default.
+ * @typedef {import("@moleculer/channels").BaseAdapter} BaseAdapter Base adapter class
+ * @typedef {import("@moleculer/channels").DeadLetteringOptions} DeadLetteringOptions
+ * @typedef {import("@moleculer/channels").Channel} Channel
+ * @typedef {import("@moleculer/channels").ChannelRegistryEntry} ChannelRegistryEntry
+ * @typedef {import("@moleculer/channels").AdapterConfig} AdapterConfig
+ * @typedef {import("@moleculer/channels").MiddlewareOptions} MiddlewareOptions
  */
 
 /**

@@ -22,15 +22,13 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
  * @typedef {import('kafkajs').ConsumerConfig} ConsumerConfig Kafka consumer configuration
  * @typedef {import('kafkajs').EachMessagePayload} EachMessagePayload Incoming message payload
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("../index").Channel} Channel Base channel definition
- * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("moleculer").Logger} Logger Logger instance
+ * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
+ * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {Object} KafkaDefaultOptions Kafka Adapter configuration
- * @property {Number} maxInFlight Max-in-flight messages
- * @property {KafkaConfig} kafka Kafka config
+ * @typedef {import("@moleculer/channels").KafkaDefaultOptions} KafkaDefaultOptions
  */
 
 /** @type {KafkaClient} */
