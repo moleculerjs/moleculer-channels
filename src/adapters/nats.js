@@ -126,13 +126,29 @@ class NatsAdapter extends BaseAdapter {
 	 * Connect to the adapter.
 	 */
 	async connect() {
-		this.connection = await NATS.connect(this.opts.nats.connectionOptions);
+		return new this.Promise(resolve => {
+			const doConnect = async () => {
+				try {
+					this.connection = await NATS.connect(this.opts.nats.connectionOptions);
 
-		this.manager = await this.connection.jetstreamManager();
+					this.manager = await this.connection.jetstreamManager();
 
-		this.client = this.connection.jetstream(); // JetStreamOptions
+					this.client = this.connection.jetstream(); // JetStreamOptions
 
-		this.connected = true;
+					this.connected = true;
+					resolve();
+				} catch (err) {
+					this.logger.error(
+						"Error while connecting to NATS JetStream server.",
+						err.message
+					);
+					this.logger.debug(err);
+					setTimeout(() => doConnect(), 5 * 1000);
+				}
+			};
+
+			doConnect();
+		});
 	}
 
 	/**

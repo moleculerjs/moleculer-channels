@@ -15,6 +15,9 @@ const broker = new ServiceBroker({
 	middlewares: [
 		ChannelsMiddleware({
 			adapter: process.env.ADAPTER || "redis://localhost:6379"
+			//adapter: process.env.ADAPTER || "nats://localhost:4222"
+			//adapter: process.env.ADAPTER || "amqp://localhost:5672"
+			//adapter: process.env.ADAPTER || "kafka://localhost:9093"
 		})
 	],
 	replCommands: [

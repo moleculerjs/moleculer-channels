@@ -1,3 +1,6 @@
+declare namespace _exports {
+    export { ServiceBroker, Logger, Service, Middleware, BaseAdapter, DeadLetteringOptions, Channel, ChannelRegistryEntry, AdapterConfig, MiddlewareOptions };
+}
 declare function _exports(mwOpts: MiddlewareOptions): {
     name: string;
     /**
@@ -31,27 +34,27 @@ export = _exports;
 /**
  * Moleculer Service Broker instance
  */
-export type ServiceBroker = import("moleculer").ServiceBroker;
+type ServiceBroker = import("moleculer").ServiceBroker;
 /**
  * Logger instance
  */
-export type Logger = import("moleculer").LoggerInstance;
+type Logger = import("moleculer").LoggerInstance;
 /**
  * Moleculer service
  */
-export type Service = import("moleculer").Service;
+type Service = import("moleculer").Service;
 /**
  * Moleculer middleware
  */
-export type Middleware = import("moleculer").Middleware;
+type Middleware = import("moleculer").Middleware;
 /**
  * Base adapter class
  */
-export type BaseAdapter = import("./adapters/base");
+type BaseAdapter = import("./adapters/base");
 /**
  * Dead-letter-queue options
  */
-export type DeadLetteringOptions = {
+type DeadLetteringOptions = {
     /**
      * Enable dead-letter-queue
      */
@@ -76,7 +79,7 @@ export type DeadLetteringOptions = {
 /**
  * Base consumer configuration
  */
-export type Channel = {
+type Channel = {
     /**
      * Consumer ID
      */
@@ -117,7 +120,7 @@ export type Channel = {
 /**
  * Registry entry
  */
-export type ChannelRegistryEntry = {
+type ChannelRegistryEntry = {
     /**
      * Service instance class
      */
@@ -131,7 +134,7 @@ export type ChannelRegistryEntry = {
      */
     chan: Channel;
 };
-export type AdapterConfig = {
+type AdapterConfig = {
     /**
      * Adapter name
      */
@@ -144,7 +147,7 @@ export type AdapterConfig = {
 /**
  * Middleware options
  */
-export type MiddlewareOptions = {
+type MiddlewareOptions = {
     /**
      * Adapter name or connection string or configuration object.
      */

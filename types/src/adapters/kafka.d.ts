@@ -13,8 +13,6 @@ declare class KafkaAdapter extends BaseAdapter {
     constructor(opts: KafkaDefaultOptions | (string | null));
     /** @type {Logger} */
     kafkaLogger: Logger;
-    /** @type {KafkaDefaultOptions & BaseDefaultOptions} */
-    opts: KafkaDefaultOptions & BaseDefaultOptions;
     /** @type {KafkaClient} */
     client: KafkaClient;
     /** @type {KafkaProducer} */
@@ -87,9 +85,49 @@ declare namespace KafkaAdapter {
 }
 import BaseAdapter = require("./base");
 /**
+ * Kafka Client
+ */
+type KafkaClient = import("kafkajs").Kafka;
+/**
+ * Kafka Producer
+ */
+type KafkaProducer = import("kafkajs").Producer;
+/**
+ * Kafka Consumer
+ */
+type KafkaConsumer = import("kafkajs").Consumer;
+/**
+ * Kafka configuration
+ */
+type KafkaConfig = import("kafkajs").KafkaConfig;
+/**
+ * Kafka producer configuration
+ */
+type ProducerConfig = import("kafkajs").ProducerConfig;
+/**
+ * Kafka consumer configuration
+ */
+type ConsumerConfig = import("kafkajs").ConsumerConfig;
+/**
+ * Incoming message payload
+ */
+type EachMessagePayload = import("kafkajs").EachMessagePayload;
+/**
+ * Moleculer Service Broker instance
+ */
+type ServiceBroker = import("moleculer").ServiceBroker;
+/**
  * Logger instance
  */
 type Logger = import("moleculer").LoggerInstance;
+/**
+ * Base channel definition
+ */
+type Channel = import("../index").Channel;
+/**
+ * Base adapter options
+ */
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
 /**
  * Kafka Adapter configuration
  */
@@ -103,43 +141,3 @@ type KafkaDefaultOptions = {
      */
     kafka: KafkaConfig;
 };
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;
-/**
- * Kafka Client
- */
-type KafkaClient = import('kafkajs').Kafka;
-/**
- * Kafka Producer
- */
-type KafkaProducer = import('kafkajs').Producer;
-/**
- * Kafka Consumer
- */
-type KafkaConsumer = import('kafkajs').Consumer;
-/**
- * Base channel definition
- */
-type Channel = import("../index").Channel;
-/**
- * Incoming message payload
- */
-type EachMessagePayload = import('kafkajs').EachMessagePayload;
-/**
- * Kafka configuration
- */
-type KafkaConfig = import('kafkajs').KafkaConfig;
-/**
- * Kafka producer configuration
- */
-type ProducerConfig = import('kafkajs').ProducerConfig;
-/**
- * Kafka consumer configuration
- */
-type ConsumerConfig = import('kafkajs').ConsumerConfig;
-/**
- * Moleculer Service Broker instance
- */
-type ServiceBroker = import("moleculer").ServiceBroker;

@@ -204,7 +204,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @returns {Promise<Cluster|Redis>}
 	 */
 	createRedisClient(name, opts) {
-		return new Promise((resolve, reject) => {
+		return new Promise(resolve => {
 			/** @type {Cluster|Redis} */
 			let client;
 			if (opts && opts.cluster) {
@@ -213,13 +213,11 @@ class RedisAdapter extends BaseAdapter {
 				}
 				client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
 			} else {
-				client = new Redis(opts && opts.url ? opts.url : opts);
+				client = new Redis.Redis(opts && opts.url ? opts.url : opts);
 			}
 
-			let isConnected = false;
-			client.on("connect", () => {
+			client.on("ready", () => {
 				this.logger.info(`Redis-Channel-Client-${name} adapter is connected.`);
-				isConnected = true;
 				resolve(client);
 			});
 
@@ -227,10 +225,9 @@ class RedisAdapter extends BaseAdapter {
 			client.on("error", err => {
 				this.logger.error(`Redis-Channel-Client-${name} adapter error`, err.message);
 				this.logger.debug(err);
-				if (!isConnected) reject(err);
 			});
 
-			client.on("close", () => {
+			client.on("end", () => {
 				this.logger.info(`Redis-Channel-Client-${name} adapter is disconnected.`);
 			});
 		});

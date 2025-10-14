@@ -144,6 +144,30 @@ declare namespace BaseAdapter {
     export { ServiceBroker, Service, Logger, Serializer, Channel, DeadLetteringOptions, BaseDefaultOptions };
 }
 /**
+ * Moleculer Service Broker instance
+ */
+type ServiceBroker = import("moleculer").ServiceBroker;
+/**
+ * Moleculer Service definition
+ */
+type Service = import("moleculer").Service;
+/**
+ * Logger instance
+ */
+type Logger = import("moleculer").LoggerInstance;
+/**
+ * Moleculer Serializer
+ */
+type Serializer = import("moleculer").Serializer;
+/**
+ * Base channel definition
+ */
+type Channel = import("../index").Channel;
+/**
+ * Dead-letter-queue options
+ */
+type DeadLetteringOptions = import("../index").DeadLetteringOptions;
+/**
  * Base Adapter configuration
  */
 type BaseDefaultOptions = {
@@ -172,27 +196,3 @@ type BaseDefaultOptions = {
      */
     deadLettering: DeadLetteringOptions;
 };
-/**
- * Moleculer Service Broker instance
- */
-type ServiceBroker = import("moleculer").ServiceBroker;
-/**
- * Logger instance
- */
-type Logger = import("moleculer").LoggerInstance;
-/**
- * Moleculer Serializer
- */
-type Serializer = import("moleculer").Serializer;
-/**
- * Base channel definition
- */
-type Channel = import("../index").Channel;
-/**
- * Moleculer Service definition
- */
-type Service = import("moleculer").Service;
-/**
- * Dead-letter-queue options
- */
-type DeadLetteringOptions = import("../index").DeadLetteringOptions;

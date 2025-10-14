@@ -1,3 +1,12 @@
+<a name="v0.2.0"></a>
+
+# [0.2.0](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.8...v0.2.0) (2025-05-31)
+
+- Minimum Node version is 20.x
+- Fixing Redis connection issue at starting when Redis server is not running.
+- Add NATS reconnecting at starting when NATS server is not running.
+- update dependencies
+
 <a name="v0.1.8"></a>
 
 # [0.1.8](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.7...v0.1.8) (2023-08-06)
