@@ -16,5 +16,12 @@ module.exports = {
 
 	METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL: "moleculer.channels.messages.errors.total",
 	METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL: "moleculer.channels.messages.retries.total",
-	METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL: "moleculer.channels.messages.deadLettering.total"
+	METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL:
+		"moleculer.channels.messages.deadLettering.total",
+
+	/**
+	 * Thrown when incoming messages cannot be deserialized
+	 * More context: https://github.com/moleculerjs/moleculer-channels/issues/76
+	 */
+	INVALID_MESSAGE_SERIALIZATION_ERROR_CODE: "INVALID_MESSAGE_SERIALIZATION"
 };

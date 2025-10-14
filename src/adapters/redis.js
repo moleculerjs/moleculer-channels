@@ -8,8 +8,9 @@
 
 const _ = require("lodash");
 const BaseAdapter = require("./base");
-const { ServiceSchemaError, MoleculerRetryableError } = require("moleculer").Errors;
+const { ServiceSchemaError, MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 const C = require("../constants");
+const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
 
@@ -555,8 +556,10 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, parsedHeaders, serializedMessages } =
-			this.parseMessage(message);
+		const { ids, parsedMessages, parsedHeaders, serializedMessages } = this.parseMessage(
+			chan,
+			message
+		);
 
 		this.addChannelActiveMessages(chan.id, ids);
 
@@ -619,22 +622,42 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Parse the message(s).
 	 *
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 * @param {Array} messages
 	 * @returns {any}
 	 */
-	parseMessage(messages) {
+	parseMessage(chan, messages) {
 		return messages[0][1].reduce(
 			(accumulator, currentVal) => {
+				let content;
+				try {
+					content = this.serializer.deserialize(currentVal[1][1]);
+				} catch (error) {
+					const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+					throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+						error
+					});
+				}
+
+				let headers;
+				try {
+					headers =
+						currentVal[1][2] && currentVal[1][2].toString() === "headers"
+							? this.serializer.deserialize(currentVal[1][3])
+							: undefined;
+				} catch (error) {
+					const msg = `Failed to parse incoming headers at '${chan.name}' channel. Incoming headers must use ${this.opts.serializer} serialization.`;
+					throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+						error
+					});
+				}
+
 				accumulator.ids.push(currentVal[0].toString());
 
 				accumulator.serializedMessages.push(currentVal[1][1]);
-				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+				accumulator.parsedMessages.push(content);
 
-				accumulator.parsedHeaders.push(
-					currentVal[1][2] && currentVal[1][2].toString() === "headers"
-						? this.serializer.deserialize(currentVal[1][3])
-						: undefined
-				);
+				accumulator.parsedHeaders.push(headers);
 
 				return accumulator;
 			},
