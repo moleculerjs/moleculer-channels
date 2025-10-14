@@ -15,14 +15,14 @@ Reliable messages for Moleculer services via external queue/channel/topic. Unlik
 
 ## Features
 
--   reliable messages with acknowledgement.
--   multiple adapters (Redis, RabbitMQ, NATS JetStream, Kafka).
--   plugable adapters.
--   configurable max-in-flight.
--   retry messages.
--   dead-letter topic function.
--   can receive messages from 3rd party services.
--   graceful stopping with active message tracking.
+- reliable messages with acknowledgement.
+- multiple adapters (Redis, RabbitMQ, NATS JetStream, Kafka).
+- plugable adapters.
+- configurable max-in-flight.
+- retry messages.
+- dead-letter topic function.
+- can receive messages from 3rd party services.
+- graceful stopping with active message tracking.
 
 ## Install
 
@@ -37,6 +37,8 @@ npm i @moleculer/channels
 
 **Integration With A Third-Party System**
 ![Third-Party](assets/legacy.png)
+
+> **Note**: If you want to send messages to moleculer-services via channels from an external system, you must use the same serialization format as defined in the adapter options (default is `JSON`). Otherwise, the services won't be able to parse the incoming messages.
 
 ## Usage
 
@@ -188,7 +190,7 @@ module.exports = {
 | `schemaProperty`      | `String`           | `"channels"`       | Name of the property in service schema.                                                                                                          |
 | `sendMethodName`      | `String`           | `"sendToChannel"`  | Name of the method in ServiceBroker to send message to the channels.                                                                             |
 | `adapterPropertyName` | `String`           | `"channelAdapter"` | Name of the property in ServiceBroker to access the `Adapter` instance directly.                                                                 |
-| `context` | `boolean`           | `false` | Using Moleculer context in channel handlers by default.                                                                |
+| `context`             | `boolean`          | `false`            | Using Moleculer context in channel handlers by default.                                                                                          |
 
 **Examples**
 
@@ -219,8 +221,8 @@ module.exports = {
 | `maxRetries`                           | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
 | `deadLettering.enabled`                | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
 | `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
-| `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.  |
-| `tracing`                              | `Object`                                 | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`. |
+| `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.                                                                                                                                                                      |
+| `tracing`                              | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`.                                                              |
 | `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
 | `redis.startID`                        | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
 | `redis.minIdleTime`                    | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
@@ -271,7 +273,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 | `acks`                                  | `Number`             | Kafka                         | Control the number of required acks.                                                                                                                                                          |
 | `timeout`                               | `Number`             | Kafka                         | The time to await a response in ms. Default: `30000`                                                                                                                                          |
 | `compression`                           | `any`                | Kafka                         | Compression codec. Default: `CompressionTypes.None`                                                                                                                                           |
-| `xaddMaxLen`                           | `Number` or `String`  | Redis                         | Define `MAXLEN` for `XADD` command                                                                                                                                         |
+| `xaddMaxLen`                            | `Number` or `String` | Redis                         | Define `MAXLEN` for `XADD` command                                                                                                                                                            |
 
 ## Middleware hooks
 
@@ -333,7 +335,7 @@ module.exports = {
     middlewares: [
         ChannelsMiddleware({
             adapter: "redis://localhost:6379",
-            // Enable context in all channel handlers 
+            // Enable context in all channel handlers
             context: true
         })
     ]
@@ -353,7 +355,7 @@ module.exports = {
     channels: {
         "default.options.topic": {
             context: true, // Unless not enabled it globally
-            async handler(ctx/*, raw*/) {
+            async handler(ctx /*, raw*/) {
                 // The `ctx` is a regular Moleculer Context
                 if (ctx.meta.loggedInUser) {
                     // The `ctx.params` contains the original payload of the message
@@ -376,26 +378,33 @@ module.exports = {
     actions: {
         submitOrder: {
             async handler(ctx) {
-                await broker.sendToChannel("order.created", {
-                    id: 1234,
-                    items: [/*...*/]
-                }, {
-                    // Pass the `ctx` in options of `sendToChannel`
-                    ctx
-                });
-
+                await broker.sendToChannel(
+                    "order.created",
+                    {
+                        id: 1234,
+                        items: [
+                            /*...*/
+                        ]
+                    },
+                    {
+                        // Pass the `ctx` in options of `sendToChannel`
+                        ctx
+                    }
+                );
             }
         }
-    },
-}
+    }
+};
 ```
 
 ### Tracing
+
 To enable tracing for context-based handlers, you should register `Tracing` middleware in broker options.
 
 > The middleware works only with `context: true`.
 
 **Register channel tracing middleware**
+
 ```js
 //moleculer.config.js
 const TracingMiddleware = require("@moleculer/channels").Tracing;
@@ -406,7 +415,7 @@ module.exports = {
     middlewares: [
         ChannelsMiddleware({
             adapter: "redis://localhost:6379",
-            // Enable context in all channel handlers 
+            // Enable context in all channel handlers
             context: true
         }),
         TracingMiddleware()
@@ -629,14 +638,18 @@ To support Redis ["capped streams"](https://redis.io/docs/data-types/streams-tut
 **Example**
 
 ```js
-broker.sendToChannel("order.created", {
-    id: 1234,
-    items: [
-        /*...*/
-    ]
-},{
-    xaddMaxLen: "~1000"
-});
+broker.sendToChannel(
+    "order.created",
+    {
+        id: 1234,
+        items: [
+            /*...*/
+        ]
+    },
+    {
+        xaddMaxLen: "~1000"
+    }
+);
 ```
 
 ### AMQP (RabbitMQ)
@@ -684,13 +697,13 @@ module.exports = {
                         messageOptions: {},
                         // Options for `channel.consume()`
                         consumerOptions: {},
-						// Note: options for `channel.assertExchange()` before first publishing in new exchange
-						publishAssertExchange: {
-							// Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
-							enabled: false,
-							// Options for `channel.assertExchange()` before publishing by `sendToChannel`
-							exchangeOptions: {}
-						},
+                        // Note: options for `channel.assertExchange()` before first publishing in new exchange
+                        publishAssertExchange: {
+                            // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+                            enabled: false,
+                            // Options for `channel.assertExchange()` before publishing by `sendToChannel`
+                            exchangeOptions: {}
+                        }
                     },
                     maxInFlight: 10,
                     maxRetries: 3,
@@ -709,23 +722,28 @@ module.exports = {
 **Example Producing messages with options**
 
 ```js
-broker.sendToChannel("order.created", {
-    id: 1234,
-    items: [
-        /*...*/
-    ]
-},{
-    // Using specific `assertExchange()` options only for the current sending case
-    publishAssertExchange:{
-        // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
-		enabled: true,
-        // Options for `channel.assertExchange()` before publishing 
-		exchangeOptions: {
-			/*...*/
-		}
-	},
-});
+broker.sendToChannel(
+    "order.created",
+    {
+        id: 1234,
+        items: [
+            /*...*/
+        ]
+    },
+    {
+        // Using specific `assertExchange()` options only for the current sending case
+        publishAssertExchange: {
+            // Enable/disable calling once `channel.assertExchange()` before first publishing in new exchange by `sendToChannel`
+            enabled: true,
+            // Options for `channel.assertExchange()` before publishing
+            exchangeOptions: {
+                /*...*/
+            }
+        }
+    }
+);
 ```
+
 > Note: If you know that the exchange will be created before `sendToChannel` is called by someone else, then it is better to skip `publishAssertExchange` option
 
 ### Kafka
