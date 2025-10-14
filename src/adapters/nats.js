@@ -288,7 +288,6 @@ class NatsAdapter extends BaseAdapter {
 					message.ack();
 				} catch (error) {
 					this.logger.warn(`NATS message processing error in '${chan.name}'`, error);
-					this.removeChannelActiveMessages(chan.id, [message.seq]);
 					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 					// Message rejected
@@ -336,6 +335,8 @@ class NatsAdapter extends BaseAdapter {
 						message.nak();
 					}
 				}
+
+				this.removeChannelActiveMessages(chan.id, [message.seq]);
 			}
 		};
 	}

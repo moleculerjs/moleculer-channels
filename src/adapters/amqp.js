@@ -395,7 +395,6 @@ class AmqpAdapter extends BaseAdapter {
 				let content;
 				try {
 					content = this.serializer.deserialize(msg.content);
-					this.logger.error(msg, error);
 				} catch (error) {
 					const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
 					throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
