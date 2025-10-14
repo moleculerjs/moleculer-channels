@@ -35,8 +35,6 @@ export = RedisAdapter;
  * @extends {BaseAdapter}
  */
 declare class RedisAdapter extends BaseAdapter {
-    /** @type {RedisOpts & BaseDefaultOptions} */
-    opts: RedisOpts & BaseDefaultOptions;
     /**
      * @type {Map<string,Cluster|Redis>}
      */
@@ -107,45 +105,31 @@ declare namespace RedisAdapter {
     export { Cluster, Redis, RedisOptions, ServiceBroker, Logger, Channel, BaseDefaultOptions, RedisDefaultOptions, RedisChannel, RedisOpts };
 }
 import BaseAdapter = require("./base");
-type RedisOpts = {
-    /**
-     * Redis lib configuration
-     */
-    redis: {
-        consumerOptions: RedisDefaultOptions;
-    };
-};
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;
 /**
  * Redis cluster instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Cluster
  */
 type Cluster = import("ioredis").Cluster;
-declare let Redis: any;
+/**
+ * Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
+ */
+type Redis = import("ioredis").Redis;
+type RedisOptions = import("ioredis").RedisOptions;
+/**
+ * Moleculer Service Broker instance
+ */
+type ServiceBroker = import("moleculer").ServiceBroker;
+/**
+ * Logger instance
+ */
+type Logger = import("moleculer").LoggerInstance;
 /**
  * Base channel definition
  */
 type Channel = import("../index").Channel;
 /**
- * Redis specific channel options
+ * Base adapter options
  */
-type RedisChannel = {
-    /**
-     * Function for fetching new messages from redis stream
-     */
-    xreadgroup: Function;
-    /**
-     * Function for claiming pending messages
-     */
-    xclaim: Function;
-    /**
-     * Function for checking NACKed messages and moving them into dead letter queue
-     */
-    failed_messages: Function;
-    redis: RedisDefaultOptions;
-};
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
 /**
  * Redis Adapter configuration
  */
@@ -172,15 +156,28 @@ type RedisDefaultOptions = {
     processingAttemptsInterval: number;
 };
 /**
- * Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
+ * Redis specific channel options
  */
-type Redis = import("ioredis").Redis;
-type RedisOptions = import("ioredis").RedisOptions;
-/**
- * Moleculer Service Broker instance
- */
-type ServiceBroker = import("moleculer").ServiceBroker;
-/**
- * Logger instance
- */
-type Logger = import("moleculer").LoggerInstance;
+type RedisChannel = {
+    /**
+     * Function for fetching new messages from redis stream
+     */
+    xreadgroup: Function;
+    /**
+     * Function for claiming pending messages
+     */
+    xclaim: Function;
+    /**
+     * Function for checking NACKed messages and moving them into dead letter queue
+     */
+    failed_messages: Function;
+    redis: RedisDefaultOptions;
+};
+type RedisOpts = {
+    /**
+     * Redis lib configuration
+     */
+    redis: {
+        consumerOptions: RedisDefaultOptions;
+    };
+};

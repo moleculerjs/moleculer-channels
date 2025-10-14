@@ -37,8 +37,6 @@ export = NatsAdapter;
  */
 declare class NatsAdapter extends BaseAdapter {
     constructor(opts: any);
-    /** @type { BaseDefaultOptions & NatsDefaultOptions } */
-    opts: BaseDefaultOptions & NatsDefaultOptions;
     /** @type {NatsConnection} */
     connection: NatsConnection;
     /** @type {JetStreamManager} */
@@ -47,6 +45,10 @@ declare class NatsAdapter extends BaseAdapter {
     client: JetStreamClient;
     /** @type {Map<string,JetStreamSubscription>} */
     subscriptions: Map<string, JetStreamSubscription>;
+    /**
+     * Connect to the adapter.
+     */
+    connect(): Promise<any>;
     stopping: boolean;
     /**
      * Subscribe to a channel with a handler.
@@ -92,6 +94,66 @@ declare namespace NatsAdapter {
 }
 import BaseAdapter = require("./base");
 /**
+ * NATS Connection
+ */
+type NatsConnection = import("nats").NatsConnection;
+/**
+ * NATS Connection Opts
+ */
+type ConnectionOptions = import("nats").ConnectionOptions;
+/**
+ * NATS Configuration Options
+ */
+type StreamConfig = import("nats").StreamConfig;
+/**
+ * NATS Jet Stream Manager
+ */
+type JetStreamManager = import("nats").JetStreamManager;
+/**
+ * NATS JetStream Client
+ */
+type JetStreamClient = import("nats").JetStreamClient;
+/**
+ * JetStream Publish Options
+ */
+type JetStreamPublishOptions = import("nats").JetStreamPublishOptions;
+/**
+ * NATS JetStream ConsumerOptsBuilder
+ */
+type ConsumerOptsBuilder = import("nats").ConsumerOptsBuilder;
+/**
+ * Jet Stream Consumer Opts
+ */
+type ConsumerOpts = import("nats").ConsumerOpts;
+/**
+ * Jet Stream Options
+ */
+type JetStreamOptions = import("nats").JetStreamOptions;
+/**
+ * Jet Stream Message
+ */
+type JsMsg = import("nats").JsMsg;
+/**
+ * Jet Stream Subscription
+ */
+type JetStreamSubscription = import("nats").JetStreamSubscription;
+/**
+ * Jet Stream Headers
+ */
+type MsgHdrs = import("nats").MsgHdrs;
+/**
+ * Moleculer Service Broker instance
+ */
+type ServiceBroker = import("moleculer").ServiceBroker;
+/**
+ * Logger instance
+ */
+type Logger = import("moleculer").LoggerInstance;
+/**
+ * Base channel definition
+ */
+type Channel = import("../index").Channel;
+/**
  * Base adapter options
  */
 type BaseDefaultOptions = import("./base").BaseDefaultOptions;
@@ -114,63 +176,3 @@ type NatsDefaultOptions = {
      */
     consumerOptions: ConsumerOpts;
 };
-/**
- * NATS Connection
- */
-type NatsConnection = import("nats").NatsConnection;
-/**
- * NATS Jet Stream Manager
- */
-type JetStreamManager = import("nats").JetStreamManager;
-/**
- * NATS JetStream Client
- */
-type JetStreamClient = import("nats").JetStreamClient;
-/**
- * Jet Stream Subscription
- */
-type JetStreamSubscription = import("nats").JetStreamSubscription;
-/**
- * Base channel definition
- */
-type Channel = import("../index").Channel;
-/**
- * Jet Stream Message
- */
-type JsMsg = import("nats").JsMsg;
-/**
- * NATS Configuration Options
- */
-type StreamConfig = import("nats").StreamConfig;
-/**
- * JetStream Publish Options
- */
-type JetStreamPublishOptions = import("nats").JetStreamPublishOptions;
-/**
- * NATS Connection Opts
- */
-type ConnectionOptions = import("nats").ConnectionOptions;
-/**
- * NATS JetStream ConsumerOptsBuilder
- */
-type ConsumerOptsBuilder = import("nats").ConsumerOptsBuilder;
-/**
- * Jet Stream Consumer Opts
- */
-type ConsumerOpts = import("nats").ConsumerOpts;
-/**
- * Jet Stream Options
- */
-type JetStreamOptions = import("nats").JetStreamOptions;
-/**
- * Jet Stream Headers
- */
-type MsgHdrs = import("nats").MsgHdrs;
-/**
- * Moleculer Service Broker instance
- */
-type ServiceBroker = import("moleculer").ServiceBroker;
-/**
- * Logger instance
- */
-type Logger = import("moleculer").LoggerInstance;

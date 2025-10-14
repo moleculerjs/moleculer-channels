@@ -39,12 +39,10 @@ export = AmqpAdapter;
  * @extends {BaseAdapter}
  */
 declare class AmqpAdapter extends BaseAdapter {
-    /** @type {AmqpDefaultOptions & BaseDefaultOptions} */
-    opts: AmqpDefaultOptions & BaseDefaultOptions;
     /** @type {AMQPLibConnection} */
-    connection: any;
+    connection: AMQPLibConnection;
     /** @type {AMQPLibChannel} */
-    channel: any;
+    channel: AMQPLibChannel;
     clients: Map<any, any>;
     /**
      * @type {Map<string,SubscriptionEntry>}
@@ -110,6 +108,30 @@ declare namespace AmqpAdapter {
 }
 import BaseAdapter = require("./base");
 /**
+ * AMQP connection
+ */
+type AMQPLibConnection = any;
+/**
+ * AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
+ */
+type AMQPLibChannel = any;
+/**
+ * Moleculer Service Broker instance
+ */
+type ServiceBroker = import("moleculer").ServiceBroker;
+/**
+ * Logger instance
+ */
+type Logger = import("moleculer").LoggerInstance;
+/**
+ * Base channel definition
+ */
+type Channel = import("../index").Channel;
+/**
+ * Base adapter options
+ */
+type BaseDefaultOptions = import("./base").BaseDefaultOptions;
+/**
  * AMQP Adapter configuration
  */
 type AmqpDefaultOptions = {
@@ -130,40 +152,6 @@ type AmqpDefaultOptions = {
         publishAssertExchange: publishAssertExchange;
     };
 };
-/**
- * Base adapter options
- */
-type BaseDefaultOptions = import("./base").BaseDefaultOptions;
-type SubscriptionEntry = {
-    /**
-     * AMQP Channel
-     */
-    chan: Channel & AmqpDefaultOptions;
-    /**
-     * AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
-     */
-    consumerTag: string;
-};
-/**
- * Base channel definition
- */
-type Channel = import("../index").Channel;
-/**
- * AMQP connection
- */
-type AMQPLibConnection = any;
-/**
- * AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
- */
-type AMQPLibChannel = any;
-/**
- * Moleculer Service Broker instance
- */
-type ServiceBroker = import("moleculer").ServiceBroker;
-/**
- * Logger instance
- */
-type Logger = import("moleculer").LoggerInstance;
 type publishAssertExchange = {
     /**
      * Enable/disable one-time calling channel.assertExchange() before publishing in new exchange by sendToChannel
@@ -173,4 +161,14 @@ type publishAssertExchange = {
      * AMQP lib exchange configuration  https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
      */
     exchangeOptions: any;
+};
+type SubscriptionEntry = {
+    /**
+     * AMQP Channel
+     */
+    chan: Channel & AmqpDefaultOptions;
+    /**
+     * AMQP consumer tag. More info: https://www.rabbitmq.com/consumers.html#consumer-tags
+     */
+    consumerTag: string;
 };

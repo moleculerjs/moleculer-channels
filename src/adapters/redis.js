@@ -204,7 +204,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @returns {Promise<Cluster|Redis>}
 	 */
 	createRedisClient(name, opts) {
-		return new Promise((resolve, reject) => {
+		return new Promise(resolve => {
 			/** @type {Cluster|Redis} */
 			let client;
 			if (opts && opts.cluster) {
@@ -213,13 +213,11 @@ class RedisAdapter extends BaseAdapter {
 				}
 				client = new Redis.Cluster(opts.cluster.nodes, opts.cluster.clusterOptions);
 			} else {
-				client = new Redis(opts && opts.url ? opts.url : opts);
+				client = new Redis.Redis(opts && opts.url ? opts.url : opts);
 			}
 
-			let isConnected = false;
-			client.on("connect", () => {
+			client.on("ready", () => {
 				this.logger.info(`Redis-Channel-Client-${name} adapter is connected.`);
-				isConnected = true;
 				resolve(client);
 			});
 
@@ -227,10 +225,9 @@ class RedisAdapter extends BaseAdapter {
 			client.on("error", err => {
 				this.logger.error(`Redis-Channel-Client-${name} adapter error`, err.message);
 				this.logger.debug(err);
-				if (!isConnected) reject(err);
 			});
 
-			client.on("close", () => {
+			client.on("end", () => {
 				this.logger.info(`Redis-Channel-Client-${name} adapter is disconnected.`);
 			});
 		});
@@ -505,15 +502,32 @@ class RedisAdapter extends BaseAdapter {
 									})
 									.then(() => {
 										const pubClient = this.clients.get(this.pubName);
-										// 1. Delete consumer from the consumer group
-										// 2. Do NOT destroy the consumer group
-										// https://redis.io/commands/XGROUP
-										return pubClient.xgroup(
-											"DELCONSUMER",
-											chan.name, // Stream Name
-											chan.group, // Consumer Group
-											chan.id // Consumer ID
-										);
+										return pubClient
+											.xpending(
+												chan.name,
+												chan.group,
+												"-", // Start
+												"+", // End
+												10 // Max reported entries
+											)
+											.then(pending => {
+												if (pending.length !== 0) {
+													// Don't destroy the consumer group if there are pending messages
+													// It might come back online in the future and process the messages
+													// More info: https://github.com/moleculerjs/moleculer-channels/issues/74
+													return;
+												}
+
+												// 1. Delete consumer from the consumer group
+												// 2. Do NOT destroy the consumer group
+												// https://redis.io/commands/XGROUP
+												return pubClient.xgroup(
+													"DELCONSUMER",
+													chan.name, // Stream Name
+													chan.group, // Consumer Group
+													chan.id // Consumer ID
+												);
+											});
 									})
 									.then(() => resolve())
 									.catch(err => reject(err));
