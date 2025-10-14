@@ -15,7 +15,7 @@
     "deps": "ncu -i",
     "ci-deps": "ncu --target minor",
     "ci-update-deps": "ncu -u --target minor",
-    "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js",
+    "coverall": "cat ./coverage/lcov.info | ./node_modules/coveralls-next/bin/coveralls.js",
     "test:up": "docker compose -f test/docker-compose.yml up -d",
     "test:down": "docker compose -f test/docker-compose.yml down -v",
     "release": "npm publish --access public && git push --follow-tags"
@@ -35,17 +35,17 @@
     "moleculer": "^0.14.12 || ^0.15.0-0"
   },
   "devDependencies": {
-    "@types/node": "^18.19.4",
-    "amqplib": "^0.10.8",
+    "@types/node": "^24.7.2",
+    "amqplib": "^0.10.9",
     "benchmarkify": "^4.0.0",
-    "coveralls": "^3.1.1",
+    "coveralls-next": "^5.0.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^8.10.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-security": "^1.7.1",
-    "ioredis": "^5.6.1",
+    "ioredis": "^5.8.1",
     "jest": "^29.7.0",
     "jest-cli": "^29.7.0",
     "kafkajs": "^2.2.4",
@@ -55,9 +55,9 @@
     "msgpack5": "^6.0.2",
     "nats": "^2.29.3",
     "nodemon": "^3.1.10",
-    "npm-check-updates": "^18.0.1",
-    "prettier": "^2.8.8",
-    "typescript": "^5.8.3"
+    "npm-check-updates": "^19.0.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
   },
   "jest": {
     "testEnvironment": "node",
