@@ -9,7 +9,8 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const C = require("../constants");
-const { MoleculerRetryableError } = require("moleculer").Errors;
+const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 
 let NATS;
 
@@ -269,13 +270,24 @@ class NatsAdapter extends BaseAdapter {
 				try {
 					// Working on the message and thus prevent receiving the message again as a redelivery.
 					message.working();
-					await chan.handler(
-						this.serializer.deserialize(Buffer.from(message.data)),
-						message
-					);
+
+					let content;
+					try {
+						content = this.serializer.deserialize(Buffer.from(message.data));
+					} catch (error) {
+						const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+						throw new MoleculerError(
+							msg,
+							400,
+							INVALID_MESSAGE_SERIALIZATION_ERROR_CODE,
+							{ error }
+						);
+					}
+
+					await chan.handler(content, message);
 					message.ack();
 				} catch (error) {
-					// this.logger.error(error);
+					this.logger.warn(`NATS message processing error in '${chan.name}'`, error);
 					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 					// Message rejected
@@ -346,20 +358,20 @@ class NatsAdapter extends BaseAdapter {
 					streamOpts && streamOpts.name
 						? streamOpts.name
 						: // Global stream config
-						this.opts.nats.streamConfig && this.opts.nats.streamConfig.name
-						? this.opts.nats.streamConfig.name
-						: // Default
-						  streamName,
+							this.opts.nats.streamConfig && this.opts.nats.streamConfig.name
+							? this.opts.nats.streamConfig.name
+							: // Default
+								streamName,
 
 				subjects:
 					// Local stream subjects
 					streamOpts && streamOpts.subjects
 						? streamOpts.subjects
 						: // Global stream subjects
-						this.opts.nats.streamConfig && this.opts.nats.streamConfig.subjects
-						? this.opts.nats.streamConfig.subjects
-						: // Default
-						  subjects
+							this.opts.nats.streamConfig && this.opts.nats.streamConfig.subjects
+							? this.opts.nats.streamConfig.subjects
+							: // Default
+								subjects
 			},
 			streamOpts,
 			this.opts.nats.streamConfig

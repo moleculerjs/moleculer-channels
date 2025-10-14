@@ -10,6 +10,7 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
+const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
 /** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
@@ -332,7 +333,15 @@ class KafkaAdapter extends BaseAdapter {
 		try {
 			this.addChannelActiveMessages(chan.id, [id]);
 
-			const content = this.serializer.deserialize(message.value);
+			let content;
+			try {
+				content = this.serializer.deserialize(message.value);
+			} catch (error) {
+				const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+				throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+					error
+				});
+			}
 			//this.logger.debug("Content:", content);
 
 			await chan.handler(content, message);
