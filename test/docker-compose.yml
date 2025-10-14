@@ -11,7 +11,7 @@ services:
       - "6379:6379"
 
   redis-node-1:
-    image: grokzen/redis-cluster:7.2.5
+    image: docker.io/bitnamilegacy/redis-cluster:7.0
     ports:
       - "6381:6379"
     environment:
@@ -21,7 +21,7 @@ services:
       - "REDIS_CLUSTER_CREATOR=yes"
 
   redis-node-2:
-    image: grokzen/redis-cluster:7.2.5
+    image: docker.io/bitnamilegacy/redis-cluster:7.0
     ports:
       - "6382:6379"
     environment:
@@ -29,7 +29,7 @@ services:
       - "REDIS_NODES=redis-node-1 redis-node-2 redis-node-3"
 
   redis-node-3:
-    image: grokzen/redis-cluster:7.2.5
+    image: docker.io/bitnamilegacy/redis-cluster:7.0
     ports:
       - "6383:6379"
     environment:
