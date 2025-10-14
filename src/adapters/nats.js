@@ -287,7 +287,7 @@ class NatsAdapter extends BaseAdapter {
 					await chan.handler(content, message);
 					message.ack();
 				} catch (error) {
-					// this.logger.error(error);
+					this.logger.warn(`NATS message processing error in '${chan.name}'`, error);
 					this.removeChannelActiveMessages(chan.id, [message.seq]);
 					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
