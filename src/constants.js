@@ -9,6 +9,13 @@ module.exports = {
 	/** Name of consumer group that could not process the message properly */
 	HEADER_ORIGINAL_GROUP: "x-original-group",
 
+	/** Error message */
+	HEADER_ERROR_MESSAGE: "x-error-message",
+	/** Error code */
+	HEADER_ERROR_CODE: "x-error-code",
+	/** Error stack trace */
+	HEADER_ERROR_STACK: "x-error-stack",
+
 	METRIC_CHANNELS_MESSAGES_SENT: "moleculer.channels.messages.sent",
 	METRIC_CHANNELS_MESSAGES_TOTAL: "moleculer.channels.messages.total",
 	METRIC_CHANNELS_MESSAGES_ACTIVE: "moleculer.channels.messages.active",

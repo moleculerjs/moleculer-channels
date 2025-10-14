@@ -419,16 +419,36 @@ class RedisAdapter extends BaseAdapter {
 						if (chan.deadLettering.enabled) {
 							// Move the messages to a dedicated channel
 							await Promise.all(
-								messages.map(entry =>
-									this.moveToDeadLetter(
+								messages.map(async entry => {
+									const id = entry[0].toString();
+
+									const messageKey = `chan:${chan.name}:msg:${id}`;
+									const errorData = await nackedClient.hgetall(messageKey);
+									// delete from hash after retrieving data
+									await nackedClient.del(messageKey);
+
+									// Move to dead letter
+									const errorInfo = errorData
+										? {
+												...(errorData.last_error_message
+													? { message: errorData.last_error_message }
+													: {}),
+												...(errorData.last_error_stack
+													? { stack: errorData.last_error_stack }
+													: {})
+											}
+										: undefined;
+
+									return this.moveToDeadLetter(
 										chan,
 										entry[0].toString(),
 										entry[1][1],
 										entry[1][2] && entry[1][2].toString() === "headers"
 											? this.serializer.deserialize(entry[1][3])
-											: undefined
-									)
-								)
+											: undefined,
+										errorInfo
+									);
+								})
 							);
 						} else {
 							this.logger.error(`Dropped ${pendingMessages.length} message(s).`, ids);
@@ -573,6 +593,7 @@ class RedisAdapter extends BaseAdapter {
 			});
 		});
 
+		/** @type {Array<PromiseSettledResult<unknown>>} */
 		const promiseResults = await this.Promise.allSettled(promises);
 		const pubClient = this.clients.get(this.pubName);
 
@@ -580,12 +601,17 @@ class RedisAdapter extends BaseAdapter {
 			const result = promiseResults[i];
 			const id = ids[i];
 			const messageHeaders = parsedHeaders[i];
+			const messageKey = `chan:${chan.name}:msg:${id}`;
 
 			if (result.status == "fulfilled") {
 				// Send ACK message
 				// https://redis.io/commands/xack
 				// Use pubClient to ensure that ACK is delivered to redis
 				await pubClient.xack(chan.name, chan.group, id);
+
+				// clear any previous error info
+				await pubClient.del(messageKey);
+
 				this.logger.debug(`Message is ACKed.`, {
 					id,
 					name: chan.name,
@@ -603,7 +629,8 @@ class RedisAdapter extends BaseAdapter {
 							chan,
 							id,
 							serializedMessages[i],
-							messageHeaders
+							messageHeaders,
+							{ message: result.reason.message, stack: result.reason.stack }
 						);
 					} else {
 						// Drop message
@@ -611,7 +638,16 @@ class RedisAdapter extends BaseAdapter {
 					}
 					await pubClient.xack(chan.name, chan.group, id);
 				} else {
-					// It will be (eventually) picked by xclaim
+					// write back to the stream for retrying
+					await pubClient.hset(messageKey, {
+						status: "retrying",
+						last_error_message: result.reason.message,
+						last_error_stack: result.reason.stack,
+						timestamp: Date.now()
+					});
+
+					// auto-expire to avoid stale data
+					await pubClient.expire(messageKey, 24 * 3600); // 1 day
 				}
 			}
 		}
@@ -677,8 +713,12 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {String} originalID ID of the dead message
 	 * @param {Object} message Raw (not serialized) message contents
 	 * @param {Object} headers Header contents
+	 * @param {{
+	 *   message?: string,
+	 *   stack?: string,
+	 * }} [errorInfo] Error info
 	 */
-	async moveToDeadLetter(chan, originalID, message, headers) {
+	async moveToDeadLetter(chan, originalID, message, headers, errorInfo) {
 		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
 
 		const msgHdrs = {
@@ -687,6 +727,9 @@ class RedisAdapter extends BaseAdapter {
 			[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
 			[C.HEADER_ORIGINAL_GROUP]: chan.group
 		};
+
+		if (errorInfo?.message) msgHdrs[C.HEADER_ERROR_MESSAGE] = errorInfo.message;
+		if (errorInfo?.stack) msgHdrs[C.HEADER_ERROR_STACK] = errorInfo.stack;
 
 		// Move the message to a dedicated channel
 		const nackedClient = this.clients.get(this.nackedName);
