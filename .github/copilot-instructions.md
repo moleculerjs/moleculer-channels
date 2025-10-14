@@ -35,7 +35,7 @@ The module supports multiple queue/streaming servers, including Redis, RabbitMQ,
 -   `index.js`: Entry point of the module.
 -   `src/adapters/`: Contains adapter implementations for different message brokers (Redis, RabbitMQ, NATS, Kafka). All of adapters extend from `base.js`.
 -   `src/constants.js`: Defines constants used across the module such as metrics names, Redis header keys, etc.
--   `src/tracing.js`: Implements tracing middleware for tracing the message flow. The middleware is implemented via MoleculerJS middleware, and it works with any adapter. It is initialized via `created()` [lifecycle method](https://moleculer.services/docs/0.14/middlewares#created-broker-async) of the service broker.
+-   `src/tracing.js`: Implements tracing middleware for tracing the message flow. The middleware is implemented via MoleculerJS middleware, and it works with any adapter. It is initialized via `created()` [lifecycle method](https://moleculer.services/docs/0.15/middlewares#created-broker-async) of the service broker.
 -   `src/index.js`: Main file that implements `created()`, `serviceCreated()`, `serviceStopping()`, and `stopped()`. It is responsible for creating broker-level methods like `sendToChannel()` (configurable via `sendMethodName` option), exposing raw adapter via `channelAdapter` (configurable via `adapterPropertyName` option), registering metrics, registering service topics listeners and cleaning up resources on broker stop.
 -   `test/`: Contains integration tests. Integration tests use Docker Compose to spin up required message brokers. The focus of the tests is to verify the integration with different message brokers and ensure that messages are sent and received correctly and that from Moleculer's perspective, the behavior is consistent across different adapters.
 -   `package.json`: Defines the module's dependencies, scripts, jest configuration, and metadata
@@ -373,7 +373,7 @@ The adapters track the messages that are being processed. This means that when a
 
 ## Middleware hooks
 
-It is possible to wrap the handlers and the send method in Moleculer middleware. The module defines two hooks to cover it. The `localChannel` hook is similar to [`localAction`](https://moleculer.services/docs/0.14/middlewares.html#localAction-next-action) but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to [`emit`](https://moleculer.services/docs/0.14/middlewares.html#emit-next) or [`broadcast`](https://moleculer.services/docs/0.14/middlewares.html#broadcast-next) but it wraps the `broker.sendToChannel` publisher method.
+It is possible to wrap the handlers and the send method in Moleculer middleware. The module defines two hooks to cover it. The `localChannel` hook is similar to [`localAction`](https://moleculer.services/docs/0.15/middlewares.html#localAction-next-action) but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to [`emit`](https://moleculer.services/docs/0.15/middlewares.html#emit-next) or [`broadcast`](https://moleculer.services/docs/0.15/middlewares.html#broadcast-next) but it wraps the `broker.sendToChannel` publisher method.
 
 **Example**
 
