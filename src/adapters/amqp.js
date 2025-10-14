@@ -131,7 +131,7 @@ class AmqpAdapter extends BaseAdapter {
 			);
 		}
 
-		this.checkClientLibVersion("amqplib", "^0.8.0 || ^0.9.0");
+		this.checkClientLibVersion("amqplib", "^0.8.0 || ^0.9.0 || ^0.10.0");
 	}
 
 	/**
