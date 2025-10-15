@@ -280,15 +280,16 @@ describe("Integration tests", () => {
 					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
 				});
 
-				it.only("should include the full chain of parentChannelName in the context", async () => {
+				it("should include the full chain of parentChannelName in the context", async () => {
 					const msg = {
 						id: 1,
 						name: "John",
 						age: 25
 					};
+					const meta = { a: 5, b: { c: "Hello" } };
 
 					const ctx = Context.create(broker, null);
-					ctx.meta = { a: 5, b: { c: "Hello" } };
+					ctx.meta = meta;
 
 					subTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
 						await broker.sendToChannel("another.topic", msg, { ctx });
@@ -309,6 +310,7 @@ describe("Integration tests", () => {
 					const [ctxSubTestTopicHandler] = subTestTopicHandler.mock.calls[0];
 					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxSubTestTopicHandler.params).toEqual(msg);
+					expect(ctxSubTestTopicHandler.meta).toEqual(meta);
 					expect(ctxSubTestTopicHandler.currentChannelName).toBe("test.simple.topic");
 					// was called from outside of a channel handler, so parentChannelName should be undefined
 					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
@@ -316,6 +318,7 @@ describe("Integration tests", () => {
 					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
 					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
+					expect(ctxAnotherTestTopicHandler.meta).toEqual(meta);
 					expect(ctxAnotherTestTopicHandler.currentChannelName).toBe("another.topic");
 					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
 					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
@@ -323,6 +326,7 @@ describe("Integration tests", () => {
 					const [ctxThirdTestTopicHandler] = thirdTestTopicHandler.mock.calls[0];
 					expect(ctxThirdTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxThirdTestTopicHandler.params).toEqual(msg);
+					expect(ctxThirdTestTopicHandler.meta).toEqual(meta);
 					expect(ctxThirdTestTopicHandler.currentChannelName).toBe("third.topic");
 					// was called from the "another.topic" channel handler so the ctx in thirdTestTopicHandler should have the parentChannelName set
 					expect(ctxThirdTestTopicHandler.parentChannelName).toBe("another.topic");
