@@ -101,9 +101,9 @@ class RedisAdapter extends BaseAdapter {
 			}
 		});
 
-		this.errorInfoTTL = this.opts.deadLettering.errorInfoTTL || 24 * 3600; // 24 hours
+		this.errorInfoTTL = this.opts?.deadLettering?.errorInfoTTL || 24 * 3600; // 24 hours
 		this.error2ErrorInfoParser =
-			this.opts.deadLettering.error2ErrorInfoParser || error2ErrorInfoParser;
+			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		/**
 		 * @type {Map<string,Cluster|Redis>}
@@ -637,10 +637,13 @@ class RedisAdapter extends BaseAdapter {
 					// write back to the stream for retrying
 					// It will be (eventually) picked by xclaim failed_messages() or xreadgroup()
 					const parsedError = this.error2ErrorInfoParser(result.reason);
-					await pubClient.hset(messageKey, parsedError);
 
-					// auto-expire to avoid stale data
-					await pubClient.expire(messageKey, this.errorInfoTTL); // 1 day
+					if (parsedError && Object.keys(parsedError).length === 0) {
+						await pubClient.hset(messageKey, parsedError);
+
+						// auto-expire to avoid stale data
+						await pubClient.expire(messageKey, this.errorInfoTTL); // 1 day
+					}
 				}
 			}
 		}

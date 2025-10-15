@@ -11,6 +11,7 @@ const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { error2ErrorInfoParser } = require("../utils");
 
 let Amqplib;
 
@@ -91,6 +92,9 @@ class AmqpAdapter extends BaseAdapter {
 				.filter(s => !!s)
 				.map(s => s.trim());
 		}
+
+		this.error2ErrorInfoParser =
+			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		/** @type {AMQPLibConnection} */
 		this.connection = null;
@@ -419,7 +423,7 @@ class AmqpAdapter extends BaseAdapter {
 						this.logger.debug(
 							`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						await this.moveToDeadLetter(chan, msg);
+						await this.moveToDeadLetter(chan, msg, this.error2ErrorInfoParser(err));
 					} else {
 						// No retries, drop message
 						this.logger.error(`No retries, drop message...`);
@@ -436,7 +440,7 @@ class AmqpAdapter extends BaseAdapter {
 						this.logger.debug(
 							`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						await this.moveToDeadLetter(chan, msg);
+						await this.moveToDeadLetter(chan, msg, this.error2ErrorInfoParser(err));
 					} else {
 						// Reached max retries and no dead-letter topic, drop message
 						this.logger.error(
@@ -473,19 +477,27 @@ class AmqpAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 * @param {Object} msg
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, msg) {
+	async moveToDeadLetter(chan, msg, errorData) {
+		const headers = {
+			[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+			[C.HEADER_ORIGINAL_GROUP]: chan.group
+		};
+
+		if (errorData) {
+			Object.entries(errorData).forEach(([key, value]) => (headers[key] = value));
+		}
+
 		const res = this.channel.publish(
 			chan.deadLettering.exchangeName || "",
 			chan.deadLettering.queueName,
 			msg.content,
 			{
-				headers: {
-					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[C.HEADER_ORIGINAL_GROUP]: chan.group
-				}
+				headers
 			}
 		);
+
 		if (res === false) {
 			this.broker.logger.error(
 				"AMQP publish error. Write buffer is full. Throwing away message"

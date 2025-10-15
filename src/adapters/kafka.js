@@ -11,6 +11,7 @@ const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { error2ErrorInfoParser } = require("../utils");
 /** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
@@ -95,6 +96,9 @@ class KafkaAdapter extends BaseAdapter {
 				consumerOptions: undefined
 			}
 		});
+
+		this.error2ErrorInfoParser =
+			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		/** @type {KafkaClient} */
 		this.client = null;
@@ -367,7 +371,11 @@ class KafkaAdapter extends BaseAdapter {
 					this.logger.debug(
 						`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 					);
-					await this.moveToDeadLetter(chan, { topic, partition, message });
+					await this.moveToDeadLetter(
+						chan,
+						{ topic, partition, message },
+						this.error2ErrorInfoParser(err)
+					);
 				} else {
 					// No retries, drop message
 					this.logger.error(`No retries, drop message...`);
@@ -387,7 +395,11 @@ class KafkaAdapter extends BaseAdapter {
 					this.logger.debug(
 						`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 					);
-					await this.moveToDeadLetter(chan, { topic, partition, message });
+					await this.moveToDeadLetter(
+						chan,
+						{ topic, partition, message },
+						this.error2ErrorInfoParser(err)
+					);
 				} else {
 					// Reached max retries and no dead-letter topic, drop message
 					this.logger.error(
@@ -420,8 +432,9 @@ class KafkaAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel} chan
 	 * @param {Object} message message
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, { partition, message }) {
+	async moveToDeadLetter(chan, { partition, message }, errorData) {
 		try {
 			const headers = {
 				...(message.headers || {}),
@@ -429,6 +442,10 @@ class KafkaAdapter extends BaseAdapter {
 				[C.HEADER_ORIGINAL_GROUP]: chan.group,
 				[HEADER_ORIGINAL_PARTITION]: "" + partition
 			};
+
+			if (errorData) {
+				Object.entries(errorData).forEach(([key, value]) => (headers[key] = value));
+			}
 
 			// Remove original group filter after redelivery.
 			delete headers[C.HEADER_GROUP];

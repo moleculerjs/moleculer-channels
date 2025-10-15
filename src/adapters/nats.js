@@ -10,6 +10,7 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { error2ErrorInfoParser } = require("../utils");
 const { MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 
 let NATS;
@@ -80,6 +81,9 @@ class NatsAdapter extends BaseAdapter {
 				}
 			}
 		});
+
+		this.error2ErrorInfoParser =
+			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		// Adapted from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
 		if (this.opts.nats.url)
@@ -298,7 +302,11 @@ class NatsAdapter extends BaseAdapter {
 							this.logger.debug(
 								`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 							);
-							await this.moveToDeadLetter(chan, message);
+							await this.moveToDeadLetter(
+								chan,
+								message,
+								this.error2ErrorInfoParser(error)
+							);
 						} else {
 							// Drop message
 							this.logger.error(`No retries, drop message...`, message.seq);
@@ -315,7 +323,11 @@ class NatsAdapter extends BaseAdapter {
 							this.logger.debug(
 								`Message redelivered too many times (${message.info.redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 							);
-							await this.moveToDeadLetter(chan, message);
+							await this.moveToDeadLetter(
+								chan,
+								message,
+								this.error2ErrorInfoParser(error)
+							);
 						} else {
 							// Drop message
 							this.logger.error(
@@ -396,8 +408,9 @@ class NatsAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel} chan
 	 * @param {JsMsg} message JetStream message
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, message) {
+	async moveToDeadLetter(chan, message, errorData) {
 		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
 		try {
 			/** @type {JetStreamPublishOptions} */
@@ -409,6 +422,10 @@ class NatsAdapter extends BaseAdapter {
 					[C.HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			};
+
+			if (errorData) {
+				Object.entries(errorData).forEach(([key, value]) => (opts.headers[key] = value));
+			}
 
 			await this.publish(chan.deadLettering.queueName, message.data, opts);
 
