@@ -90,7 +90,7 @@ broker.createService({
 });
 
 broker.createService({
-	name: "sub1",
+	name: "sub2",
 	channels: {
 		"my.topic.level.2": {
 			async handler(ctx, raw) {
@@ -109,8 +109,13 @@ broker.createService({
 					headers
 				});
 			}
-		},
+		}
+	}
+});
 
+broker.createService({
+	name: "sub3",
+	channels: {
 		"my.topic.level.3": {
 			async handler(ctx, raw) {
 				const parentChannelName = ctx.parentChannelName;
@@ -128,8 +133,13 @@ broker.createService({
 					headers
 				});
 			}
-		},
+		}
+	}
+});
 
+broker.createService({
+	name: "sub4",
+	channels: {
 		"my.topic.level.4": {
 			async handler(ctx, raw) {
 				const parentChannelName = ctx.parentChannelName;
@@ -140,7 +150,7 @@ broker.createService({
 
 				await Promise.delay(100);
 
-				await ctx.call("test.demo.level.5");
+				await ctx.call("test.demo.level.5", null, { parentCtx: ctx });
 			}
 		}
 	}
@@ -151,7 +161,7 @@ broker.createService({
 	actions: {
 		"demo.level.5": {
 			async handler(ctx) {
-				const channelName = ctx.parentChannelName;
+				const channelName = ctx?.options?.parentCtx?.currentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
 				const msg = `Flow level: ${level}, Type: Action, Name: 'demo.level.5', Caller: ${caller}, Channel name: ${channelName}`;

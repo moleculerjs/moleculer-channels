@@ -196,6 +196,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							if (opts.ctx.currentChannelName) {
 								opts.headers.$parentChannelName = opts.ctx.currentChannelName;
 							}
+							if (opts.ctx.currentServiceName) {
+								opts.headers.$parentServiceName = opts.ctx.currentServiceName;
+							}
 
 							// Serialize meta and headers
 							opts.headers.$meta = adapter.serializer
@@ -292,7 +295,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Wrap the handler with context creating
 						if (chan.context) {
 							wrappedHandler = (msg, raw) => {
-								let parentCtx, caller, meta, ctxHeaders, parentChannelName;
+								let parentCtx,
+									caller,
+									meta,
+									ctxHeaders,
+									parentChannelName,
+									parentServiceName;
 								const headers = adapter.parseMessageHeaders(raw);
 								if (headers) {
 									if (headers.$requestID) {
@@ -304,6 +312,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 										};
 										caller = headers.$caller;
 										parentChannelName = headers.$parentChannelName;
+										parentServiceName = headers.$parentServiceName;
 									}
 
 									if (headers.$meta) {
@@ -321,15 +330,21 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 								const ctx = Context.create(broker, null, msg, {
 									parentCtx,
-									caller,
+									caller: headers.$parentServiceName
+										? headers.$parentServiceName
+										: caller,
 									meta,
 									headers: ctxHeaders
 								});
 
 								// attach channelName to context so in the handler we can use it
 								ctx.currentChannelName = chan.name;
+								ctx.currentServiceName = svc.fullName;
 								// It's the parent channel name that triggered this event
 								ctx.parentChannelName = parentChannelName;
+								ctx.parentServiceName = parentServiceName;
+
+								ctx.service = svc;
 
 								return handler2(ctx, raw);
 							};
