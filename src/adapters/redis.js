@@ -10,7 +10,8 @@ const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError, MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 const C = require("../constants");
-const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { error2ErrorInfoParser } = require("../utils");
+
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
 
@@ -99,6 +100,10 @@ class RedisAdapter extends BaseAdapter {
 				}
 			}
 		});
+
+		this.errorInfoTTL = this.opts.deadLettering.errorInfoTTL || 24 * 3600; // 24 hours
+		this.error2ErrorInfoParser =
+			this.opts.deadLettering.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		/**
 		 * @type {Map<string,Cluster|Redis>}
@@ -428,16 +433,7 @@ class RedisAdapter extends BaseAdapter {
 									await nackedClient.del(messageKey);
 
 									// Move to dead letter
-									const errorInfo = errorData
-										? {
-												...(errorData.last_error_message
-													? { message: errorData.last_error_message }
-													: {}),
-												...(errorData.last_error_stack
-													? { stack: errorData.last_error_stack }
-													: {})
-											}
-										: undefined;
+									const errorInfo = errorData ? errorData : undefined;
 
 									return this.moveToDeadLetter(
 										chan,
@@ -630,7 +626,7 @@ class RedisAdapter extends BaseAdapter {
 							id,
 							serializedMessages[i],
 							messageHeaders,
-							{ message: result.reason.message, stack: result.reason.stack }
+							this.error2ErrorInfoParser(result.reason)
 						);
 					} else {
 						// Drop message
@@ -639,15 +635,12 @@ class RedisAdapter extends BaseAdapter {
 					await pubClient.xack(chan.name, chan.group, id);
 				} else {
 					// write back to the stream for retrying
-					await pubClient.hset(messageKey, {
-						status: "retrying",
-						last_error_message: result.reason.message,
-						last_error_stack: result.reason.stack,
-						timestamp: Date.now()
-					});
+					// It will be (eventually) picked by xclaim failed_messages() or xreadgroup()
+					const parsedError = this.error2ErrorInfoParser(result.reason);
+					await pubClient.hset(messageKey, parsedError);
 
 					// auto-expire to avoid stale data
-					await pubClient.expire(messageKey, 24 * 3600); // 1 day
+					await pubClient.expire(messageKey, this.errorInfoTTL); // 1 day
 				}
 			}
 		}
@@ -670,7 +663,7 @@ class RedisAdapter extends BaseAdapter {
 					content = this.serializer.deserialize(currentVal[1][1]);
 				} catch (error) {
 					const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
-					throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+					throw new MoleculerError(msg, 400, C.INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
 						error
 					});
 				}
@@ -683,7 +676,7 @@ class RedisAdapter extends BaseAdapter {
 							: undefined;
 				} catch (error) {
 					const msg = `Failed to parse incoming headers at '${chan.name}' channel. Incoming headers must use ${this.opts.serializer} serialization.`;
-					throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+					throw new MoleculerError(msg, 400, C.INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
 						error
 					});
 				}
@@ -713,10 +706,7 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {String} originalID ID of the dead message
 	 * @param {Object} message Raw (not serialized) message contents
 	 * @param {Object} headers Header contents
-	 * @param {{
-	 *   message?: string,
-	 *   stack?: string,
-	 * }} [errorInfo] Error info
+	 * @param {Record<string, any>} [errorInfo] Error info
 	 */
 	async moveToDeadLetter(chan, originalID, message, headers, errorInfo) {
 		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
@@ -728,8 +718,9 @@ class RedisAdapter extends BaseAdapter {
 			[C.HEADER_ORIGINAL_GROUP]: chan.group
 		};
 
-		if (errorInfo?.message) msgHdrs[C.HEADER_ERROR_MESSAGE] = errorInfo.message;
-		if (errorInfo?.stack) msgHdrs[C.HEADER_ERROR_STACK] = errorInfo.stack;
+		if (errorInfo && Object.keys(errorInfo).length) {
+			Object.entries(errorInfo).forEach(([key, val]) => (msgHdrs[key] = val));
+		}
 
 		// Move the message to a dedicated channel
 		const nackedClient = this.clients.get(this.nackedName);

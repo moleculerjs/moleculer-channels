@@ -27,6 +27,8 @@ const C = require("./constants");
  * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
  * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
  * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
+ * @property {(error: Error) => Record<string, any>} [error2ErrorInfoParser] Function to convert Error object to a plain object
+ * @property {Number} errorInfoTTL Time-to-live in seconds for error info storage (only for Redis adapter)
  */
 
 /**

@@ -15,6 +15,16 @@ module.exports = {
 	HEADER_ERROR_CODE: "x-error-code",
 	/** Error stack trace */
 	HEADER_ERROR_STACK: "x-error-stack",
+	/** Error type */
+	HEADER_ERROR_TYPE: "x-error-type",
+	/** Error data */
+	HEADER_ERROR_DATA: "x-error-data",
+	/** Error name */
+	HEADER_ERROR_NAME: "x-error-name",
+	/** Error retryable */
+	HEADER_ERROR_RETRYABLE: "x-error-retryable",
+	/** Timestamp when the error happened */
+	HEADER_ERROR_TIMESTAMP: "x-error-timestamp",
 
 	METRIC_CHANNELS_MESSAGES_SENT: "moleculer.channels.messages.sent",
 	METRIC_CHANNELS_MESSAGES_TOTAL: "moleculer.channels.messages.total",
