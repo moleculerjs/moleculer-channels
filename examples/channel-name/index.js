@@ -151,7 +151,7 @@ broker.createService({
 	actions: {
 		"demo.level.5": {
 			async handler(ctx) {
-				const channelName = ctx.channelName;
+				const channelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
 				const msg = `Flow level: ${level}, Type: Action, Name: 'demo.level.5', Caller: ${caller}, Channel name: ${channelName}`;
