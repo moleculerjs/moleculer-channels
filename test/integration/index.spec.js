@@ -175,11 +175,23 @@ describe("Integration tests", () => {
 						"test.simple.topic": {
 							context: true,
 							handler: subTestTopicHandler
-						},
+						}
+					}
+				});
+
+				broker.createService({
+					name: "anotherSub",
+					channels: {
 						"another.topic": {
 							context: true,
 							handler: anotherTestTopicHandler
-						},
+						}
+					}
+				});
+
+				broker.createService({
+					name: "thirdSub",
+					channels: {
 						"third.topic": {
 							context: true,
 							handler: thirdTestTopicHandler
@@ -314,6 +326,7 @@ describe("Integration tests", () => {
 					expect(ctxSubTestTopicHandler.currentChannelName).toBe("test.simple.topic");
 					// was called from outside of a channel handler, so parentChannelName should be undefined
 					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
+					expect(ctxSubTestTopicHandler.caller).toBe(null);
 
 					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
 					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
@@ -322,6 +335,7 @@ describe("Integration tests", () => {
 					expect(ctxAnotherTestTopicHandler.currentChannelName).toBe("another.topic");
 					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
 					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
+					expect(ctxAnotherTestTopicHandler.caller).toBe("sub");
 
 					const [ctxThirdTestTopicHandler] = thirdTestTopicHandler.mock.calls[0];
 					expect(ctxThirdTestTopicHandler).toBeInstanceOf(Context);
@@ -330,6 +344,7 @@ describe("Integration tests", () => {
 					expect(ctxThirdTestTopicHandler.currentChannelName).toBe("third.topic");
 					// was called from the "another.topic" channel handler so the ctx in thirdTestTopicHandler should have the parentChannelName set
 					expect(ctxThirdTestTopicHandler.parentChannelName).toBe("another.topic");
+					expect(ctxThirdTestTopicHandler.caller).toBe("anotherSub");
 				});
 			});
 
