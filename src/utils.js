@@ -50,13 +50,13 @@ const parseBase64 = b64str => {
 /**
  * Converts Error object to a plain object
  * @param {any} err
- * @returns {Object}
+ * @returns {Record<string, string>|null}
  */
 const error2ErrorInfoParser = err => {
 	if (!err) return null;
 
 	return {
-		// Encode to base64 to support special characters. For example, NATS JetStream does not support \n or \r in headers
+		// Encode to base64 to because of special characters For example, NATS JetStream does not support \n or \r in headers
 		...(err.message ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) } : {}),
 		...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
 		...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),

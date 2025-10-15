@@ -33,9 +33,11 @@ npm i @moleculer/channels
 ## Communication diagram
 
 **Native Communication**
+
 ![Communication Overview diagram](assets/overview.png)
 
 **Integration With A Third-Party System**
+
 ![Third-Party](assets/legacy.png)
 
 > **Note**: If you want to send messages to moleculer-services via channels from an external system, you must use the same serialization format as defined in the adapter options (default is `JSON`). Otherwise, the services won't be able to parse the incoming messages.
@@ -221,6 +223,8 @@ module.exports = {
 | `maxRetries`                           | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
 | `deadLettering.enabled`                | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
 | `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
+| `deadLettering.errorInfoTTL`           | `Number`                                  | \*                 | [Redis adapter only] TTL (in seconds) of error info messages stored in a separate hash. Default is `86400` (1 day).                                                                                               |
+| `deadLettering.error2ErrorInfoParser`  | `Function`                                | \*                 | Function to parse error instance to a plain object which will be stored in message headers.                                                                                                                       |
 | `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.                                                                                                                                                                      |
 | `tracing`                              | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`.                                                              |
 | `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
@@ -242,6 +246,38 @@ module.exports = {
 If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
 When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
 If the dead-lettering feature is enabled with `deadLettering.enabled: true` option then the adapter will move the message into the `deadLettering.queueName` queue/topic.
+
+You can customize the error information that will be stored in the message headers by providing a custom `error2ErrorInfoParser` function in the `deadLettering` options. By default, the parser stores the `message`, `stack`, `code`, `type`, `data`, `name` and `retryable` properties of the error object (if they exist) in the headers as base64 encoded strings. Encoding is necessary to handle special characters, as some message brokers (like NATS JetStream) do not support characters like `\n` or `\r` in headers.
+
+Also note that, for `Redis` adapter it's not possible to update the original message with error info, to overcome this limitation the adapter will store error info in a separate hash with the message ID as the key. You can customize the TTL of these error info message by setting `deadLettering.errorInfoTTL`, which defaults to `1 day`. When `Redis` adapter moves a message to the dead-letter queue, it will merge the original message with the error info from the hash.
+
+**Default error to headers parser**
+
+```js
+/**
+ * Converts Error object to a plain object
+ * @param {any} err
+ * @returns {Record<string, string>|null}
+ */
+const error2ErrorInfoParser = err => {
+    if (!err) return null;
+
+    return {
+        // Encode to base64 to because of special characters
+        // For example, NATS JetStream does not support \n or \r in headers
+        ...(err.message ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) } : {}),
+        ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+        ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
+        ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
+        ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
+        ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
+        ...(err.retryable !== undefined
+            ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
+            : {}),
+        [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+    };
+};
+```
 
 **Dead-Letter Logic**
 
@@ -623,6 +659,30 @@ module.exports = {
                             // Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
                             processingAttemptsInterval: 1000
                         }
+                    },
+                    deadLettering: {
+                        error2ErrorInfoParser: err => {
+                            if (!err) return null;
+
+                            return {
+                                // Encode to base64 to because of special characters. For example, NATS JetStream does not support \n or \r in headers
+                                ...(err.message
+                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
+                                    : {}),
+                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
+                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
+                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
+                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
+                                ...(err.retryable !== undefined
+                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
+                                    : {}),
+                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+                            };
+                        },
+
+                        // Time to live for error info in dedicated hash (in seconds). Default: 24 hours
+                        errorInfoTTL: 24 * 60 * 60 // 24 hours
                     }
                 }
             }
@@ -711,6 +771,26 @@ module.exports = {
                         enabled: false
                         //queueName: "DEAD_LETTER",
                         //exchangeName: "DEAD_LETTER"
+
+                        // Optional custom error to headers parser function
+                        error2ErrorInfoParser: err => {
+                        	if (!err) return null;
+                        	return {
+                        		// Encode to base64 to because of special characters. For example, NATS JetStream does not support \n or \r in headers
+                        		...(err.message
+                        			? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
+                        			: {}),
+                        		...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+                        		...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
+                        		...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
+                        		...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
+                        		...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
+                        		...(err.retryable !== undefined
+                        			? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
+                        			: {}),
+                        		[HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+                        	};
+                        },
                     }
                 }
             }
@@ -791,7 +871,26 @@ module.exports = {
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
-                        queueName: "DEAD_LETTER"
+                        queueName: "DEAD_LETTER",
+                        // Optional custom error to headers parser function
+                        error2ErrorInfoParser: err => {
+                            if (!err) return null;
+                            return {
+                                // Encode to base64 to because of special characters. For example, NATS JetStream does not support \n or \r in headers
+                                ...(err.message
+                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
+                                    : {}),
+                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
+                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
+                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
+                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
+                                ...(err.retryable !== undefined
+                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
+                                    : {}),
+                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+                            };
+                        }
                     }
                 }
             }
@@ -851,7 +950,26 @@ module.exports = {
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
-                        queueName: "DEAD_LETTER"
+                        queueName: "DEAD_LETTER",
+                        // Optional custom error to headers parser function
+                        error2ErrorInfoParser: err => {
+                            if (!err) return null;
+                            return {
+                                // Encode to base64 to because of special characters. For example, NATS JetStream does not support \n or \r in headers
+                                ...(err.message
+                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
+                                    : {}),
+                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
+                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
+                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
+                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
+                                ...(err.retryable !== undefined
+                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
+                                    : {}),
+                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+                            };
+                        }
                     }
                 }
             }
