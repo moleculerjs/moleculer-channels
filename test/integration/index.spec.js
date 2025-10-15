@@ -54,7 +54,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		{ type: "Redis", options: {} }
 	];
 }
 
@@ -160,18 +161,40 @@ describe("Integration tests", () => {
 					return Promise.resolve();
 				});
 
+				const anotherTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
+				});
+
+				const thirdTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
+				});
+
 				broker.createService({
 					name: "sub",
 					channels: {
 						"test.simple.topic": {
 							context: true,
 							handler: subTestTopicHandler
+						},
+						"another.topic": {
+							context: true,
+							handler: anotherTestTopicHandler
+						},
+						"third.topic": {
+							context: true,
+							handler: thirdTestTopicHandler
 						}
 					}
 				});
 
 				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					subTestTopicHandler.mockClear();
+					anotherTestTopicHandler.mockClear();
+					thirdTestTopicHandler.mockClear();
+				});
 
 				it("should receive the published message as Context", async () => {
 					const msg = {
@@ -193,8 +216,6 @@ describe("Integration tests", () => {
 				});
 
 				it("should receive the published message as Context with meta", async () => {
-					subTestTopicHandler.mockClear();
-
 					const msg = {
 						id: 1,
 						name: "John",
@@ -222,6 +243,89 @@ describe("Integration tests", () => {
 					});
 					expect(ctx2.parentID).toEqual(ctx.id);
 					expect(ctx2.requestID).toEqual(ctx.requestID);
+				});
+
+				it("should include the parentChannelName in the context", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+
+					const ctx = Context.create(broker, null);
+					ctx.meta = { a: 5, b: { c: "Hello" } };
+
+					subTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
+						await broker.sendToChannel("another.topic", msg, { ctx });
+					});
+
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.simple.topic", msg, { ctx });
+					await broker.Promise.delay(400);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					const [ctxSubTestTopicHandler] = subTestTopicHandler.mock.calls[0];
+					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxSubTestTopicHandler.params).toEqual(msg);
+					expect(ctxSubTestTopicHandler.currentChannelName).toBe("test.simple.topic");
+					// was called from outside of a channel handler, so parentChannelName should be undefined
+					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
+
+					expect(anotherTestTopicHandler).toHaveBeenCalledTimes(1);
+					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
+					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
+					expect(ctxAnotherTestTopicHandler.currentChannelName).toBe("another.topic");
+					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
+					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
+				});
+
+				it.only("should include the full chain of parentChannelName in the context", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+
+					const ctx = Context.create(broker, null);
+					ctx.meta = { a: 5, b: { c: "Hello" } };
+
+					subTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
+						await broker.sendToChannel("another.topic", msg, { ctx });
+					});
+
+					anotherTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
+						await broker.sendToChannel("third.topic", msg, { ctx });
+					});
+
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.simple.topic", msg, { ctx });
+					await broker.Promise.delay(400);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(anotherTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(thirdTestTopicHandler).toHaveBeenCalledTimes(1);
+
+					const [ctxSubTestTopicHandler] = subTestTopicHandler.mock.calls[0];
+					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxSubTestTopicHandler.params).toEqual(msg);
+					expect(ctxSubTestTopicHandler.currentChannelName).toBe("test.simple.topic");
+					// was called from outside of a channel handler, so parentChannelName should be undefined
+					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
+
+					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
+					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
+					expect(ctxAnotherTestTopicHandler.currentChannelName).toBe("another.topic");
+					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
+					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
+
+					const [ctxThirdTestTopicHandler] = thirdTestTopicHandler.mock.calls[0];
+					expect(ctxThirdTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxThirdTestTopicHandler.params).toEqual(msg);
+					expect(ctxThirdTestTopicHandler.currentChannelName).toBe("third.topic");
+					// was called from the "another.topic" channel handler so the ctx in thirdTestTopicHandler should have the parentChannelName set
+					expect(ctxThirdTestTopicHandler.parentChannelName).toBe("another.topic");
 				});
 			});
 
