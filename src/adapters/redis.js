@@ -638,11 +638,10 @@ class RedisAdapter extends BaseAdapter {
 					// It will be (eventually) picked by xclaim failed_messages() or xreadgroup()
 					const parsedError = this.error2ErrorInfoParser(result.reason);
 
-					if (parsedError && Object.keys(parsedError).length === 0) {
+					if (parsedError && Object.keys(parsedError).length > 0) {
 						await pubClient.hset(messageKey, parsedError);
-
 						// auto-expire to avoid stale data
-						await pubClient.expire(messageKey, this.errorInfoTTL); // 1 day
+						await pubClient.expire(messageKey, this.errorInfoTTL);
 					}
 				}
 			}
