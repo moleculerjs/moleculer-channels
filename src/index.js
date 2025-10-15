@@ -330,7 +330,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 								const ctx = Context.create(broker, null, msg, {
 									parentCtx,
-									caller: headers.$parentServiceName
+									caller: headers?.$parentServiceName
 										? headers.$parentServiceName
 										: caller,
 									meta,
