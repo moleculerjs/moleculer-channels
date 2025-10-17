@@ -77,3 +77,12 @@ services:
     ports:
       - "9092:9092"
       - "9093:9093"
+
+  # console:
+  #   image: docker.redpanda.com/redpandadata/console:latest
+  #   environment:
+  #     - KAFKA_BROKERS=kafka:9092
+  #   ports:
+  #     - "8081:8080"
+  #   depends_on:
+  #     - kafka

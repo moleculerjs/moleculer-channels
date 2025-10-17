@@ -5,8 +5,6 @@ const { ServiceBroker, Context } = require("moleculer");
 const ChannelMiddleware = require("./../../").Middleware;
 const { parseBase64 } = require("./../../src/utils");
 
-const Kafka = require("kafkajs").Kafka;
-
 let Adapters;
 
 if (process.env.GITHUB_ACTIONS_CI) {
@@ -1229,17 +1227,18 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 }
 
 async function createKafkaTopics(adapter, defs) {
-	const kafka = new Kafka({
-		clientId: "moleculer-channel-test",
-		brokers: adapter.options.kafka.brokers
-	});
-	const admin = kafka.admin();
+	const Kafka = await import("@platformatic/kafka");
 
-	await admin.connect();
+	const admin = new Kafka.Admin({
+		clientId: "moleculer-channel-test",
+		bootstrapBrokers: adapter.options.kafka.brokers
+	});
+
+	await admin.connectToBrokers();
 	const topics = await admin.listTopics();
 	defs = defs.filter(def => !topics.includes(def.topic));
 	await admin.createTopics({
 		topics: defs
 	});
-	await admin.disconnect();
+	await admin.close();
 }
