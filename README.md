@@ -262,20 +262,24 @@ Also note that, for `Redis` adapter it's not possible to update the original mes
 const error2ErrorInfoParser = err => {
     if (!err) return null;
 
-    return {
-        // Encode to base64 because of special characters
-        // For example, NATS JetStream does not support \n or \r in headers
-        ...(err.message ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) } : {}),
-        ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-        ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-        ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-        ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-        ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-        ...(err.retryable !== undefined
-            ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-            : {}),
-        [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+    let errorHeaders = {
+        ...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message } : {}),
+        ...(err.stack ? { [HEADER_ERROR_STACK]: err.stack } : {}),
+        ...(err.code ? { [HEADER_ERROR_CODE]: err.code } : {}),
+        ...(err.type ? { [HEADER_ERROR_TYPE]: err.type } : {}),
+        ...(err.data ? { [HEADER_ERROR_DATA]: err.data } : {}),
+        ...(err.name ? { [HEADER_ERROR_NAME]: err.name } : {}),
+        ...(err.retryable !== undefined ? { [HEADER_ERROR_RETRYABLE]: err.retryable } : {})
     };
+
+    if (Object.keys(errorHeaders).length === 0) return null;
+
+    errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now();
+
+    // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
+    Object.keys(errorHeaders).forEach(key => (errorHeaders[key] = toBase64(errorHeaders[key])));
+
+    return errorHeaders;
 };
 ```
 
