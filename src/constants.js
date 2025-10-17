@@ -40,5 +40,10 @@ module.exports = {
 	 * Thrown when incoming messages cannot be deserialized
 	 * More context: https://github.com/moleculerjs/moleculer-channels/issues/76
 	 */
-	INVALID_MESSAGE_SERIALIZATION_ERROR_CODE: "INVALID_MESSAGE_SERIALIZATION"
+	INVALID_MESSAGE_SERIALIZATION_ERROR_CODE: "INVALID_MESSAGE_SERIALIZATION",
+
+	/**
+	 * Thrown when outgoing messages cannot be serialized
+	 */
+	SERIALIZER_FAILED_ERROR_CODE: "SERIALIZER_FAILED"
 };

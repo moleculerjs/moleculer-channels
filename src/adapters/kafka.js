@@ -61,9 +61,6 @@ class KafkaAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type {Logger} */
-		this.kafkaLogger = null;
-
 		/** @type {KafkaDefaultOptions & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			maxInFlight: 1,
@@ -122,8 +119,6 @@ class KafkaAdapter extends BaseAdapter {
 		// this.checkClientLibVersion("@platformatic/kafka", "^1.15.0 || ^2.0.0");
 
 		this.opts.kafka.clientId = this.opts.consumerName;
-
-		this.kafkaLogger = this.broker.getLogger("Channels.KafkaJs");
 	}
 
 	/**
@@ -134,26 +129,14 @@ class KafkaAdapter extends BaseAdapter {
 	 */
 	_serialize(data) {
 		try {
-			const result = this.serializer.serialize(data);
-			return result;
+			return this.serializer.serialize(data);
 		} catch (e) {
-			console.error("Error in customSerializer:", e.message);
-			return Buffer.from(JSON.stringify({ error: "Serialization failed" }));
-		}
-	}
-
-	/**
-	 * https://github.com/platformatic/kafka/blob/main/docs/other.md#serialisation-and-deserialisation
-	 * @param {any} data
-	 * @returns {any}
-	 */
-	_deserialize(data) {
-		try {
-			const result = this.serializer.deserialize(data);
-			return result;
-		} catch (e) {
-			console.error("Error in customDeserializer:", e.message);
-			return { error: "Deserialization failed" };
+			throw new MoleculerError(
+				"Unable to serialize message for Kafka producer.",
+				500,
+				C.SERIALIZER_FAILED_ERROR_CODE,
+				{ error: e }
+			);
 		}
 	}
 
@@ -190,8 +173,8 @@ class KafkaAdapter extends BaseAdapter {
 		this.producer = new KafkaLibRef.Producer({
 			serializers: {
 				key: KafkaLibRef.stringSerializers.key,
-				value: this._serialize.bind(this),
-				// value: KafkaLibRef.stringSerializers.value,
+				// value: this._serialize.bind(this),
+				value: data => data,
 				headerKey: KafkaLibRef.stringSerializers.headerKey,
 				headerValue: KafkaLibRef.stringSerializers.headerValue
 			},
@@ -311,7 +294,6 @@ class KafkaAdapter extends BaseAdapter {
 			const consumer = new KafkaLibRef.Consumer({
 				deserializers: {
 					key: KafkaLibRef.stringDeserializers.key,
-					// value: this._deserialize.bind(this),
 					value: data => data, // leave as buffer for custom deserialization
 					headerKey: KafkaLibRef.stringDeserializers.headerKey,
 					headerValue: KafkaLibRef.stringDeserializers.headerValue
@@ -359,16 +341,17 @@ class KafkaAdapter extends BaseAdapter {
 				?.partitions.find(p => typeof p.leaderEpoch === "number")?.leaderEpoch;
 
 			// Start consuming messages
-			this.logger.debug(`Configuring consumer stream...`, { chan });
+			this.logger.debug(
+				`Configuring consumer stream for '${chan.name}' topic at '${chan.id}'...`
+			);
 			const consumerStream = await consumer.consume({
 				autocommit: false,
 				// ToDo: confirm the partition concurrency
 				topics: [chan.name],
 				// More info: https://github.com/platformatic/kafka/blob/main/docs/consumer.md
-				mode: KafkaLibRef.MessagesStreamModes.EARLIEST
+				mode: KafkaLibRef.MessagesStreamModes.LATEST
 			});
 
-			this.logger.info("chan.id ===============================================", chan.id);
 			this.consumerStreams.set(chan.id, consumerStream);
 
 			consumerStream.on("data", async payload => {
@@ -377,13 +360,13 @@ class KafkaAdapter extends BaseAdapter {
 
 			consumerStream.on("error", err => {
 				this.logger.error(
-					`Consumer stream error at '${chan.name}' topic at '${chan.id}'`,
+					`Consumer stream error at '${chan.id}' for '${chan.name}' topic`,
 					err
 				);
 			});
 
 			consumerStream.on("end", () => {
-				this.logger.debug(`Stopped consuming from '${chan.name}' topic at '${chan.id}'`);
+				this.logger.debug(`Consumer stream ended at '${chan.id}' for '${chan.name}' topic`);
 			});
 
 			this.logger.info(
@@ -422,17 +405,14 @@ class KafkaAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel & KafkaDefaultOptions} chan
 	 * @param {KafkaConsumer} consumer
-	 * @param {EachMessagePayload} payload
+	 * @param {EachMessagePayload} message
 	 * @param {Object} opts
 	 * @param {number} opts.leaderEpoch
 	 * @returns {Promise<void>}
 	 */
-	async processMessage(
-		chan,
-		consumer,
-		{ topic, partition, value: message, commit, headers, key, offset, timestamp },
-		{ leaderEpoch }
-	) {
+	async processMessage(chan, consumer, message, { leaderEpoch }) {
+		const { topic, partition, value, commit, headers, key, offset, timestamp } = message;
+
 		// Service is stopping. Skip processing...
 		if (chan.unsubscribing) return;
 
@@ -457,17 +437,21 @@ class KafkaAdapter extends BaseAdapter {
 					`The message is addressed to other group '${group}'. Current group: '${chan.group}'. Skipping...`
 				);
 				// Acknowledge
+				// await commit();
 				await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 				return;
 			}
 		}
 
+		/**
+		 * @type {unknown} Will contain the deserialized message content
+		 */
+		let content;
 		try {
 			this.addChannelActiveMessages(chan.id, [id]);
 
-			let content;
 			try {
-				content = this.serializer.deserialize(message);
+				content = this.serializer.deserialize(value);
 			} catch (error) {
 				const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
 				throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
@@ -485,6 +469,7 @@ class KafkaAdapter extends BaseAdapter {
 				leaderEpoch
 			});
 			// Acknowledge
+			// await commit();
 			await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 
 			this.removeChannelActiveMessages(chan.id, [id]);
@@ -509,6 +494,7 @@ class KafkaAdapter extends BaseAdapter {
 					// No retries, drop message
 					this.logger.error(`No retries, drop message...`);
 				}
+				// await commit();
 				await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 				return;
 			}
@@ -540,7 +526,7 @@ class KafkaAdapter extends BaseAdapter {
 					`Redeliver message into '${chan.name}' topic. Count: ${redeliveryCount}`
 				);
 
-				await this.publish(chan.name, message, {
+				await this.publish(chan.name, value, {
 					raw: true,
 					key: key,
 					headers: Object.assign({}, Object.fromEntries(headers ?? []), {
@@ -551,6 +537,7 @@ class KafkaAdapter extends BaseAdapter {
 
 				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 			}
+			// await commit();
 			await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 		}
 	}
@@ -670,7 +657,7 @@ class KafkaAdapter extends BaseAdapter {
 
 		this.logger.debug(`Publish a message to '${channelName}' topic...`, payload, opts);
 
-		const data = JSON.stringify(payload);
+		const data = opts.raw ? payload : this._serialize(payload);
 		// const data = opts.raw ? payload : this.serializer.serialize(payload);
 		// old KafkaJS code:
 		// const res = await this.producer.send({
@@ -687,7 +674,7 @@ class KafkaAdapter extends BaseAdapter {
 			messages: [
 				{
 					// generate random message value
-					value: payload,
+					value: data,
 					key: opts.key,
 					partition: opts.partition,
 					headers: opts.headers,
