@@ -23,7 +23,6 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
  * @typedef {import('@platformatic/kafka').AdminOptions} KafkaConfig Kafka configuration
  * @typedef {import('@platformatic/kafka').ProducerOptions<unknown, unknown, unknown, unknown>} ProducerConfig Kafka producer configuration
  * @typedef {import('@platformatic/kafka').ConsumerOptions<unknown, unknown, unknown, unknown>} ConsumerConfig Kafka consumer configuration
- * @typedef {import('@platformatic/kafka').Message} EachMessagePayload Incoming message payload
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -292,6 +291,8 @@ class KafkaAdapter extends BaseAdapter {
 			// });
 
 			const consumer = new KafkaLibRef.Consumer({
+				...this.opts.kafka.consumerOptions,
+				...chan.kafka,
 				deserializers: {
 					key: KafkaLibRef.stringDeserializers.key,
 					value: data => data, // leave as buffer for custom deserialization
@@ -299,9 +300,9 @@ class KafkaAdapter extends BaseAdapter {
 					headerValue: KafkaLibRef.stringDeserializers.headerValue
 				},
 				groupId: `${chan.group}:${chan.name}`,
-				...this.opts.kafka.consumerOptions,
-				...chan.kafka,
-				bootstrapBrokers: this.opts.kafka.bootstrapBrokers
+				bootstrapBrokers: this.opts.kafka.bootstrapBrokers,
+				maxInflights: chan.maxInFlight,
+				retries: chan.maxRetries
 			});
 
 			this.consumers.set(chan.id, consumer);
@@ -326,36 +327,31 @@ class KafkaAdapter extends BaseAdapter {
 					`The topic '${chan.name}' does not exist. Creating the topic automatically...`
 				);
 				this.existingTopics.add(chan.name);
-				await this.admin.createTopics({
-					topics: [chan.name],
-					partitions: 1
-				});
+				await this.admin.createTopics({ topics: [chan.name] });
 			}
-
-			const metadata = await this.admin.metadata({
-				topics: [chan.name]
-			});
-
-			const leaderEpoch = metadata.topics
-				.get(chan.name)
-				?.partitions.find(p => typeof p.leaderEpoch === "number")?.leaderEpoch;
 
 			// Start consuming messages
 			this.logger.debug(
 				`Configuring consumer stream for '${chan.name}' topic at '${chan.id}'...`
 			);
 			const consumerStream = await consumer.consume({
+				...this.opts.kafka.consumerOptions,
+				...chan.kafka,
 				autocommit: false,
-				// ToDo: confirm the partition concurrency
 				topics: [chan.name],
 				// More info: https://github.com/platformatic/kafka/blob/main/docs/consumer.md
-				mode: KafkaLibRef.MessagesStreamModes.LATEST
+				mode: this.opts.kafka.consumerOptions?.mode || "latest"
 			});
 
 			this.consumerStreams.set(chan.id, consumerStream);
 
-			consumerStream.on("data", async payload => {
-				await this.processMessage(chan, consumer, payload, { leaderEpoch });
+			consumerStream.on("data", async message => {
+				await this.processMessage(chan, consumer, message).catch(err => {
+					this.logger.error(
+						`Error while processing message at '${chan.name}' topic in '${chan.id}'...`,
+						err
+					);
+				});
 			});
 
 			consumerStream.on("error", err => {
@@ -405,12 +401,10 @@ class KafkaAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel & KafkaDefaultOptions} chan
 	 * @param {KafkaConsumer} consumer
-	 * @param {EachMessagePayload} message
-	 * @param {Object} opts
-	 * @param {number} opts.leaderEpoch
+	 * @param {import('@platformatic/kafka').Message<string, Buffer, string, string>} message
 	 * @returns {Promise<void>}
 	 */
-	async processMessage(chan, consumer, message, { leaderEpoch }) {
+	async processMessage(chan, consumer, message) {
 		const { topic, partition, value, commit, headers, key, offset, timestamp } = message;
 
 		// Service is stopping. Skip processing...
@@ -418,12 +412,7 @@ class KafkaAdapter extends BaseAdapter {
 
 		this.logger.debug(
 			`Kafka consumer received a message in '${chan.name}' queue. Processing...`,
-			{
-				topic,
-				partition,
-				offset,
-				headers
-			}
+			{ topic, partition, offset, headers }
 		);
 
 		const id = `${partition}:${offset}`;
@@ -437,8 +426,8 @@ class KafkaAdapter extends BaseAdapter {
 					`The message is addressed to other group '${group}'. Current group: '${chan.group}'. Skipping...`
 				);
 				// Acknowledge
-				// await commit();
-				await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
+				await commit();
+				// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 				return;
 			}
 		}
@@ -465,12 +454,11 @@ class KafkaAdapter extends BaseAdapter {
 			this.logger.info("Message is processed. Committing offset", {
 				topic,
 				partition,
-				offset: newOffset,
-				leaderEpoch
+				offset: newOffset
 			});
 			// Acknowledge
-			// await commit();
-			await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
+			await commit();
+			// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 
 			this.removeChannelActiveMessages(chan.id, [id]);
 		} catch (err) {
@@ -494,8 +482,8 @@ class KafkaAdapter extends BaseAdapter {
 					// No retries, drop message
 					this.logger.error(`No retries, drop message...`);
 				}
-				// await commit();
-				await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
+				await commit();
+				// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 				return;
 			}
 
@@ -537,8 +525,8 @@ class KafkaAdapter extends BaseAdapter {
 
 				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 			}
-			// await commit();
-			await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
+			await commit();
+			// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 		}
 	}
 
@@ -575,7 +563,7 @@ class KafkaAdapter extends BaseAdapter {
 
 			this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`, message.key);
 		} catch (error) {
-			this.logger.info("An error occurred while moving", error);
+			this.logger.error("An error occurred while moving", error);
 		}
 	}
 
@@ -641,11 +629,14 @@ class KafkaAdapter extends BaseAdapter {
 	 *
 	 * @param {String} channelName
 	 * @param {any} payload
-	 * @param {Object?} opts
-	 * @param {Boolean?} opts.raw
-	 * @param {Buffer?|string?} opts.key
-	 * @param {Number?} opts.partition
-	 * @param {Object?} opts.headers
+	 * @param {Object} [opts]
+	 * @param {boolean} [opts.raw]
+	 * @param {Buffer|string} [opts.key]
+	 * @param {number} [opts.partition]
+	 * @param {Record<string, string>} [opts.headers]
+	 * @param {number} [opts.acks]
+	 * @param {"none" | "gzip" | "snappy" | "lz4" | "zstd"} [opts.compression]
+	 * @param {boolean} [opts.idempotent]
 	 */
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
@@ -681,7 +672,10 @@ class KafkaAdapter extends BaseAdapter {
 					topic: channelName
 				}
 			],
-			autocreateTopics: true
+			autocreateTopics: true,
+			acks: opts.acks,
+			compression: opts.compression,
+			idempotent: opts.idempotent
 		});
 
 		// old KafkaJS code:
@@ -704,7 +698,7 @@ class KafkaAdapter extends BaseAdapter {
 	parseMessageHeaders(raw) {
 		if (raw.headers) {
 			const res = {};
-			for (const [key, value] of Object.entries(raw.headers)) {
+			for (const [key, value] of raw.headers.entries()) {
 				res[key] = value != null ? value.toString() : null;
 			}
 
