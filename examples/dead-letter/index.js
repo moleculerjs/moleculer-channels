@@ -16,26 +16,28 @@ const broker = new ServiceBroker({
 			adapter: process.env.ADAPTER || "redis://localhost:6379"
 		})
 	],
-	replCommands: [
-		{
-			command: "publish",
-			alias: ["p"],
-			async action(broker, args) {
-				const payload = {
-					id: 2,
-					name: "Jane Doe",
-					status: false,
-					count: ++c,
-					pid: process.pid
-				};
+	replOptions: {
+		customCommands: [
+			{
+				command: "publish",
+				alias: ["p"],
+				async action(broker, args) {
+					const payload = {
+						id: 2,
+						name: "Jane Doe",
+						status: false,
+						count: ++c,
+						pid: process.pid
+					};
 
-				await broker.sendToChannel("my.fail.topic", payload, {
-					key: "" + c,
-					headers: { a: "123" }
-				});
+					await broker.sendToChannel("my.fail.topic", payload, {
+						key: "" + c,
+						headers: { a: "123" }
+					});
+				}
 			}
-		}
-	]
+		]
+	}
 });
 
 broker.createService({
@@ -84,6 +86,9 @@ broker.createService({
 			handler(ctx, raw) {
 				this.logger.info("--> FAILED HANDLER PARAMS <--");
 				this.logger.info(ctx.params);
+				this.logger.info("--> FAILED HANDLER HEADERS <--");
+				this.logger.info(ctx.headers);
+
 				// Send a notification about the failure
 
 				this.logger.info("--> RAW (ENTIRE) MESSAGE <--");

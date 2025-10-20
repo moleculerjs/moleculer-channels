@@ -14,7 +14,7 @@ const C = require("./constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
@@ -311,6 +311,19 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 										ctxHeaders = adapter.serializer.deserialize(
 											Buffer.from(headers.$headers, "base64")
 										);
+									}
+
+									if (
+										Object.keys(headers).some(key =>
+											key.startsWith(C.HEADER_ERROR_PREFIX)
+										)
+									) {
+										ctxHeaders = ctxHeaders || {};
+										Object.keys(headers).forEach(key => {
+											if (key.startsWith(C.HEADER_ERROR_PREFIX)) {
+												ctxHeaders[key] = headers[key];
+											}
+										});
 									}
 								}
 
