@@ -259,25 +259,33 @@ Also note that, for `Redis` adapter it's not possible to update the original mes
  * @param {any} err
  * @returns {Record<string, string>|null}
  */
+/**
+ * Converts Error object to a plain object
+ * @param {any} err
+ * @returns {Record<string, string>|null}
+ */
 const error2ErrorInfoParser = err => {
     if (!err) return null;
 
     let errorHeaders = {
-        ...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message } : {}),
-        ...(err.stack ? { [HEADER_ERROR_STACK]: err.stack } : {}),
-        ...(err.code ? { [HEADER_ERROR_CODE]: err.code } : {}),
-        ...(err.type ? { [HEADER_ERROR_TYPE]: err.type } : {}),
-        ...(err.data ? { [HEADER_ERROR_DATA]: err.data } : {}),
-        ...(err.name ? { [HEADER_ERROR_NAME]: err.name } : {}),
-        ...(err.retryable !== undefined ? { [HEADER_ERROR_RETRYABLE]: err.retryable } : {})
+        // primitive properties
+        ...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message.toString() } : {}),
+        ...(err.code ? { [HEADER_ERROR_CODE]: err.code.toString() } : {}),
+        ...(err.type ? { [HEADER_ERROR_TYPE]: err.type.toString() } : {}),
+        ...(err.name ? { [HEADER_ERROR_NAME]: err.name.toString() } : {}),
+        ...(typeof err.retryable === "boolean"
+            ? { [HEADER_ERROR_RETRYABLE]: err.retryable.toString() }
+            : {}),
+
+        // complex properties
+        // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
+        ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+        ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {})
     };
 
     if (Object.keys(errorHeaders).length === 0) return null;
 
-    errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now();
-
-    // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
-    Object.keys(errorHeaders).forEach(key => (errorHeaders[key] = toBase64(errorHeaders[key])));
+    errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now().toString();
 
     return errorHeaders;
 };

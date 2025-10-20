@@ -9,6 +9,8 @@ module.exports = {
 	/** Name of consumer group that could not process the message properly */
 	HEADER_ORIGINAL_GROUP: "x-original-group",
 
+	/** Prefix for error-related headers */
+	HEADER_ERROR_PREFIX: "x-error-",
 	/** Error message */
 	HEADER_ERROR_MESSAGE: "x-error-message",
 	/** Error code */

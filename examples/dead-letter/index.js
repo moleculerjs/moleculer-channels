@@ -3,8 +3,6 @@
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
 
-const deadServiceSchema = require("./dead.service");
-
 let c = 1;
 
 // Create broker
@@ -31,7 +29,10 @@ const broker = new ServiceBroker({
 					pid: process.pid
 				};
 
-				await broker.sendToChannel("my.fail.topic", payload, { key: "" + c });
+				await broker.sendToChannel("my.fail.topic", payload, {
+					key: "" + c,
+					headers: { a: "123" }
+				});
 			}
 		}
 	]
@@ -42,8 +43,10 @@ broker.createService({
 	channels: {
 		"my.fail.topic": {
 			group: "failgroup",
-			minIdleTime: 1000,
-			claimInterval: 500,
+			redis: {
+				minIdleTime: 1000,
+				claimInterval: 500
+			},
 			maxRetries: 3,
 			deadLettering: {
 				enabled: true,
@@ -57,6 +60,8 @@ broker.createService({
 		}
 	}
 });
+
+/**
 broker.createService({
 	name: "sub2",
 	channels: {
@@ -68,15 +73,17 @@ broker.createService({
 		}
 	}
 });
+*/
 
 broker.createService({
 	name: "sub3",
 	channels: {
 		DEAD_LETTER: {
+			context: true,
 			group: "failgroup",
-			handler(msg, raw) {
-				this.logger.info("--> FAILED HANDLER <--");
-				this.logger.info(msg);
+			handler(ctx, raw) {
+				this.logger.info("--> FAILED HANDLER PARAMS <--");
+				this.logger.info(ctx.params);
 				// Send a notification about the failure
 
 				this.logger.info("--> RAW (ENTIRE) MESSAGE <--");
