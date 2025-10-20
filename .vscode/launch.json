@@ -31,9 +31,9 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"name": "Jest",
-			"program": "${workspaceRoot}/node_modules/jest-cli/bin/jest.js",
-			"args": ["--testMatch", "\"**/integration/**/*.spec.js\"", "--runInBand"],
+			"name": "Vitest - integration tests",
+            "program": "${workspaceRoot}/node_modules/vitest/dist/cli.js",
+			"args": ["test/integration", "--no-file-parallelism"],
 			"cwd": "${workspaceRoot}",
 			"runtimeArgs": [
                 "--nolazy"
@@ -42,9 +42,9 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"name": "Jest single",
-			"program": "${workspaceRoot}/node_modules/jest-cli/bin/jest.js",
-			"args": ["--runInBand", "${fileBasenameNoExtension}"],
+			"name": "Vitest - single",
+            "program": "${workspaceRoot}/node_modules/vitest/dist/cli.js",
+			"args": ["--no-file-parallelism", "${fileBasenameNoExtension}"],
 			"console": "internalConsole",
 			"cwd": "${workspaceRoot}",
 			"runtimeArgs": [

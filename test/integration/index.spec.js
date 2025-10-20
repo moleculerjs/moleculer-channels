@@ -55,7 +55,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } }
 		// { type: "Redis", options: {} }
 	];
 }
@@ -977,17 +977,23 @@ describe("Integration tests", () => {
 							expect(arg2.headers).toBeDefined();
 							// In Kafka headers are a plain object but values are Buffers
 							expect(
-								parseBase64(Buffer.from(arg2.headers["x-error-message"]).toString())
+								parseBase64(
+									Buffer.from(arg2.headers.get("x-error-message")).toString()
+								)
 							).toBe("Something happened");
 							expect(
-								parseBase64(Buffer.from(arg2.headers["x-error-name"]).toString())
+								parseBase64(
+									Buffer.from(arg2.headers.get("x-error-name")).toString()
+								)
 							).toBe("Error");
 							expect(
-								parseBase64(Buffer.from(arg2.headers["x-error-stack"]).toString())
+								parseBase64(
+									Buffer.from(arg2.headers.get("x-error-stack")).toString()
+								)
 							).toEqual(expect.any(String));
 							expect(
 								parseBase64(
-									Buffer.from(arg2.headers["x-error-timestamp"]).toString()
+									Buffer.from(arg2.headers.get("x-error-timestamp")).toString()
 								)
 							).toEqual(expect.any(Number));
 						}
@@ -1064,14 +1070,14 @@ describe("Integration tests", () => {
 							expect(arg2).toBeDefined();
 							expect(arg2.headers).toBeDefined();
 							// In Redis headers are a plain object. Entries are base64 encoded
-							expect(parseBase64(arg2.headers["x-error-message"])).toBe(
+							expect(parseBase64(arg2.headers.get("x-error-message"))).toBe(
 								"Something happened"
 							);
-							expect(parseBase64(arg2.headers["x-error-name"])).toBe("Error");
-							expect(parseBase64(arg2.headers["x-error-stack"])).toEqual(
+							expect(parseBase64(arg2.headers.get("x-error-name"))).toBe("Error");
+							expect(parseBase64(arg2.headers.get("x-error-stack"))).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.headers["x-error-timestamp"])).toEqual(
+							expect(parseBase64(arg2.headers.get("x-error-timestamp"))).toEqual(
 								expect.any(Number)
 							);
 						}
@@ -1230,7 +1236,7 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 async function createKafkaTopics(adapter, defs) {
 	const admin = new Kafka.Admin({
 		clientId: "moleculer-channel-test",
-		bootstrapBrokers: adapter.options.kafka.brokers
+		bootstrapBrokers: adapter.options.kafka.bootstrapBrokers
 	});
 
 	await admin.connectToBrokers();
