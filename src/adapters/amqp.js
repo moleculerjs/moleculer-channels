@@ -93,9 +93,6 @@ class AmqpAdapter extends BaseAdapter {
 				.map(s => s.trim());
 		}
 
-		this.error2ErrorInfoParser =
-			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
-
 		/** @type {AMQPLibConnection} */
 		this.connection = null;
 		/** @type {AMQPLibChannel} */

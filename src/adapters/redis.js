@@ -101,9 +101,8 @@ class RedisAdapter extends BaseAdapter {
 			}
 		});
 
+		/** @type {Number} Time-to-live in seconds for error info storage (only for Redis adapter) */
 		this.errorInfoTTL = this.opts?.deadLettering?.errorInfoTTL || 24 * 3600; // 24 hours
-		this.error2ErrorInfoParser =
-			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		/**
 		 * @type {Map<string,Cluster|Redis>}

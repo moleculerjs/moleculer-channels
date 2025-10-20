@@ -11,7 +11,6 @@ const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
-const { error2ErrorInfoParser } = require("../utils");
 /** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
@@ -96,9 +95,6 @@ class KafkaAdapter extends BaseAdapter {
 				consumerOptions: undefined
 			}
 		});
-
-		this.error2ErrorInfoParser =
-			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
 
 		/** @type {KafkaClient} */
 		this.client = null;
