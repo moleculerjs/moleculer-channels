@@ -301,8 +301,7 @@ class KafkaAdapter extends BaseAdapter {
 				},
 				groupId: `${chan.group}:${chan.name}`,
 				bootstrapBrokers: this.opts.kafka.bootstrapBrokers,
-				maxInflights: chan.maxInFlight,
-				retries: chan.maxRetries
+				maxInflights: chan.maxInFlight
 			});
 
 			this.consumers.set(chan.id, consumer);
@@ -340,7 +339,7 @@ class KafkaAdapter extends BaseAdapter {
 				autocommit: false,
 				topics: [chan.name],
 				// More info: https://github.com/platformatic/kafka/blob/main/docs/consumer.md
-				mode: this.opts.kafka.consumerOptions?.mode || "latest"
+				mode: this.opts.kafka.consumerOptions?.mode || "committed"
 			});
 
 			this.consumerStreams.set(chan.id, consumerStream);

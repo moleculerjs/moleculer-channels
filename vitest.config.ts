@@ -10,6 +10,8 @@ export default defineConfig({
 
 		teardownTimeout: 10 * 1000,
 		testTimeout: 60 * 1000,
-		hookTimeout: 30 * 1000
+		hookTimeout: 30 * 1000,
+
+		maxConcurrency: 1
 	}
 });

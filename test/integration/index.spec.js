@@ -1125,13 +1125,19 @@ describe("Integration tests", () => {
 							expect(arg2.headers).toBeDefined();
 							// In Kafka headers are a plain object but values are Buffers
 							expect(
-								parseBase64(Buffer.from(arg2.headers.get("x-error-message")).toString())
+								parseBase64(
+									Buffer.from(arg2.headers.get("x-error-message")).toString()
+								)
 							).toBe("Something happened");
 							expect(
-								parseBase64(Buffer.from(arg2.headers.get("x-error-name")).toString())
+								parseBase64(
+									Buffer.from(arg2.headers.get("x-error-name")).toString()
+								)
 							).toBe("Error");
 							expect(
-								parseBase64(Buffer.from(arg2.headers.get("x-error-stack")).toString())
+								parseBase64(
+									Buffer.from(arg2.headers.get("x-error-stack")).toString()
+								)
 							).toEqual(expect.any(String));
 							expect(
 								parseBase64(
