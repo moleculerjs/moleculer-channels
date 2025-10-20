@@ -7,8 +7,8 @@
     "dev": "nodemon examples/index.js",
     "check": "tsc --noEmit true",
     "types": "tsc --emitDeclarationOnly true --noEmitOnError false",
-    "ci": "jest --watch",
-    "test": "jest --coverage --verbose",
+    "ci": "vitest --watch",
+    "test": "vitest --coverage --run",
     "lint": "eslint --ext=.js src examples test",
     "bench": "node benchmark/index.js",
     "bench:watch": "nodemon benchmark/index.js",
@@ -36,8 +36,8 @@
   },
   "devDependencies": {
     "@platformatic/kafka": "^1.17.1",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.7.2",
+    "@vitest/coverage-v8": "^3.2.4",
     "amqplib": "^0.10.9",
     "benchmarkify": "^4.0.0",
     "coveralls-next": "^5.0.0",
@@ -48,8 +48,6 @@
     "eslint-plugin-promise": "^6.1.1",
     "eslint-plugin-security": "^1.7.1",
     "ioredis": "^5.8.1",
-    "jest": "^29.7.0",
-    "jest-cli": "^29.7.0",
     "kleur": "^4.1.5",
     "moleculer": "^0.14.35",
     "moleculer-repl": "^0.7.4",
@@ -58,7 +56,8 @@
     "nodemon": "^3.1.10",
     "npm-check-updates": "^19.0.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
   "jest": {
     "testEnvironment": "node",

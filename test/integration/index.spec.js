@@ -1,9 +1,16 @@
 "use strict";
 
-const _ = require("lodash");
-const { ServiceBroker, Context } = require("moleculer");
-const ChannelMiddleware = require("./../../").Middleware;
-const { parseBase64 } = require("./../../src/utils");
+// const _ = require("lodash");
+// const { ServiceBroker, Context } = require("moleculer");
+// const ChannelMiddleware = require("./../../").Middleware;
+// const { parseBase64 } = require("./../../src/utils");
+
+import * as _ from "lodash";
+import { ServiceBroker, Context } from "moleculer";
+import { Middleware as ChannelMiddleware } from "./../../";
+import { parseBase64 } from "../../src/utils";
+import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { Kafka } from "@platformatic/kafka";
 
 let Adapters;
 
@@ -53,11 +60,12 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		{ type: "Redis", options: {} }
 	];
 }
 
-jest.setTimeout(60000);
+// jest.setTimeout(60000);
 
 let DELAY_AFTER_BROKER_START = 1000;
 
@@ -89,7 +97,7 @@ describe("Integration tests", () => {
 			describe("Test simple publish/subscribe logic", () => {
 				const broker = createBroker(adapter);
 
-				const subTestTopicHandler = jest.fn(() => {
+				const subTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
@@ -123,7 +131,7 @@ describe("Integration tests", () => {
 					_.defaultsDeep({ options: { serializer: "MsgPack" } }, adapter)
 				);
 
-				const subTestTopicHandler = jest.fn(() => {
+				const subTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
@@ -155,7 +163,7 @@ describe("Integration tests", () => {
 			describe("Test publish/subscribe logic with context", () => {
 				const broker = createBroker(adapter);
 
-				const subTestTopicHandler = jest.fn(() => {
+				const subTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
@@ -227,10 +235,10 @@ describe("Integration tests", () => {
 			describe("Test multiple subscription logic", () => {
 				const broker = createBroker(adapter);
 
-				const sub1TestTopic1Handler = jest.fn(() => Promise.resolve());
-				const sub1TestTopic2Handler = jest.fn(() => Promise.resolve());
-				const sub2TestTopic1Handler = jest.fn(() => Promise.resolve());
-				const sub2TestTopic2Handler = jest.fn(() => Promise.resolve());
+				const sub1TestTopic1Handler = vi.fn(() => Promise.resolve());
+				const sub1TestTopic2Handler = vi.fn(() => Promise.resolve());
+				const sub2TestTopic1Handler = vi.fn(() => Promise.resolve());
+				const sub2TestTopic2Handler = vi.fn(() => Promise.resolve());
 
 				broker.createService({
 					name: "sub1",
@@ -306,9 +314,9 @@ describe("Integration tests", () => {
 			describe("Test balanced subscription logic", () => {
 				const broker = createBroker(adapter);
 
-				const sub1Handler = jest.fn(() => Promise.resolve());
-				const sub2Handler = jest.fn(() => Promise.resolve());
-				const sub3Handler = jest.fn(() => Promise.resolve());
+				const sub1Handler = vi.fn(() => Promise.resolve());
+				const sub2Handler = vi.fn(() => Promise.resolve());
+				const sub3Handler = vi.fn(() => Promise.resolve());
 
 				broker.createService({
 					name: "sub1",
@@ -388,8 +396,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter);
 
 					const error = new Error("Something happened");
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
-					const subGoodHandler = jest.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
+					const subGoodHandler = vi.fn(() => Promise.resolve());
 
 					broker.createService({
 						name: "sub1",
@@ -450,8 +458,8 @@ describe("Integration tests", () => {
 				describe("Test Connection/Reconnection logic", () => {
 					const broker = createBroker(adapter);
 
-					const sub1Handler = jest.fn(() => Promise.resolve());
-					const sub2Handler = jest.fn(() => Promise.resolve());
+					const sub1Handler = vi.fn(() => Promise.resolve());
+					const sub2Handler = vi.fn(() => Promise.resolve());
 
 					beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 					afterAll(() => broker.stop());
@@ -559,8 +567,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter);
 
 					const error = new Error("Something happened");
-					const subGoodHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+					const subGoodHandler = vi.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
 
 					beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 					afterAll(() => broker.stop());
@@ -671,7 +679,7 @@ describe("Integration tests", () => {
 				describe("Test namespaces logic", () => {
 					// --- NO NAMESPACE ---
 					const broker1 = createBroker(adapter, { nodeID: "int-test-1" });
-					const subHandler1 = jest.fn(() => Promise.resolve());
+					const subHandler1 = vi.fn(() => Promise.resolve());
 					broker1.createService({
 						name: "sub",
 						channels: { "test.ns.topic": subHandler1 }
@@ -679,7 +687,7 @@ describe("Integration tests", () => {
 
 					// --- NAMESPACE A ---
 					const broker2 = createBroker(adapter, { nodeID: "int-test-2", namespace: "A" });
-					const subHandler2 = jest.fn(() => Promise.resolve());
+					const subHandler2 = vi.fn(() => Promise.resolve());
 					broker2.createService({
 						name: "sub",
 						channels: { "test.ns.topic": subHandler2 }
@@ -687,7 +695,7 @@ describe("Integration tests", () => {
 
 					// --- NAMESPACE B ---
 					const broker3 = createBroker(adapter, { nodeID: "int-test-3", namespace: "B" });
-					const subHandler3 = jest.fn(() => Promise.resolve());
+					const subHandler3 = vi.fn(() => Promise.resolve());
 					broker3.createService({
 						name: "sub",
 						channels: { "test.ns.topic": subHandler3 }
@@ -701,7 +709,7 @@ describe("Integration tests", () => {
 							namespace: "C"
 						}
 					);
-					const subHandler4 = jest.fn(() => Promise.resolve());
+					const subHandler4 = vi.fn(() => Promise.resolve());
 					broker4.createService({
 						name: "sub",
 						channels: { "test.ns.topic": { group: "other", handler: subHandler4 } }
@@ -712,7 +720,7 @@ describe("Integration tests", () => {
 						_.defaultsDeep({ options: { prefix: "C" } }, adapter),
 						{ nodeID: "int-test-5" }
 					);
-					const subHandler5 = jest.fn(() => Promise.resolve());
+					const subHandler5 = vi.fn(() => Promise.resolve());
 					broker5.createService({
 						name: "sub",
 						channels: { "test.ns.topic": { handler: subHandler5 } }
@@ -859,8 +867,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter, { logLevel: "debug" });
 
 					const error = new Error("Something happened");
-					const deadLetterHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+					const deadLetterHandler = vi.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
 
 					broker.createService({
 						name: "sub1",
@@ -999,8 +1007,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter);
 
 					const error = new Error("Something happened");
-					const deadLetterHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+					const deadLetterHandler = vi.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
 
 					broker.createService({
 						name: "sub1",
@@ -1169,9 +1177,9 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 			]
 		});
 
-		const defaultChannelHandler = jest.fn(() => Promise.resolve());
-		const redisChannelHandler = jest.fn(() => Promise.resolve());
-		const amqpChannelHandler = jest.fn(() => Promise.resolve());
+		const defaultChannelHandler = vi.fn(() => Promise.resolve());
+		const redisChannelHandler = vi.fn(() => Promise.resolve());
+		const amqpChannelHandler = vi.fn(() => Promise.resolve());
 
 		broker.createService({
 			name: "sub",
@@ -1227,8 +1235,6 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 }
 
 async function createKafkaTopics(adapter, defs) {
-	const Kafka = await import("@platformatic/kafka");
-
 	const admin = new Kafka.Admin({
 		clientId: "moleculer-channel-test",
 		bootstrapBrokers: adapter.options.kafka.brokers
