@@ -76,7 +76,7 @@ broker.createService({
 			const parentChannelName = ctx.parentChannelName;
 			const level = ctx.level;
 			const caller = ctx.caller;
-			const msg = `Flow level: ${level}, Type: Action, Name: 'publisher', Caller: ${caller}, Channel name: ${parentChannelName}`;
+			const msg = `Flow level: ${level}, Type: Action, Name: ${ctx.action.name}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 			this.logger.info(msg);
 
 			await broker.sendToChannel("my.topic.level.2", ctx.params.payload, {
@@ -97,7 +97,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: 'my.topic.level.2', Caller: ${caller}, Channel name: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
@@ -121,7 +121,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: 'my.topic.level.3', Caller: ${caller}, Channel name: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
@@ -145,7 +145,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: 'my.topic.level.4', Caller: ${caller}, Channel name: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
@@ -164,7 +164,7 @@ broker.createService({
 				const channelName = ctx?.options?.parentCtx?.currentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Action, Name: 'demo.level.5', Caller: ${caller}, Channel name: ${channelName}`;
+				const msg = `Flow level: ${level}, Type: Action, Name: ${ctx.action.name}, Caller: ${caller}, Channel name: ${channelName}`;
 				this.logger.info(msg);
 				// this.logger.info("Demo service called", ctx);
 			}
