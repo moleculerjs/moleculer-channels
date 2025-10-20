@@ -82,9 +82,6 @@ class NatsAdapter extends BaseAdapter {
 			}
 		});
 
-		this.error2ErrorInfoParser =
-			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
-
 		// Adapted from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
 		if (this.opts.nats.url)
 			this.opts.nats.connectionOptions.servers = this.opts.nats.url
