@@ -1,16 +1,11 @@
 "use strict";
 
-// const _ = require("lodash");
-// const { ServiceBroker, Context } = require("moleculer");
-// const ChannelMiddleware = require("./../../").Middleware;
-// const { parseBase64 } = require("./../../src/utils");
-
 import * as _ from "lodash";
 import { ServiceBroker, Context } from "moleculer";
 import { Middleware as ChannelMiddleware } from "./../../";
 import { parseBase64 } from "../../src/utils";
 import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
-import { Kafka } from "@platformatic/kafka";
+import * as Kafka from "@platformatic/kafka";
 
 let Adapters;
 
@@ -60,12 +55,10 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
-		{ type: "Redis", options: {} }
+		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		// { type: "Redis", options: {} }
 	];
 }
-
-// jest.setTimeout(60000);
 
 let DELAY_AFTER_BROKER_START = 1000;
 
