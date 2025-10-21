@@ -11,6 +11,7 @@ const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { transformErrorToHeaders } = require("../utils");
 
 let Amqplib;
 
@@ -18,7 +19,7 @@ let Amqplib;
  * @typedef {import('amqplib').Connection} AMQPLibConnection AMQP connection
  * @typedef {import('amqplib').Channel} AMQPLibChannel AMQP Channel. More info: http://www.squaremobius.net/amqp.node/channel_api.html#channel
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -419,7 +420,7 @@ class AmqpAdapter extends BaseAdapter {
 						this.logger.debug(
 							`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						await this.moveToDeadLetter(chan, msg);
+						await this.moveToDeadLetter(chan, msg, this.transformErrorToHeaders(err));
 					} else {
 						// No retries, drop message
 						this.logger.error(`No retries, drop message...`);
@@ -436,7 +437,7 @@ class AmqpAdapter extends BaseAdapter {
 						this.logger.debug(
 							`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						await this.moveToDeadLetter(chan, msg);
+						await this.moveToDeadLetter(chan, msg, this.transformErrorToHeaders(err));
 					} else {
 						// Reached max retries and no dead-letter topic, drop message
 						this.logger.error(
@@ -473,19 +474,27 @@ class AmqpAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 * @param {Object} msg
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, msg) {
+	async moveToDeadLetter(chan, msg, errorData) {
+		const headers = {
+			[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+			[C.HEADER_ORIGINAL_GROUP]: chan.group
+		};
+
+		if (errorData) {
+			Object.entries(errorData).forEach(([key, value]) => (headers[key] = value));
+		}
+
 		const res = this.channel.publish(
 			chan.deadLettering.exchangeName || "",
 			chan.deadLettering.queueName,
 			msg.content,
 			{
-				headers: {
-					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[C.HEADER_ORIGINAL_GROUP]: chan.group
-				}
+				headers
 			}
 		);
+
 		if (res === false) {
 			this.broker.logger.error(
 				"AMQP publish error. Write buffer is full. Throwing away message"

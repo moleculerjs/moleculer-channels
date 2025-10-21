@@ -35,6 +35,7 @@
     "moleculer": "^0.14.12 || ^0.15.0-0"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.7.2",
     "amqplib": "^0.10.9",
     "benchmarkify": "^4.0.0",
@@ -50,7 +51,7 @@
     "jest-cli": "^29.7.0",
     "kafkajs": "^2.2.4",
     "kleur": "^4.1.5",
-    "moleculer": "^0.14.35",
+    "moleculer": "^0.15.0-beta2",
     "moleculer-repl": "^0.7.4",
     "msgpack5": "^6.0.2",
     "nats": "^2.29.3",

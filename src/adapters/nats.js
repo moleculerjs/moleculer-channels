@@ -10,6 +10,7 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { transformErrorToHeaders } = require("../utils");
 const { MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 
 let NATS;
@@ -28,7 +29,7 @@ let NATS;
  * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
  * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -298,7 +299,11 @@ class NatsAdapter extends BaseAdapter {
 							this.logger.debug(
 								`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 							);
-							await this.moveToDeadLetter(chan, message);
+							await this.moveToDeadLetter(
+								chan,
+								message,
+								this.transformErrorToHeaders(error)
+							);
 						} else {
 							// Drop message
 							this.logger.error(`No retries, drop message...`, message.seq);
@@ -315,7 +320,11 @@ class NatsAdapter extends BaseAdapter {
 							this.logger.debug(
 								`Message redelivered too many times (${message.info.redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 							);
-							await this.moveToDeadLetter(chan, message);
+							await this.moveToDeadLetter(
+								chan,
+								message,
+								this.transformErrorToHeaders(error)
+							);
 						} else {
 							// Drop message
 							this.logger.error(
@@ -396,8 +405,9 @@ class NatsAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel} chan
 	 * @param {JsMsg} message JetStream message
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, message) {
+	async moveToDeadLetter(chan, message, errorData) {
 		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
 		try {
 			/** @type {JetStreamPublishOptions} */
@@ -409,6 +419,10 @@ class NatsAdapter extends BaseAdapter {
 					[C.HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			};
+
+			if (errorData) {
+				Object.entries(errorData).forEach(([key, value]) => (opts.headers[key] = value));
+			}
 
 			await this.publish(chan.deadLettering.queueName, message.data, opts);
 

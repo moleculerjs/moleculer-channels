@@ -14,7 +14,7 @@ const C = require("./constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
@@ -27,6 +27,9 @@ const C = require("./constants");
  * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
  * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
  * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
+ * @property {(error: Error) => Record<string, string>} [transformErrorToHeaders] Function to convert Error object to a plain object
+ * @property {(headers: Record<string, string>) => Record<string, any>} [transformHeadersToErrorData] Function to parse error info from headers
+ * @property {Number} errorInfoTTL Time-to-live in seconds for error info storage (only for Redis adapter)
  */
 
 /**
@@ -316,6 +319,19 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 										ctxHeaders = adapter.serializer.deserialize(
 											Buffer.from(headers.$headers, "base64")
 										);
+									}
+
+									if (
+										Object.keys(headers).some(key =>
+											key.startsWith(C.HEADER_ERROR_PREFIX)
+										)
+									) {
+										ctxHeaders = ctxHeaders || {};
+
+										ctxHeaders = {
+											...ctxHeaders,
+											...adapter.transformHeadersToErrorData(headers)
+										};
 									}
 								}
 

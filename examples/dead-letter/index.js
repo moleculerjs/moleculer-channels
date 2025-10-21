@@ -1,9 +1,10 @@
 "use strict";
 
-const { ServiceBroker } = require("moleculer");
+const {
+	ServiceBroker,
+	Errors: { MoleculerError }
+} = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
-
-const deadServiceSchema = require("./dead.service");
 
 let c = 1;
 
@@ -18,23 +19,28 @@ const broker = new ServiceBroker({
 			adapter: process.env.ADAPTER || "redis://localhost:6379"
 		})
 	],
-	replCommands: [
-		{
-			command: "publish",
-			alias: ["p"],
-			async action(broker, args) {
-				const payload = {
-					id: 2,
-					name: "Jane Doe",
-					status: false,
-					count: ++c,
-					pid: process.pid
-				};
+	replOptions: {
+		customCommands: [
+			{
+				command: "publish",
+				alias: ["p"],
+				async action(broker, args) {
+					const payload = {
+						id: 2,
+						name: "Jane Doe",
+						status: false,
+						count: ++c,
+						pid: process.pid
+					};
 
-				await broker.sendToChannel("my.fail.topic", payload, { key: "" + c });
+					await broker.sendToChannel("my.fail.topic", payload, {
+						key: "" + c,
+						headers: { a: "123" }
+					});
+				}
 			}
-		}
-	]
+		]
+	}
 });
 
 broker.createService({
@@ -42,8 +48,10 @@ broker.createService({
 	channels: {
 		"my.fail.topic": {
 			group: "failgroup",
-			minIdleTime: 1000,
-			claimInterval: 500,
+			redis: {
+				minIdleTime: 1000,
+				claimInterval: 500
+			},
 			maxRetries: 3,
 			deadLettering: {
 				enabled: true,
@@ -52,11 +60,21 @@ broker.createService({
 			},
 			handler() {
 				this.logger.error("Ups! Something happened");
-				return Promise.reject(new Error("Something happened"));
+				return Promise.reject(
+					new MoleculerError("Something happened", 123, "SOMETHING_ERROR", {
+						errorInfo: "Additional error information",
+						someOtherErrorData: 456,
+						anotherErrorField: true,
+						finalField: null,
+						nested: { a: 1, b: "two", c: false }
+					})
+				);
 			}
 		}
 	}
 });
+
+/**
 broker.createService({
 	name: "sub2",
 	channels: {
@@ -68,15 +86,20 @@ broker.createService({
 		}
 	}
 });
+*/
 
 broker.createService({
 	name: "sub3",
 	channels: {
 		DEAD_LETTER: {
+			context: true,
 			group: "failgroup",
-			handler(msg, raw) {
-				this.logger.info("--> FAILED HANDLER <--");
-				this.logger.info(msg);
+			handler(ctx, raw) {
+				this.logger.info("--> FAILED HANDLER PARAMS <--");
+				this.logger.info(ctx.params);
+				this.logger.info("--> FAILED HANDLER HEADERS <--");
+				this.logger.info(ctx.headers);
+
 				// Send a notification about the failure
 
 				this.logger.info("--> RAW (ENTIRE) MESSAGE <--");
