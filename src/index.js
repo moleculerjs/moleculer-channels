@@ -193,11 +193,8 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 								opts.headers.$caller = opts.ctx.service.fullName;
 							}
 
-							if (opts.ctx.currentChannelName) {
-								opts.headers.$parentChannelName = opts.ctx.currentChannelName;
-							}
-							if (opts.ctx.currentServiceName) {
-								opts.headers.$parentServiceName = opts.ctx.currentServiceName;
+							if (opts.ctx.channelName) {
+								opts.headers.$parentChannelName = opts.ctx.channelName;
 							}
 
 							// Serialize meta and headers
@@ -295,12 +292,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Wrap the handler with context creating
 						if (chan.context) {
 							wrappedHandler = (msg, raw) => {
-								let parentCtx,
-									caller,
-									meta,
-									ctxHeaders,
-									parentChannelName,
-									parentServiceName;
+								let parentCtx, caller, meta, ctxHeaders, parentChannelName;
 								const headers = adapter.parseMessageHeaders(raw);
 								if (headers) {
 									if (headers.$requestID) {
@@ -312,7 +304,6 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 										};
 										caller = headers.$caller;
 										parentChannelName = headers.$parentChannelName;
-										parentServiceName = headers.$parentServiceName;
 									}
 
 									if (headers.$meta) {
@@ -330,20 +321,15 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 								const ctx = Context.create(broker, null, msg, {
 									parentCtx,
-									caller: headers?.$parentServiceName
-										? headers.$parentServiceName
-										: caller,
+									caller,
 									meta,
 									headers: ctxHeaders
 								});
 
-								// attach channelName to context so in the handler we can use it
-								ctx.currentChannelName = chan.name;
-								ctx.currentServiceName = svc.fullName;
-								// It's the parent channel name that triggered this event
+								ctx.channelName = chan.name;
 								ctx.parentChannelName = parentChannelName;
-								ctx.parentServiceName = parentServiceName;
 
+								// Attach current service that has the channel handler to the context
 								ctx.service = svc;
 
 								return handler2(ctx, raw);
