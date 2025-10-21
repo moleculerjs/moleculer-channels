@@ -279,7 +279,7 @@ describe("Integration tests", () => {
 					const [ctxSubTestTopicHandler] = subTestTopicHandler.mock.calls[0];
 					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxSubTestTopicHandler.params).toEqual(msg);
-					expect(ctxSubTestTopicHandler.currentChannelName).toBe("test.simple.topic");
+					expect(ctxSubTestTopicHandler.channelName).toBe("test.simple.topic");
 					// was called from outside of a channel handler, so parentChannelName should be undefined
 					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
 
@@ -287,7 +287,7 @@ describe("Integration tests", () => {
 					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
 					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
-					expect(ctxAnotherTestTopicHandler.currentChannelName).toBe("another.topic");
+					expect(ctxAnotherTestTopicHandler.channelName).toBe("another.topic");
 					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
 					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
 				});
@@ -323,7 +323,7 @@ describe("Integration tests", () => {
 					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxSubTestTopicHandler.params).toEqual(msg);
 					expect(ctxSubTestTopicHandler.meta).toEqual(meta);
-					expect(ctxSubTestTopicHandler.currentChannelName).toBe("test.simple.topic");
+					expect(ctxSubTestTopicHandler.channelName).toBe("test.simple.topic");
 					// was called from outside of a channel handler, so parentChannelName should be undefined
 					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
 					expect(ctxSubTestTopicHandler.caller).toBe(null);
@@ -332,7 +332,7 @@ describe("Integration tests", () => {
 					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
 					expect(ctxAnotherTestTopicHandler.meta).toEqual(meta);
-					expect(ctxAnotherTestTopicHandler.currentChannelName).toBe("another.topic");
+					expect(ctxAnotherTestTopicHandler.channelName).toBe("another.topic");
 					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
 					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
 					expect(ctxAnotherTestTopicHandler.caller).toBe("sub");
@@ -341,7 +341,7 @@ describe("Integration tests", () => {
 					expect(ctxThirdTestTopicHandler).toBeInstanceOf(Context);
 					expect(ctxThirdTestTopicHandler.params).toEqual(msg);
 					expect(ctxThirdTestTopicHandler.meta).toEqual(meta);
-					expect(ctxThirdTestTopicHandler.currentChannelName).toBe("third.topic");
+					expect(ctxThirdTestTopicHandler.channelName).toBe("third.topic");
 					// was called from the "another.topic" channel handler so the ctx in thirdTestTopicHandler should have the parentChannelName set
 					expect(ctxThirdTestTopicHandler.parentChannelName).toBe("another.topic");
 					expect(ctxThirdTestTopicHandler.caller).toBe("anotherSub");

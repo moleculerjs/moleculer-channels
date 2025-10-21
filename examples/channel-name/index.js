@@ -97,7 +97,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.channelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
@@ -121,7 +121,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.channelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
@@ -145,7 +145,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.channelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
@@ -164,7 +164,7 @@ broker.createService({
 				const parentChannelName = ctx.parentChannelName;
 				const level = ctx.level;
 				const caller = ctx.caller;
-				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.currentChannelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
+				const msg = `Flow level: ${level}, Type: Channel, Name: ${ctx.channelName}, Caller: ${caller}, Parent channel: ${parentChannelName}`;
 				this.logger.info(msg);
 
 				await Promise.delay(100);
