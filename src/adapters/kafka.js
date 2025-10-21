@@ -23,7 +23,7 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
  * @typedef {import('kafkajs').ConsumerConfig} ConsumerConfig Kafka consumer configuration
  * @typedef {import('kafkajs').EachMessagePayload} EachMessagePayload Incoming message payload
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -370,7 +370,7 @@ class KafkaAdapter extends BaseAdapter {
 					await this.moveToDeadLetter(
 						chan,
 						{ topic, partition, message },
-						this.error2ErrorInfoParser(err)
+						this.transformErrorToHeaders(err)
 					);
 				} else {
 					// No retries, drop message
@@ -394,7 +394,7 @@ class KafkaAdapter extends BaseAdapter {
 					await this.moveToDeadLetter(
 						chan,
 						{ topic, partition, message },
-						this.error2ErrorInfoParser(err)
+						this.transformErrorToHeaders(err)
 					);
 				} else {
 					// Reached max retries and no dead-letter topic, drop message

@@ -27,8 +27,8 @@ const C = require("./constants");
  * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
  * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
  * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
- * @property {(error: Error) => Record<string, string>} [error2ErrorInfoParser] Function to convert Error object to a plain object
- * @property {(headers: Record<string, string>) => Record<string, any>} [errorInfoParser] Function to parse error info from headers
+ * @property {(error: Error) => Record<string, string>} [transformErrorToHeaders] Function to convert Error object to a plain object
+ * @property {(headers: Record<string, string>) => Record<string, any>} [transformHeadersToErrorData] Function to parse error info from headers
  * @property {Number} errorInfoTTL Time-to-live in seconds for error info storage (only for Redis adapter)
  */
 
@@ -323,7 +323,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 
 										ctxHeaders = {
 											...ctxHeaders,
-											...adapter.errorInfoParser(headers)
+											...adapter.transformHeadersToErrorData(headers)
 										};
 									}
 								}

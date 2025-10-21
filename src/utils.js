@@ -63,7 +63,7 @@ const parseStringData = str => {
  * @param {any} err
  * @returns {Record<string, string>|null}
  */
-const error2ErrorInfoParser = err => {
+const transformErrorToHeaders = err => {
 	if (!err) return null;
 
 	let errorHeaders = {
@@ -95,7 +95,7 @@ const error2ErrorInfoParser = err => {
  * @param {Record<string, string>} headers
  * @returns {Record<string, any>}
  */
-const errorInfoParser = headers => {
+const transformHeadersToErrorData = headers => {
 	if (!headers || typeof headers !== "object") return null;
 
 	const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
@@ -114,8 +114,8 @@ const errorInfoParser = headers => {
 };
 
 module.exports = {
-	error2ErrorInfoParser,
+	transformErrorToHeaders,
 	parseBase64,
 	toBase64,
-	errorInfoParser
+	transformHeadersToErrorData
 };

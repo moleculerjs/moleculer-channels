@@ -11,7 +11,7 @@ const semver = require("semver");
 const { MoleculerError } = require("moleculer").Errors;
 const { Serializers, METRIC } = require("moleculer");
 const C = require("../constants");
-const { error2ErrorInfoParser, errorInfoParser } = require("../utils");
+const { transformErrorToHeaders, transformHeadersToErrorData } = require("../utils");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
@@ -65,14 +65,15 @@ class BaseAdapter {
 		 *
 		 * @type {(error: Error) => Record<string, string>}
 		 */
-		this.error2ErrorInfoParser =
-			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
+		this.transformErrorToHeaders =
+			this.opts?.deadLettering?.transformErrorToHeaders || transformErrorToHeaders;
 
 		/**
 		 * Function to parse error info from message headers to a plain object. Also attempts to covert data entries to original types
 		 * @type {(headers: Record<string, string>) => Record<string, any>}
 		 */
-		this.errorInfoParser = this.opts?.deadLettering?.errorInfoParser || errorInfoParser;
+		this.transformHeadersToErrorData =
+			this.opts?.deadLettering?.transformHeadersToErrorData || transformHeadersToErrorData;
 	}
 
 	/**
