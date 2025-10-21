@@ -1,6 +1,9 @@
 "use strict";
 
-const { ServiceBroker } = require("moleculer");
+const {
+	ServiceBroker,
+	Errors: { MoleculerError }
+} = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
 
 let c = 1;
@@ -57,7 +60,15 @@ broker.createService({
 			},
 			handler() {
 				this.logger.error("Ups! Something happened");
-				return Promise.reject(new Error("Something happened"));
+				return Promise.reject(
+					new MoleculerError("Something happened", 123, "SOMETHING_ERROR", {
+						errorInfo: "Additional error information",
+						someOtherErrorData: 456,
+						anotherErrorField: true,
+						finalField: null,
+						nested: { a: 1, b: "two", c: false }
+					})
+				);
 			}
 		}
 	}

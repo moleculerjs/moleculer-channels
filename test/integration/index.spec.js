@@ -927,7 +927,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -948,7 +948,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -973,7 +973,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -999,7 +999,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -1097,7 +1097,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -1118,7 +1118,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -1143,7 +1143,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 
@@ -1168,7 +1168,7 @@ describe("Integration tests", () => {
 							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
 							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
 							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
-								expect.any(String)
+								expect.any(Number)
 							);
 							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
 

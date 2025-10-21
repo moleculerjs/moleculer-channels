@@ -6,7 +6,8 @@ const {
 	HEADER_ERROR_DATA,
 	HEADER_ERROR_NAME,
 	HEADER_ERROR_RETRYABLE,
-	HEADER_ERROR_TIMESTAMP
+	HEADER_ERROR_TIMESTAMP,
+	HEADER_ERROR_PREFIX
 } = require("./constants");
 
 const strToBase64 = str => Buffer.from(str).toString("base64");
@@ -47,6 +48,16 @@ const parseBase64 = b64str => {
 	}
 };
 
+const parseStringData = str => {
+	if (str === "null") return null;
+	if (str === "undefined") return undefined;
+	if (str === "true") return true;
+	if (str === "false") return false;
+	const num = Number(str);
+	if (!isNaN(num)) return num;
+	return str;
+};
+
 /**
  * Converts Error object to a plain object
  * @param {any} err
@@ -78,8 +89,33 @@ const error2ErrorInfoParser = err => {
 	return errorHeaders;
 };
 
+/**
+ * Parses error info from headers and attempts to reconstruct original data types
+ *
+ * @param {Record<string, string>} headers
+ * @returns {Record<string, any>}
+ */
+const errorInfoParser = headers => {
+	if (!headers || typeof headers !== "object") return null;
+
+	const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
+
+	let errorInfo = {};
+
+	for (let key in headers) {
+		if (!key.startsWith(HEADER_ERROR_PREFIX)) continue;
+
+		errorInfo[key] = complexPropertiesList.includes(key)
+			? parseBase64(headers[key])
+			: (errorInfo[key] = parseStringData(headers[key]));
+	}
+
+	return errorInfo;
+};
+
 module.exports = {
 	error2ErrorInfoParser,
 	parseBase64,
-	toBase64
+	toBase64,
+	errorInfoParser
 };

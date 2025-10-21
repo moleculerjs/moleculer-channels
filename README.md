@@ -217,7 +217,7 @@ module.exports = {
 ## Channel options
 
 | Name                                   | Type                                      | Supported adapters | Description                                                                                                                                                                                                       |
-| -------------------------------------- | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| -------------------------------------- | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | `group`                                | `String`                                  | \*                 | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version)                                                                                                    |
 | `maxInFlight`                          | `Number`                                  | Redis              | Max number of messages under processing at the same time.                                                                                                                                                         |
 | `maxRetries`                           | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
@@ -225,6 +225,7 @@ module.exports = {
 | `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
 | `deadLettering.errorInfoTTL`           | `Number`                                  | \*                 | [Redis adapter only] TTL (in seconds) of error info messages stored in a separate hash. Default is `86400` (1 day).                                                                                               |
 | `deadLettering.error2ErrorInfoParser`  | `Function`                                | \*                 | Function to parse error instance to a plain object which will be stored in message headers.                                                                                                                       |
+| `deadLettering.errorInfoParser`        | `Function`                                | \*                 | Function to parse plain error info object back to original data types                                                                                                                                             | headers. |
 | `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.                                                                                                                                                                      |
 | `tracing`                              | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`.                                                              |
 | `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
@@ -248,6 +249,8 @@ If the service is not able to process a message, it should throw an `Error` insi
 The dead-lettered message will contain the original payload and additional error information in the `ctx.headers` (for Moleculer version >= 0.15.x only) and in the raw message headers. Note that depending on the adapter, the raw message structure may differ (e.g, Map or Object, Buffer or String). The error information includes details about the original error that caused the message to be dead-lettered, such as the error message, stack trace, code, type, data, name, retryable status, and a timestamp indicating when the error occurred.
 
 You can customize the error information that will be stored in the message headers by providing a custom `error2ErrorInfoParser` function in the `deadLettering` options. By default, the parser stores the `message`, `stack`, `code`, `type`, `data`, `name` and `retryable` properties of the error object (if they exist) in the headers as plain string, except for `stack` and `data` properties which are stored as base64 encoded strings. Encoding is necessary to handle special characters, as some message brokers (like NATS JetStream) do not support characters like `\n` or `\r` in headers.
+
+You can also provide a custom `errorInfoParser` function in the `deadLettering` options to parse the error information from the message headers back to their original data types when consuming dead-lettered messages in `ctx.headers`.
 
 Also note that, for `Redis` adapter it's not possible to update the original message with error info, to overcome this limitation the adapter will store error info in a separate hash with the message ID as the key. You can customize the TTL of these error info message by setting `deadLettering.errorInfoTTL`, which defaults to `1 day`. When `Redis` adapter moves a message to the dead-letter queue, it will merge the original message with the error info from the hash.
 
@@ -283,6 +286,34 @@ const error2ErrorInfoParser = err => {
     errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now().toString();
 
     return errorHeaders;
+};
+```
+
+**Default headers to error info parser**
+
+```js
+/**
+ * Parses error info from headers and attempts to reconstruct original data types
+ *
+ * @param {Record<string, string>} headers
+ * @returns {Record<string, any>}
+ */
+const errorInfoParser = headers => {
+    if (!headers || typeof headers !== "object") return null;
+
+    const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
+
+    let errorInfo = {};
+
+    for (let key in headers) {
+        if (!key.startsWith(HEADER_ERROR_PREFIX)) continue;
+
+        errorInfo[key] = complexPropertiesList.includes(key)
+            ? parseBase64(headers[key])
+            : (errorInfo[key] = parseStringData(headers[key]));
+    }
+
+    return errorInfo;
 };
 ```
 
@@ -696,6 +727,25 @@ module.exports = {
                             return errorHeaders;
                         },
 
+                        errorInfoParser: headers => {
+                            if (!headers || typeof headers !== "object") return null;
+
+                            // parse back complex properties
+                            const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
+
+                            let errorInfo = {};
+
+                            for (let key in headers) {
+                                if (!key.startsWith(HEADER_ERROR_PREFIX)) continue;
+
+                                errorInfo[key] = complexPropertiesList.includes(key)
+                                    ? parseBase64(headers[key])
+                                    : (errorInfo[key] = parseStringData(headers[key]));
+                            }
+
+                            return errorInfo;
+                        },
+
                         // Time to live for error info in dedicated hash (in seconds). Default: 24 hours
                         errorInfoTTL: 24 * 60 * 60 // 24 hours
                     }
@@ -786,26 +836,6 @@ module.exports = {
                         enabled: false
                         //queueName: "DEAD_LETTER",
                         //exchangeName: "DEAD_LETTER"
-
-                        // Optional custom error to headers parser function
-                        error2ErrorInfoParser: err => {
-                        	if (!err) return null;
-                        	return {
-                        		// Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
-                        		...(err.message
-                        			? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
-                        			: {}),
-                        		...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                        		...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                        		...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                        		...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                        		...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                        		...(err.retryable !== undefined
-                        			? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                        			: {}),
-                        		[HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
-                        	};
-                        },
                     }
                 }
             }
@@ -886,26 +916,7 @@ module.exports = {
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
-                        queueName: "DEAD_LETTER",
-                        // Optional custom error to headers parser function
-                        error2ErrorInfoParser: err => {
-                            if (!err) return null;
-                            return {
-                                // Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
-                                ...(err.message
-                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
-                                    : {}),
-                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                                ...(err.retryable !== undefined
-                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                                    : {}),
-                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
-                            };
-                        }
+                        queueName: "DEAD_LETTER"
                     }
                 }
             }
@@ -965,26 +976,7 @@ module.exports = {
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
-                        queueName: "DEAD_LETTER",
-                        // Optional custom error to headers parser function
-                        error2ErrorInfoParser: err => {
-                            if (!err) return null;
-                            return {
-                                // Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
-                                ...(err.message
-                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
-                                    : {}),
-                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                                ...(err.retryable !== undefined
-                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                                    : {}),
-                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
-                            };
-                        }
+                        queueName: "DEAD_LETTER"
                     }
                 }
             }

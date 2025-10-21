@@ -11,13 +11,13 @@ const semver = require("semver");
 const { MoleculerError } = require("moleculer").Errors;
 const { Serializers, METRIC } = require("moleculer");
 const C = require("../constants");
-const { error2ErrorInfoParser } = require("../utils");
+const { error2ErrorInfoParser, errorInfoParser } = require("../utils");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Service} Service Moleculer Service definition
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
- * @typedef {import("moleculer").Serializer} Serializer Moleculer Serializer
+ * @typedef {import("moleculer").Logger} Logger Logger instance
+ * @typedef {import("moleculer").Serializers.Base} Serializer Moleculer Serializer
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
  */
@@ -67,6 +67,12 @@ class BaseAdapter {
 		 */
 		this.error2ErrorInfoParser =
 			this.opts?.deadLettering?.error2ErrorInfoParser || error2ErrorInfoParser;
+
+		/**
+		 * Function to parse error info from message headers to a plain object. Also attempts to covert data entries to original types
+		 * @type {(headers: Record<string, string>) => Record<string, any>}
+		 */
+		this.errorInfoParser = this.opts?.deadLettering?.errorInfoParser || errorInfoParser;
 	}
 
 	/**
