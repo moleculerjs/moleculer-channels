@@ -671,21 +671,29 @@ module.exports = {
                         error2ErrorInfoParser: err => {
                             if (!err) return null;
 
-                            return {
-                                // Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
+                            let errorHeaders = {
+                                // primitive properties
                                 ...(err.message
-                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
+                                    ? { [HEADER_ERROR_MESSAGE]: err.message.toString() }
                                     : {}),
+                                ...(err.code ? { [HEADER_ERROR_CODE]: err.code.toString() } : {}),
+                                ...(err.type ? { [HEADER_ERROR_TYPE]: err.type.toString() } : {}),
+                                ...(err.name ? { [HEADER_ERROR_NAME]: err.name.toString() } : {}),
+                                ...(typeof err.retryable === "boolean"
+                                    ? { [HEADER_ERROR_RETRYABLE]: err.retryable.toString() }
+                                    : {}),
+
+                                // complex properties
+                                // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
                                 ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                                ...(err.retryable !== undefined
-                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                                    : {}),
-                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {})
                             };
+
+                            if (Object.keys(errorHeaders).length === 0) return null;
+
+                            errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now().toString();
+
+                            return errorHeaders;
                         },
 
                         // Time to live for error info in dedicated hash (in seconds). Default: 24 hours
