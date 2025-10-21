@@ -243,22 +243,17 @@ module.exports = {
 
 ## Failed message
 
-If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
-When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
-If the dead-lettering feature is enabled with `deadLettering.enabled: true` option then the adapter will move the message into the `deadLettering.queueName` queue/topic.
+If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers. When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect. If the dead-lettering feature is enabled with `deadLettering.enabled: true` option then the adapter will move the message into the `deadLettering.queueName` queue/topic.
 
-You can customize the error information that will be stored in the message headers by providing a custom `error2ErrorInfoParser` function in the `deadLettering` options. By default, the parser stores the `message`, `stack`, `code`, `type`, `data`, `name` and `retryable` properties of the error object (if they exist) in the headers as base64 encoded strings. Encoding is necessary to handle special characters, as some message brokers (like NATS JetStream) do not support characters like `\n` or `\r` in headers.
+The dead-lettered message will contain the original payload and additional error information in the `ctx.headers` (for Moleculer version >= 0.15.x only) and in the raw message headers. Note that depending on the adapter, the raw message structure may differ (e.g, Map or Object, Buffer or String). The error information includes details about the original error that caused the message to be dead-lettered, such as the error message, stack trace, code, type, data, name, retryable status, and a timestamp indicating when the error occurred.
+
+You can customize the error information that will be stored in the message headers by providing a custom `error2ErrorInfoParser` function in the `deadLettering` options. By default, the parser stores the `message`, `stack`, `code`, `type`, `data`, `name` and `retryable` properties of the error object (if they exist) in the headers as plain string, except for `stack` and `data` properties which are stored as base64 encoded strings. Encoding is necessary to handle special characters, as some message brokers (like NATS JetStream) do not support characters like `\n` or `\r` in headers.
 
 Also note that, for `Redis` adapter it's not possible to update the original message with error info, to overcome this limitation the adapter will store error info in a separate hash with the message ID as the key. You can customize the TTL of these error info message by setting `deadLettering.errorInfoTTL`, which defaults to `1 day`. When `Redis` adapter moves a message to the dead-letter queue, it will merge the original message with the error info from the hash.
 
 **Default error to headers parser**
 
 ```js
-/**
- * Converts Error object to a plain object
- * @param {any} err
- * @returns {Record<string, string>|null}
- */
 /**
  * Converts Error object to a plain object
  * @param {any} err

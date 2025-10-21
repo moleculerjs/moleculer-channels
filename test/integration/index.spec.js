@@ -55,7 +55,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
+		{ type: "Redis", options: {} }
 	];
 }
 
@@ -887,6 +888,7 @@ describe("Integration tests", () => {
 						name: "sub2",
 						channels: {
 							DEAD_LETTER: {
+								context: true,
 								handler: deadLetterHandler
 							}
 						}
@@ -917,67 +919,107 @@ describe("Integration tests", () => {
 						expect(subWrongHandler).toHaveBeenCalledTimes(1);
 
 						expect(deadLetterHandler).toHaveBeenCalledTimes(1);
+
+						const [arg1Ctx, arg2Raw] = deadLetterHandler.mock.calls[0];
 						if (adapter.type === "Redis") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In Redis headers are a plain object. Entries are base64 encoded
-							expect(arg2.headers["x-error-message"]).toBe("Something happened");
-							expect(arg2.headers["x-error-name"]).toBe("Error");
-							expect(arg2.headers["x-error-timestamp"]).toEqual(expect.any(String));
-							expect(arg2.headers["x-error-stack"]).toEqual(expect.any(String));
-						}
-						if (adapter.type === "NATS") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In NATS headers are a Map. Stack is base64 encoded.
-							expect(arg2.headers.get("x-error-message")).toBe("Something happened");
-							expect(arg2.headers.get("x-error-name")).toBe("Error");
-							expect(arg2.headers.get("x-error-timestamp")).toEqual(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.headers.get("x-error-stack"))).toEqual(
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Redis headers are a plain object. Entries are base64 encoded
+							expect(arg2Raw.headers["x-error-message"]).toBe("Something happened");
+							expect(arg2Raw.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg2Raw.headers["x-error-stack"]).toEqual(expect.any(String));
+						}
+						if (adapter.type === "NATS") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In NATS headers are a Map. Stack is base64 encoded.
+							expect(arg2Raw.headers.get("x-error-message")).toBe(
+								"Something happened"
+							);
+							expect(arg2Raw.headers.get("x-error-name")).toBe("Error");
+							expect(arg2Raw.headers.get("x-error-timestamp")).toEqual(
+								expect.any(String)
+							);
+							expect(parseBase64(arg2Raw.headers.get("x-error-stack"))).toEqual(
 								expect.any(String)
 							);
 						}
 						if (adapter.type === "AMQP") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.properties).toBeDefined();
-							expect(arg2.properties.headers).toBeDefined();
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.properties).toBeDefined();
+							expect(arg2Raw.properties.headers).toBeDefined();
 							// In AMQP headers are a plain object. Stack is base64 encoded
-							expect(arg2.properties.headers["x-error-message"]).toBe(
+							expect(arg2Raw.properties.headers["x-error-message"]).toBe(
 								"Something happened"
 							);
-							expect(arg2.properties.headers["x-error-name"]).toBe("Error");
-							expect(arg2.properties.headers["x-error-timestamp"]).toEqual(
+							expect(arg2Raw.properties.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.properties.headers["x-error-timestamp"]).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.properties.headers["x-error-stack"])).toEqual(
-								expect.any(String)
-							);
+							expect(
+								parseBase64(arg2Raw.properties.headers["x-error-stack"])
+							).toEqual(expect.any(String));
 						}
 						if (adapter.type === "Kafka") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
 							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
-							expect(Buffer.from(arg2.headers["x-error-message"]).toString()).toBe(
+							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
 								"Something happened"
 							);
-							expect(Buffer.from(arg2.headers["x-error-name"]).toString()).toBe(
+							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
 								"Error"
 							);
 							expect(
-								Buffer.from(arg2.headers["x-error-timestamp"]).toString()
+								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
 							).toEqual(expect.any(String));
 							expect(
-								parseBase64(Buffer.from(arg2.headers["x-error-stack"]).toString())
+								parseBase64(
+									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+								)
 							).toEqual(expect.any(String));
 						}
 
@@ -1017,6 +1059,7 @@ describe("Integration tests", () => {
 						name: "sub2",
 						channels: {
 							DEAD_LETTER: {
+								context: true,
 								handler: deadLetterHandler
 							}
 						}
@@ -1047,67 +1090,105 @@ describe("Integration tests", () => {
 						expect(subWrongHandler).toHaveBeenCalledTimes(2);
 
 						expect(deadLetterHandler).toHaveBeenCalledTimes(1);
+						const [arg1Ctx, arg2Raw] = deadLetterHandler.mock.calls[0];
 						if (adapter.type === "Redis") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In Redis headers are a plain object. Entries are base64 encoded
-							expect(arg2.headers["x-error-message"]).toBe("Something happened");
-							expect(arg2.headers["x-error-name"]).toBe("Error");
-							expect(arg2.headers["x-error-timestamp"]).toEqual(expect.any(String));
-							expect(arg2.headers["x-error-stack"]).toEqual(expect.any(String));
-						}
-						if (adapter.type === "NATS") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In NATS headers are a Map. Stack is base64 encoded.
-							expect(arg2.headers.get("x-error-message")).toBe("Something happened");
-							expect(arg2.headers.get("x-error-name")).toBe("Error");
-							expect(arg2.headers.get("x-error-timestamp")).toEqual(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.headers.get("x-error-stack"))).toEqual(
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Redis headers are a plain object. Entries are base64 encoded
+							expect(arg2Raw.headers["x-error-message"]).toBe("Something happened");
+							expect(arg2Raw.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg2Raw.headers["x-error-stack"]).toEqual(expect.any(String));
+						}
+						if (adapter.type === "NATS") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In NATS headers are a Map. Stack is base64 encoded.
+							expect(arg2Raw.headers.get("x-error-message")).toBe(
+								"Something happened"
+							);
+							expect(arg2Raw.headers.get("x-error-name")).toBe("Error");
+							expect(arg2Raw.headers.get("x-error-timestamp")).toEqual(
+								expect.any(String)
+							);
+							expect(parseBase64(arg2Raw.headers.get("x-error-stack"))).toEqual(
 								expect.any(String)
 							);
 						}
 						if (adapter.type === "AMQP") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.properties).toBeDefined();
-							expect(arg2.properties.headers).toBeDefined();
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw.properties).toBeDefined();
+							expect(arg2Raw.properties.headers).toBeDefined();
 							// In AMQP headers are a plain object. Stack is base64 encoded
-							expect(arg2.properties.headers["x-error-message"]).toBe(
+							expect(arg2Raw.properties.headers["x-error-message"]).toBe(
 								"Something happened"
 							);
-							expect(arg2.properties.headers["x-error-name"]).toBe("Error");
-							expect(arg2.properties.headers["x-error-timestamp"]).toEqual(
+							expect(arg2Raw.properties.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.properties.headers["x-error-timestamp"]).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.properties.headers["x-error-stack"])).toEqual(
-								expect.any(String)
-							);
+							expect(
+								parseBase64(arg2Raw.properties.headers["x-error-stack"])
+							).toEqual(expect.any(String));
 						}
 						if (adapter.type === "Kafka") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
 							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
-							expect(Buffer.from(arg2.headers["x-error-message"]).toString()).toBe(
+							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
 								"Something happened"
 							);
-							expect(Buffer.from(arg2.headers["x-error-name"]).toString()).toBe(
+							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
 								"Error"
 							);
 							expect(
-								Buffer.from(arg2.headers["x-error-timestamp"]).toString()
+								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
 							).toEqual(expect.any(String));
 							expect(
-								parseBase64(Buffer.from(arg2.headers["x-error-stack"]).toString())
+								parseBase64(
+									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+								)
 							).toEqual(expect.any(String));
 						}
 
