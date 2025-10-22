@@ -10,7 +10,7 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const C = require("../constants");
 const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
-const { error2ErrorInfoParser } = require("../utils");
+const { transformErrorToHeaders } = require("../utils");
 const { MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 
 let NATS;
@@ -29,7 +29,7 @@ let NATS;
  * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
  * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -302,7 +302,7 @@ class NatsAdapter extends BaseAdapter {
 							await this.moveToDeadLetter(
 								chan,
 								message,
-								this.error2ErrorInfoParser(error)
+								this.transformErrorToHeaders(error)
 							);
 						} else {
 							// Drop message
@@ -323,7 +323,7 @@ class NatsAdapter extends BaseAdapter {
 							await this.moveToDeadLetter(
 								chan,
 								message,
-								this.error2ErrorInfoParser(error)
+								this.transformErrorToHeaders(error)
 							);
 						} else {
 							// Drop message

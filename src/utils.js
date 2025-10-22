@@ -6,7 +6,8 @@ const {
 	HEADER_ERROR_DATA,
 	HEADER_ERROR_NAME,
 	HEADER_ERROR_RETRYABLE,
-	HEADER_ERROR_TIMESTAMP
+	HEADER_ERROR_TIMESTAMP,
+	HEADER_ERROR_PREFIX
 } = require("./constants");
 
 const strToBase64 = str => Buffer.from(str).toString("base64");
@@ -47,36 +48,74 @@ const parseBase64 = b64str => {
 	}
 };
 
+const parseStringData = str => {
+	if (str === "null") return null;
+	if (str === "undefined") return undefined;
+	if (str === "true") return true;
+	if (str === "false") return false;
+	const num = Number(str);
+	if (!isNaN(num)) return num;
+	return str;
+};
+
 /**
  * Converts Error object to a plain object
  * @param {any} err
  * @returns {Record<string, string>|null}
  */
-const error2ErrorInfoParser = err => {
+const transformErrorToHeaders = err => {
 	if (!err) return null;
 
 	let errorHeaders = {
-		...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message } : {}),
-		...(err.stack ? { [HEADER_ERROR_STACK]: err.stack } : {}),
-		...(err.code ? { [HEADER_ERROR_CODE]: err.code } : {}),
-		...(err.type ? { [HEADER_ERROR_TYPE]: err.type } : {}),
-		...(err.data ? { [HEADER_ERROR_DATA]: err.data } : {}),
-		...(err.name ? { [HEADER_ERROR_NAME]: err.name } : {}),
-		...(err.retryable !== undefined ? { [HEADER_ERROR_RETRYABLE]: err.retryable } : {})
+		// primitive properties
+		...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message.toString() } : {}),
+		...(err.code ? { [HEADER_ERROR_CODE]: err.code.toString() } : {}),
+		...(err.type ? { [HEADER_ERROR_TYPE]: err.type.toString() } : {}),
+		...(err.name ? { [HEADER_ERROR_NAME]: err.name.toString() } : {}),
+		...(typeof err.retryable === "boolean"
+			? { [HEADER_ERROR_RETRYABLE]: err.retryable.toString() }
+			: {}),
+
+		// complex properties
+		// Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
+		...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+		...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {})
 	};
 
 	if (Object.keys(errorHeaders).length === 0) return null;
 
-	errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now();
-
-	// Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
-	Object.keys(errorHeaders).forEach(key => (errorHeaders[key] = toBase64(errorHeaders[key])));
+	errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now().toString();
 
 	return errorHeaders;
 };
 
+/**
+ * Parses error info from headers and attempts to reconstruct original data types
+ *
+ * @param {Record<string, string>} headers
+ * @returns {Record<string, any>}
+ */
+const transformHeadersToErrorData = headers => {
+	if (!headers || typeof headers !== "object") return null;
+
+	const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
+
+	let errorInfo = {};
+
+	for (let key in headers) {
+		if (!key.startsWith(HEADER_ERROR_PREFIX)) continue;
+
+		errorInfo[key] = complexPropertiesList.includes(key)
+			? parseBase64(headers[key])
+			: (errorInfo[key] = parseStringData(headers[key]));
+	}
+
+	return errorInfo;
+};
+
 module.exports = {
-	error2ErrorInfoParser,
+	transformErrorToHeaders,
 	parseBase64,
-	toBase64
+	toBase64,
+	transformHeadersToErrorData
 };

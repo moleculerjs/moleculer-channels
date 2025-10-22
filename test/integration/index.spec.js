@@ -57,6 +57,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "NATS", options: {} },*/
 		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } }
 		// { type: "Redis", options: {} }
+		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
 	];
 }
 
@@ -160,6 +161,14 @@ describe("Integration tests", () => {
 					return Promise.resolve();
 				});
 
+				const anotherTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
+				});
+
+				const thirdTestTopicHandler = jest.fn(() => {
+					return Promise.resolve();
+				});
+
 				broker.createService({
 					name: "sub",
 					channels: {
@@ -170,8 +179,34 @@ describe("Integration tests", () => {
 					}
 				});
 
+				broker.createService({
+					name: "anotherSub",
+					channels: {
+						"another.topic": {
+							context: true,
+							handler: anotherTestTopicHandler
+						}
+					}
+				});
+
+				broker.createService({
+					name: "thirdSub",
+					channels: {
+						"third.topic": {
+							context: true,
+							handler: thirdTestTopicHandler
+						}
+					}
+				});
+
 				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 				afterAll(() => broker.stop());
+
+				beforeEach(() => {
+					subTestTopicHandler.mockClear();
+					anotherTestTopicHandler.mockClear();
+					thirdTestTopicHandler.mockClear();
+				});
 
 				it("should receive the published message as Context", async () => {
 					const msg = {
@@ -193,8 +228,6 @@ describe("Integration tests", () => {
 				});
 
 				it("should receive the published message as Context with meta", async () => {
-					subTestTopicHandler.mockClear();
-
 					const msg = {
 						id: 1,
 						name: "John",
@@ -222,6 +255,96 @@ describe("Integration tests", () => {
 					});
 					expect(ctx2.parentID).toEqual(ctx.id);
 					expect(ctx2.requestID).toEqual(ctx.requestID);
+				});
+
+				it("should include the parentChannelName in the context", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+
+					const ctx = Context.create(broker, null);
+					ctx.meta = { a: 5, b: { c: "Hello" } };
+
+					subTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
+						await broker.sendToChannel("another.topic", msg, { ctx });
+					});
+
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.simple.topic", msg, { ctx });
+					await broker.Promise.delay(400);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					const [ctxSubTestTopicHandler] = subTestTopicHandler.mock.calls[0];
+					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxSubTestTopicHandler.params).toEqual(msg);
+					expect(ctxSubTestTopicHandler.channelName).toBe("test.simple.topic");
+					// was called from outside of a channel handler, so parentChannelName should be undefined
+					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
+
+					expect(anotherTestTopicHandler).toHaveBeenCalledTimes(1);
+					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
+					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
+					expect(ctxAnotherTestTopicHandler.channelName).toBe("another.topic");
+					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
+					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
+				});
+
+				it("should include the full chain of parentChannelName in the context", async () => {
+					const msg = {
+						id: 1,
+						name: "John",
+						age: 25
+					};
+					const meta = { a: 5, b: { c: "Hello" } };
+
+					const ctx = Context.create(broker, null);
+					ctx.meta = meta;
+
+					subTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
+						await broker.sendToChannel("another.topic", msg, { ctx });
+					});
+
+					anotherTestTopicHandler.mockImplementationOnce(async (ctx, raw) => {
+						await broker.sendToChannel("third.topic", msg, { ctx });
+					});
+
+					// ---- ^ SETUP ^ ---
+					await broker.sendToChannel("test.simple.topic", msg, { ctx });
+					await broker.Promise.delay(400);
+					// ---- ˇ ASSERTS ˇ ---
+					expect(subTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(anotherTestTopicHandler).toHaveBeenCalledTimes(1);
+					expect(thirdTestTopicHandler).toHaveBeenCalledTimes(1);
+
+					const [ctxSubTestTopicHandler] = subTestTopicHandler.mock.calls[0];
+					expect(ctxSubTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxSubTestTopicHandler.params).toEqual(msg);
+					expect(ctxSubTestTopicHandler.meta).toEqual(meta);
+					expect(ctxSubTestTopicHandler.channelName).toBe("test.simple.topic");
+					// was called from outside of a channel handler, so parentChannelName should be undefined
+					expect(ctxSubTestTopicHandler.parentChannelName).toBeUndefined();
+					expect(ctxSubTestTopicHandler.caller).toBe(null);
+
+					const [ctxAnotherTestTopicHandler] = anotherTestTopicHandler.mock.calls[0];
+					expect(ctxAnotherTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxAnotherTestTopicHandler.params).toEqual(msg);
+					expect(ctxAnotherTestTopicHandler.meta).toEqual(meta);
+					expect(ctxAnotherTestTopicHandler.channelName).toBe("another.topic");
+					// was called from the "test.simple.topic" channel handler so the ctx in anotherTestTopicHandler should have the parentChannelName set
+					expect(ctxAnotherTestTopicHandler.parentChannelName).toBe("test.simple.topic");
+					expect(ctxAnotherTestTopicHandler.caller).toBe("sub");
+
+					const [ctxThirdTestTopicHandler] = thirdTestTopicHandler.mock.calls[0];
+					expect(ctxThirdTestTopicHandler).toBeInstanceOf(Context);
+					expect(ctxThirdTestTopicHandler.params).toEqual(msg);
+					expect(ctxThirdTestTopicHandler.meta).toEqual(meta);
+					expect(ctxThirdTestTopicHandler.channelName).toBe("third.topic");
+					// was called from the "another.topic" channel handler so the ctx in thirdTestTopicHandler should have the parentChannelName set
+					expect(ctxThirdTestTopicHandler.parentChannelName).toBe("another.topic");
+					expect(ctxThirdTestTopicHandler.caller).toBe("anotherSub");
 				});
 			});
 
@@ -886,6 +1009,7 @@ describe("Integration tests", () => {
 						name: "sub2",
 						channels: {
 							DEAD_LETTER: {
+								context: true,
 								handler: deadLetterHandler
 							}
 						}
@@ -916,86 +1040,113 @@ describe("Integration tests", () => {
 						expect(subWrongHandler).toHaveBeenCalledTimes(1);
 
 						expect(deadLetterHandler).toHaveBeenCalledTimes(1);
+
+						const [arg1Ctx, arg2Raw] = deadLetterHandler.mock.calls[0];
 						if (adapter.type === "Redis") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In Redis headers are a plain object. Entries are base64 encoded
-							expect(parseBase64(arg2.headers["x-error-message"])).toBe(
-								"Something happened"
-							);
-							expect(parseBase64(arg2.headers["x-error-name"])).toBe("Error");
-							expect(parseBase64(arg2.headers["x-error-stack"])).toEqual(
-								expect.any(String)
-							);
-							expect(parseBase64(arg2.headers["x-error-timestamp"])).toEqual(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
 								expect.any(Number)
 							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Redis headers are a plain object. Entries are base64 encoded
+							expect(arg2Raw.headers["x-error-message"]).toBe("Something happened");
+							expect(arg2Raw.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg2Raw.headers["x-error-stack"]).toEqual(expect.any(String));
 						}
 						if (adapter.type === "NATS") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In NATS headers are a Map. Entries are base64 encoded.
-							expect(parseBase64(arg2.headers.get("x-error-message"))).toBe(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In NATS headers are a Map. Stack is base64 encoded.
+							expect(arg2Raw.headers.get("x-error-message")).toBe(
 								"Something happened"
 							);
-							expect(parseBase64(arg2.headers.get("x-error-name"))).toBe("Error");
-							expect(parseBase64(arg2.headers.get("x-error-stack"))).toEqual(
+							expect(arg2Raw.headers.get("x-error-name")).toBe("Error");
+							expect(arg2Raw.headers.get("x-error-timestamp")).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.headers.get("x-error-timestamp"))).toEqual(
-								expect.any(Number)
+							expect(parseBase64(arg2Raw.headers.get("x-error-stack"))).toEqual(
+								expect.any(String)
 							);
 						}
 						if (adapter.type === "AMQP") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.properties).toBeDefined();
-							expect(arg2.properties.headers).toBeDefined();
-							// In AMQP headers are a plain object. Entries are base64 encoded
-							expect(parseBase64(arg2.properties.headers["x-error-message"])).toBe(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.properties).toBeDefined();
+							expect(arg2Raw.properties.headers).toBeDefined();
+							// In AMQP headers are a plain object. Stack is base64 encoded
+							expect(arg2Raw.properties.headers["x-error-message"]).toBe(
 								"Something happened"
 							);
-							expect(parseBase64(arg2.properties.headers["x-error-name"])).toBe(
-								"Error"
-							);
-							expect(parseBase64(arg2.properties.headers["x-error-stack"])).toEqual(
+							expect(arg2Raw.properties.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.properties.headers["x-error-timestamp"]).toEqual(
 								expect.any(String)
 							);
 							expect(
-								parseBase64(arg2.properties.headers["x-error-timestamp"])
-							).toEqual(expect.any(Number));
+								parseBase64(arg2Raw.properties.headers["x-error-stack"])
+							).toEqual(expect.any(String));
 						}
 						if (adapter.type === "Kafka") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In Kafka headers are a plain object but values are Buffers
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Kafka headers are a map of Buffers
 							expect(
-								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-message")).toString()
-								)
+								Buffer.from(arg2Raw.headers.get("x-error-message")).toString()
 							).toBe("Something happened");
 							expect(
-								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-name")).toString()
-								)
+								Buffer.from(arg2Raw.headers.get("x-error-name")).toString()
 							).toBe("Error");
 							expect(
 								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-stack")).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
 							).toEqual(expect.any(String));
 							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-timestamp")).toString()
+							).toEqual(expect.any(String));
+							expect(
 								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-timestamp")).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
-							).toEqual(expect.any(Number));
+							).toEqual(expect.any(String));
 						}
 
 						await broker.Promise.delay(500);
@@ -1034,6 +1185,7 @@ describe("Integration tests", () => {
 						name: "sub2",
 						channels: {
 							DEAD_LETTER: {
+								context: true,
 								handler: deadLetterHandler
 							}
 						}
@@ -1064,86 +1216,111 @@ describe("Integration tests", () => {
 						expect(subWrongHandler).toHaveBeenCalledTimes(2);
 
 						expect(deadLetterHandler).toHaveBeenCalledTimes(1);
+						const [arg1Ctx, arg2Raw] = deadLetterHandler.mock.calls[0];
 						if (adapter.type === "Redis") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In Redis headers are a plain object. Entries are base64 encoded
-							expect(parseBase64(arg2.headers["x-error-message"])).toBe(
-								"Something happened"
-							);
-							expect(parseBase64(arg2.headers["x-error-name"])).toBe("Error");
-							expect(parseBase64(arg2.headers["x-error-stack"])).toEqual(
-								expect.any(String)
-							);
-							expect(parseBase64(arg2.headers["x-error-timestamp"])).toEqual(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
 								expect.any(Number)
 							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Redis headers are a plain object. Entries are base64 encoded
+							expect(arg2Raw.headers["x-error-message"]).toBe("Something happened");
+							expect(arg2Raw.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg2Raw.headers["x-error-stack"]).toEqual(expect.any(String));
 						}
 						if (adapter.type === "NATS") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In NATS headers are a Map. Entries are base64 encoded.
-							expect(parseBase64(arg2.headers.get("x-error-message"))).toBe(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In NATS headers are a Map. Stack is base64 encoded.
+							expect(arg2Raw.headers.get("x-error-message")).toBe(
 								"Something happened"
 							);
-							expect(parseBase64(arg2.headers.get("x-error-name"))).toBe("Error");
-							expect(parseBase64(arg2.headers.get("x-error-stack"))).toEqual(
+							expect(arg2Raw.headers.get("x-error-name")).toBe("Error");
+							expect(arg2Raw.headers.get("x-error-timestamp")).toEqual(
 								expect.any(String)
 							);
-							expect(parseBase64(arg2.headers.get("x-error-timestamp"))).toEqual(
-								expect.any(Number)
+							expect(parseBase64(arg2Raw.headers.get("x-error-stack"))).toEqual(
+								expect.any(String)
 							);
 						}
 						if (adapter.type === "AMQP") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.properties).toBeDefined();
-							expect(arg2.properties.headers).toBeDefined();
-							// In AMQP headers are a plain object. Entries are base64 encoded
-							expect(parseBase64(arg2.properties.headers["x-error-message"])).toBe(
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw.properties).toBeDefined();
+							expect(arg2Raw.properties.headers).toBeDefined();
+							// In AMQP headers are a plain object. Stack is base64 encoded
+							expect(arg2Raw.properties.headers["x-error-message"]).toBe(
 								"Something happened"
 							);
-							expect(parseBase64(arg2.properties.headers["x-error-name"])).toBe(
-								"Error"
-							);
-							expect(parseBase64(arg2.properties.headers["x-error-stack"])).toEqual(
+							expect(arg2Raw.properties.headers["x-error-name"]).toBe("Error");
+							expect(arg2Raw.properties.headers["x-error-timestamp"]).toEqual(
 								expect.any(String)
 							);
 							expect(
-								parseBase64(arg2.properties.headers["x-error-timestamp"])
-							).toEqual(expect.any(Number));
+								parseBase64(arg2Raw.properties.headers["x-error-stack"])
+							).toEqual(expect.any(String));
 						}
 						if (adapter.type === "Kafka") {
-							const [arg1, arg2] = deadLetterHandler.mock.calls[0];
-							expect(arg1).toEqual(msg);
-							expect(arg2).toBeDefined();
-							expect(arg2.headers).toBeDefined();
-							// In Kafka headers are a plain object but values are Buffers
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe("Something happened");
+							expect(arg1Ctx.headers["x-error-name"]).toBe("Error");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Kafka headers are a map of Buffers
 							expect(
-								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-message")).toString()
-								)
+								Buffer.from(arg2Raw.headers.get("x-error-message")).toString()
 							).toBe("Something happened");
 							expect(
-								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-name")).toString()
-								)
+								Buffer.from(arg2Raw.headers.get("x-error-name")).toString()
 							).toBe("Error");
 							expect(
 								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-stack")).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
 							).toEqual(expect.any(String));
 							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-timestamp")).toString()
+							).toEqual(expect.any(String));
+							expect(
 								parseBase64(
-									Buffer.from(arg2.headers.get("x-error-timestamp")).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
-							).toEqual(expect.any(Number));
+							).toEqual(expect.any(String));
 						}
 
 						await broker.Promise.delay(500);

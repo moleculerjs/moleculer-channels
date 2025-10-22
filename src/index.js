@@ -14,7 +14,7 @@ const C = require("./constants");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
  * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
@@ -27,7 +27,8 @@ const C = require("./constants");
  * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
  * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
  * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
- * @property {(error: Error) => Record<string, string>} [error2ErrorInfoParser] Function to convert Error object to a plain object
+ * @property {(error: Error) => Record<string, string>} [transformErrorToHeaders] Function to convert Error object to a plain object
+ * @property {(headers: Record<string, string>) => Record<string, any>} [transformHeadersToErrorData] Function to parse error info from headers
  * @property {Number} errorInfoTTL Time-to-live in seconds for error info storage (only for Redis adapter)
  */
 
@@ -194,6 +195,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							if (opts.ctx.service) {
 								opts.headers.$caller = opts.ctx.service.fullName;
 							}
+
+							if (opts.ctx.channelName) {
+								opts.headers.$parentChannelName = opts.ctx.channelName;
+							}
+
+							// Serialize meta and headers
 							opts.headers.$meta = adapter.serializer
 								.serialize(opts.ctx.meta)
 								.toString("base64");
@@ -288,7 +295,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Wrap the handler with context creating
 						if (chan.context) {
 							wrappedHandler = (msg, raw) => {
-								let parentCtx, caller, meta, ctxHeaders;
+								let parentCtx, caller, meta, ctxHeaders, parentChannelName;
 								const headers = adapter.parseMessageHeaders(raw);
 								if (headers) {
 									if (headers.$requestID) {
@@ -299,6 +306,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 											level: headers.$level ? parseInt(headers.$level) : 0
 										};
 										caller = headers.$caller;
+										parentChannelName = headers.$parentChannelName;
 									}
 
 									if (headers.$meta) {
@@ -312,6 +320,19 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 											Buffer.from(headers.$headers, "base64")
 										);
 									}
+
+									if (
+										Object.keys(headers).some(key =>
+											key.startsWith(C.HEADER_ERROR_PREFIX)
+										)
+									) {
+										ctxHeaders = ctxHeaders || {};
+
+										ctxHeaders = {
+											...ctxHeaders,
+											...adapter.transformHeadersToErrorData(headers)
+										};
+									}
 								}
 
 								const ctx = Context.create(broker, null, msg, {
@@ -320,6 +341,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 									meta,
 									headers: ctxHeaders
 								});
+
+								ctx.channelName = chan.name;
+								ctx.parentChannelName = parentChannelName;
+
+								// Attach current service that has the channel handler to the context
+								ctx.service = svc;
 
 								return handler2(ctx, raw);
 							};

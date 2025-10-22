@@ -10,7 +10,7 @@ const _ = require("lodash");
 const BaseAdapter = require("./base");
 const { ServiceSchemaError, MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 const C = require("../constants");
-const { error2ErrorInfoParser } = require("../utils");
+const { transformErrorToHeaders } = require("../utils");
 
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
@@ -22,7 +22,7 @@ let Redis;
  * @typedef {import("ioredis").Redis} Redis Redis instance. More info: https://github.com/luin/ioredis/blob/master/API.md#Redis
  * @typedef {import("ioredis").RedisOptions} RedisOptions
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
- * @typedef {import("moleculer").LoggerInstance} Logger Logger instance
+ * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
  * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
@@ -625,7 +625,7 @@ class RedisAdapter extends BaseAdapter {
 							id,
 							serializedMessages[i],
 							messageHeaders,
-							this.error2ErrorInfoParser(result.reason)
+							this.transformErrorToHeaders(result.reason)
 						);
 					} else {
 						// Drop message
@@ -635,7 +635,7 @@ class RedisAdapter extends BaseAdapter {
 				} else {
 					// write back to the stream for retrying
 					// It will be (eventually) picked by xclaim failed_messages() or xreadgroup()
-					const parsedError = this.error2ErrorInfoParser(result.reason);
+					const parsedError = this.transformErrorToHeaders(result.reason);
 
 					if (parsedError && Object.keys(parsedError).length > 0) {
 						await pubClient.hset(messageKey, parsedError);

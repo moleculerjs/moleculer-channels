@@ -216,38 +216,41 @@ module.exports = {
 
 ## Channel options
 
-| Name                                   | Type                                      | Supported adapters | Description                                                                                                                                                                                                       |
-| -------------------------------------- | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `group`                                | `String`                                  | \*                 | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version)                                                                                                    |
-| `maxInFlight`                          | `Number`                                  | Redis              | Max number of messages under processing at the same time.                                                                                                                                                         |
-| `maxRetries`                           | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
-| `deadLettering.enabled`                | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
-| `deadLettering.queueName`              | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
-| `deadLettering.errorInfoTTL`           | `Number`                                  | \*                 | [Redis adapter only] TTL (in seconds) of error info messages stored in a separate hash. Default is `86400` (1 day).                                                                                               |
-| `deadLettering.error2ErrorInfoParser`  | `Function`                                | \*                 | Function to parse error instance to a plain object which will be stored in message headers.                                                                                                                       |
-| `context`                              | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.                                                                                                                                                                      |
-| `tracing`                              | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`.                                                              |
-| `handler`                              | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
-| `redis.startID`                        | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
-| `redis.minIdleTime`                    | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
-| `redis.claimInterval`                  | `Number`                                  | Redis              | Interval (in milliseconds) between message claims                                                                                                                                                                 |
-| `redis.readTimeoutInterval`            | `Number`                                  | Redis              | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)       |
-| `redis.processingAttemptsInterval`     | `Number`                                  | Redis              | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel                                                                                                                                |
-| `amqp.queueOptions`                    | `Object`                                  | AMQP               | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).                                                                                       |
-| `amqp.exchangeOptions`                 | `Object`                                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                 |
-| `amqp.consumerOptions`                 | `Object`                                  | AMQP               | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).                                                                                         |
-| `nats.consumerOptions`                 | `Object`                                  | NATS               | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).                                                                                                       |
-| `nats.streamConfig`                    | `Object`                                  | NATS               | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).                                                                                                          |
-| `kafka.fromBeginning`                  | `Boolean`                                 | Kafka              | Kafka consumer `fromBeginning` option. More info [here](https://kafka.js.org/docs/consuming#frombeginning).                                                                                                       |
-| `kafka.partitionsConsumedConcurrently` | `Number`                                  | Kafka              | Kafka consumer `partitionsConsumedConcurrently` option. More info [here](https://kafka.js.org/docs/consuming#partition-aware-concurrency).                                                                        |
+| Name                                        | Type                                      | Supported adapters | Description                                                                                                                                                                                                       |
+| ------------------------------------------- | ----------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `group`                                     | `String`                                  | \*                 | Group name. It's used as a consumer group in adapter. By default, it's the full name of service (with version)                                                                                                    |
+| `maxInFlight`                               | `Number`                                  | Redis              | Max number of messages under processing at the same time.                                                                                                                                                         |
+| `maxRetries`                                | `Number`                                  | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                |
+| `deadLettering.enabled`                     | `Boolean`                                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                  |
+| `deadLettering.queueName`                   | `String`                                  | \*                 | Name of dead-letter queue.                                                                                                                                                                                        |
+| `deadLettering.errorInfoTTL`                | `Number`                                  | \*                 | [Redis adapter only] TTL (in seconds) of error info messages stored in a separate hash. Default is `86400` (1 day).                                                                                               |
+| `deadLettering.transformErrorToHeaders`     | `Function`                                | \*                 | Function to parse error instance to a plain object which will be stored in message headers.                                                                                                                       |
+| `deadLettering.transformHeadersToErrorData` | `Function`                                | \*                 | Function to parse plain error info object back to original data types                                                                                                                                             | headers. |
+| `context`                                   | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.                                                                                                                                                                      |
+| `tracing`                                   | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`.                                                              |
+| `handler`                                   | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
+| `redis.startID`                             | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
+| `redis.minIdleTime`                         | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
+| `redis.claimInterval`                       | `Number`                                  | Redis              | Interval (in milliseconds) between message claims                                                                                                                                                                 |
+| `redis.readTimeoutInterval`                 | `Number`                                  | Redis              | Maximum time (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout. More info [here](https://redis.io/commands/XREADGROUP#differences-between-xread-and-xreadgroup)       |
+| `redis.processingAttemptsInterval`          | `Number`                                  | Redis              | Interval (in milliseconds) between message transfer into `FAILED_MESSAGES` channel                                                                                                                                |
+| `amqp.queueOptions`                         | `Object`                                  | AMQP               | AMQP lib queue configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertQueue).                                                                                       |
+| `amqp.exchangeOptions`                      | `Object`                                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                 |
+| `amqp.consumerOptions`                      | `Object`                                  | AMQP               | AMQP lib consume configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_consume).                                                                                         |
+| `nats.consumerOptions`                      | `Object`                                  | NATS               | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).                                                                                                       |
+| `nats.streamConfig`                         | `Object`                                  | NATS               | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).                                                                                                          |
+| `kafka.fromBeginning`                       | `Boolean`                                 | Kafka              | Kafka consumer `fromBeginning` option. More info [here](https://kafka.js.org/docs/consuming#frombeginning).                                                                                                       |
+| `kafka.partitionsConsumedConcurrently`      | `Number`                                  | Kafka              | Kafka consumer `partitionsConsumedConcurrently` option. More info [here](https://kafka.js.org/docs/consuming#partition-aware-concurrency).                                                                        |
 
 ## Failed message
 
-If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers.
-When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect.
-If the dead-lettering feature is enabled with `deadLettering.enabled: true` option then the adapter will move the message into the `deadLettering.queueName` queue/topic.
+If the service is not able to process a message, it should throw an `Error` inside the handler function. In case of error and if `maxRetries` option is a positive number, the adapter will redeliver the message to one of all consumers. When the number of redelivering reaches the `maxRetries`, it will drop the message to avoid the 'retry-loop' effect. If the dead-lettering feature is enabled with `deadLettering.enabled: true` option then the adapter will move the message into the `deadLettering.queueName` queue/topic.
 
-You can customize the error information that will be stored in the message headers by providing a custom `error2ErrorInfoParser` function in the `deadLettering` options. By default, the parser stores the `message`, `stack`, `code`, `type`, `data`, `name` and `retryable` properties of the error object (if they exist) in the headers as base64 encoded strings. Encoding is necessary to handle special characters, as some message brokers (like NATS JetStream) do not support characters like `\n` or `\r` in headers.
+The dead-lettered message will contain the original payload and additional error information in the `ctx.headers` (for Moleculer version >= 0.15.x only) and in the raw message headers. Note that depending on the adapter, the raw message structure may differ (e.g, Map or Object, Buffer or String). The error information includes details about the original error that caused the message to be dead-lettered, such as the error message, stack trace, code, type, data, name, retryable status, and a timestamp indicating when the error occurred.
+
+You can customize the error information that will be stored in the message headers by providing a custom `transformErrorToHeaders` function in the `deadLettering` options. By default, the parser stores the `message`, `stack`, `code`, `type`, `data`, `name` and `retryable` properties of the error object (if they exist) in the headers as plain string, except for `stack` and `data` properties which are stored as base64 encoded strings. Encoding is necessary to handle special characters, as some message brokers (like NATS JetStream) do not support characters like `\n` or `\r` in headers.
+
+You can also provide a custom `transformHeadersToErrorData` function in the `deadLettering` options to parse the error information from the message headers back to their original data types when consuming dead-lettered messages in `ctx.headers`.
 
 Also note that, for `Redis` adapter it's not possible to update the original message with error info, to overcome this limitation the adapter will store error info in a separate hash with the message ID as the key. You can customize the TTL of these error info message by setting `deadLettering.errorInfoTTL`, which defaults to `1 day`. When `Redis` adapter moves a message to the dead-letter queue, it will merge the original message with the error info from the hash.
 
@@ -259,27 +262,58 @@ Also note that, for `Redis` adapter it's not possible to update the original mes
  * @param {any} err
  * @returns {Record<string, string>|null}
  */
-const error2ErrorInfoParser = err => {
+const transformErrorToHeaders = err => {
     if (!err) return null;
 
     let errorHeaders = {
-        ...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message } : {}),
-        ...(err.stack ? { [HEADER_ERROR_STACK]: err.stack } : {}),
-        ...(err.code ? { [HEADER_ERROR_CODE]: err.code } : {}),
-        ...(err.type ? { [HEADER_ERROR_TYPE]: err.type } : {}),
-        ...(err.data ? { [HEADER_ERROR_DATA]: err.data } : {}),
-        ...(err.name ? { [HEADER_ERROR_NAME]: err.name } : {}),
-        ...(err.retryable !== undefined ? { [HEADER_ERROR_RETRYABLE]: err.retryable } : {})
+        // primitive properties
+        ...(err.message ? { [HEADER_ERROR_MESSAGE]: err.message.toString() } : {}),
+        ...(err.code ? { [HEADER_ERROR_CODE]: err.code.toString() } : {}),
+        ...(err.type ? { [HEADER_ERROR_TYPE]: err.type.toString() } : {}),
+        ...(err.name ? { [HEADER_ERROR_NAME]: err.name.toString() } : {}),
+        ...(typeof err.retryable === "boolean"
+            ? { [HEADER_ERROR_RETRYABLE]: err.retryable.toString() }
+            : {}),
+
+        // complex properties
+        // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
+        ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
+        ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {})
     };
 
     if (Object.keys(errorHeaders).length === 0) return null;
 
-    errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now();
-
-    // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
-    Object.keys(errorHeaders).forEach(key => (errorHeaders[key] = toBase64(errorHeaders[key])));
+    errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now().toString();
 
     return errorHeaders;
+};
+```
+
+**Default headers to error info parser**
+
+```js
+/**
+ * Parses error info from headers and attempts to reconstruct original data types
+ *
+ * @param {Record<string, string>} headers
+ * @returns {Record<string, any>}
+ */
+const transformHeadersToErrorData = headers => {
+    if (!headers || typeof headers !== "object") return null;
+
+    const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
+
+    let errorInfo = {};
+
+    for (let key in headers) {
+        if (!key.startsWith(HEADER_ERROR_PREFIX)) continue;
+
+        errorInfo[key] = complexPropertiesList.includes(key)
+            ? parseBase64(headers[key])
+            : (errorInfo[key] = parseStringData(headers[key]));
+    }
+
+    return errorInfo;
 };
 ```
 
@@ -665,24 +699,51 @@ module.exports = {
                         }
                     },
                     deadLettering: {
-                        error2ErrorInfoParser: err => {
+                        transformErrorToHeaders: err => {
                             if (!err) return null;
 
-                            return {
-                                // Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
+                            let errorHeaders = {
+                                // primitive properties
                                 ...(err.message
-                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
+                                    ? { [HEADER_ERROR_MESSAGE]: err.message.toString() }
                                     : {}),
+                                ...(err.code ? { [HEADER_ERROR_CODE]: err.code.toString() } : {}),
+                                ...(err.type ? { [HEADER_ERROR_TYPE]: err.type.toString() } : {}),
+                                ...(err.name ? { [HEADER_ERROR_NAME]: err.name.toString() } : {}),
+                                ...(typeof err.retryable === "boolean"
+                                    ? { [HEADER_ERROR_RETRYABLE]: err.retryable.toString() }
+                                    : {}),
+
+                                // complex properties
+                                // Encode to base64 because of special characters For example, NATS JetStream does not support \n or \r in headers
                                 ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                                ...(err.retryable !== undefined
-                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                                    : {}),
-                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
+                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {})
                             };
+
+                            if (Object.keys(errorHeaders).length === 0) return null;
+
+                            errorHeaders[HEADER_ERROR_TIMESTAMP] = Date.now().toString();
+
+                            return errorHeaders;
+                        },
+
+                        transformHeadersToErrorData: headers => {
+                            if (!headers || typeof headers !== "object") return null;
+
+                            // parse back complex properties
+                            const complexPropertiesList = [HEADER_ERROR_STACK, HEADER_ERROR_DATA];
+
+                            let errorInfo = {};
+
+                            for (let key in headers) {
+                                if (!key.startsWith(HEADER_ERROR_PREFIX)) continue;
+
+                                errorInfo[key] = complexPropertiesList.includes(key)
+                                    ? parseBase64(headers[key])
+                                    : (errorInfo[key] = parseStringData(headers[key]));
+                            }
+
+                            return errorInfo;
                         },
 
                         // Time to live for error info in dedicated hash (in seconds). Default: 24 hours
@@ -775,26 +836,6 @@ module.exports = {
                         enabled: false
                         //queueName: "DEAD_LETTER",
                         //exchangeName: "DEAD_LETTER"
-
-                        // Optional custom error to headers parser function
-                        error2ErrorInfoParser: err => {
-                        	if (!err) return null;
-                        	return {
-                        		// Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
-                        		...(err.message
-                        			? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
-                        			: {}),
-                        		...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                        		...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                        		...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                        		...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                        		...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                        		...(err.retryable !== undefined
-                        			? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                        			: {}),
-                        		[HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
-                        	};
-                        },
                     }
                 }
             }
@@ -875,26 +916,7 @@ module.exports = {
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
-                        queueName: "DEAD_LETTER",
-                        // Optional custom error to headers parser function
-                        error2ErrorInfoParser: err => {
-                            if (!err) return null;
-                            return {
-                                // Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
-                                ...(err.message
-                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
-                                    : {}),
-                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                                ...(err.retryable !== undefined
-                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                                    : {}),
-                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
-                            };
-                        }
+                        queueName: "DEAD_LETTER"
                     }
                 }
             }
@@ -954,26 +976,7 @@ module.exports = {
                     maxRetries: 3,
                     deadLettering: {
                         enabled: false,
-                        queueName: "DEAD_LETTER",
-                        // Optional custom error to headers parser function
-                        error2ErrorInfoParser: err => {
-                            if (!err) return null;
-                            return {
-                                // Encode to base64 because of special characters. For example, NATS JetStream does not support \n or \r in headers
-                                ...(err.message
-                                    ? { [HEADER_ERROR_MESSAGE]: toBase64(err.message) }
-                                    : {}),
-                                ...(err.stack ? { [HEADER_ERROR_STACK]: toBase64(err.stack) } : {}),
-                                ...(err.code ? { [HEADER_ERROR_CODE]: toBase64(err.code) } : {}),
-                                ...(err.type ? { [HEADER_ERROR_TYPE]: toBase64(err.type) } : {}),
-                                ...(err.data ? { [HEADER_ERROR_DATA]: toBase64(err.data) } : {}),
-                                ...(err.name ? { [HEADER_ERROR_NAME]: toBase64(err.name) } : {}),
-                                ...(err.retryable !== undefined
-                                    ? { [HEADER_ERROR_RETRYABLE]: toBase64(err.retryable) }
-                                    : {}),
-                                [HEADER_ERROR_TIMESTAMP]: toBase64(Date.now())
-                            };
-                        }
+                        queueName: "DEAD_LETTER"
                     }
                 }
             }
