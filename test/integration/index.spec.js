@@ -508,7 +508,7 @@ describe("Integration tests", () => {
 
 			if (adapter.type != "Fake") {
 				describe("Test retried messages logic", () => {
-					const broker = createBroker(adapter);
+					const broker = createBroker(adapter, { logger: false });
 
 					const error = new Error("Something happened");
 					const subWrongHandler = vi.fn(() => Promise.reject(error));

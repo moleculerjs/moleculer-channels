@@ -41,6 +41,22 @@ let KafkaLibRef;
 let HWPRef;
 
 /**
+ * From here: https://github.com/platformatic/kafka/blob/main/docs/consumer.md#events
+ */
+const CONSUMER_EVENTS = [
+	"consumer:group:join",
+	"consumer:group:leave",
+	"consumer:group:rejoin",
+	"consumer:group:rebalance",
+	"consumer:heartbeat:start",
+	"consumer:heartbeat:cancel",
+	"consumer:heartbeat:end",
+	"consumer:heartbeat:error",
+	"consumer:lag",
+	"consumer:lag:error"
+];
+
+/**
  * Kafka adapter
  *
  * @class KafkaAdapter
@@ -174,7 +190,7 @@ class KafkaAdapter extends BaseAdapter {
 	 * Trying connect to the adapter.
 	 */
 	async tryConnect() {
-		this.logger.debug("Connecting to Kafka brokers...", this.opts.kafka.brokers);
+		this.logger.debug("Connecting to Kafka brokers...", this.opts.kafka.bootstrapBrokers);
 
 		this.admin = new KafkaLibRef.Admin(this.opts.kafka);
 
@@ -299,6 +315,7 @@ class KafkaAdapter extends BaseAdapter {
 			// });
 
 			const consumer = new KafkaLibRef.Consumer({
+				clientId: chan.id,
 				...this.opts.kafka.consumerOptions,
 				...chan.kafka,
 				deserializers: {
@@ -309,6 +326,12 @@ class KafkaAdapter extends BaseAdapter {
 				},
 				groupId: `${chan.group}:${chan.name}`,
 				bootstrapBrokers: this.opts.kafka.bootstrapBrokers
+			});
+
+			CONSUMER_EVENTS.forEach(event => {
+				consumer.on(event, (...args) =>
+					this.logger.debug(`Consumer event '${event}' emitted.`, JSON.stringify(args))
+				);
 			});
 
 			this.consumers.set(chan.id, consumer);
@@ -329,11 +352,22 @@ class KafkaAdapter extends BaseAdapter {
 			// check if topic exists
 			if (!this.existingTopics.has(chan.name)) {
 				// Create topic if not exists
-				this.logger.warn(
-					`The topic '${chan.name}' does not exist. Creating the topic automatically...`
-				);
+
+				/** @type {import('@platformatic/kafka').CreateTopicsOptions} */
+				const topicConfig = {
+					topics: [chan.name],
+					partitions: chan.kafka.partitions || 2,
+					replicas: chan.kafka.replicas || this.opts.kafka.bootstrapBrokers?.length || 1
+				};
+
 				this.existingTopics.add(chan.name);
-				await this.admin.createTopics({ topics: [chan.name] });
+
+				this.logger.warn(
+					`The topic '${chan.name}' does not exist. Creating the topic automatically...`,
+					topicConfig
+				);
+
+				await this.admin.createTopics(topicConfig);
 			}
 
 			// Start consuming messages
