@@ -37,6 +37,9 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 /** @type {KafkaLibRef} */
 let KafkaLibRef;
 
+/** @type {import('hwp')}*/
+let HWPRef;
+
 /**
  * Kafka adapter
  *
@@ -111,6 +114,17 @@ class KafkaAdapter extends BaseAdapter {
 			);
 		}
 
+		try {
+			HWPRef = require("hwp");
+		} catch (err) {
+			/* istanbul ignore next */
+			this.broker.fatal(
+				"The 'hwp' package is missing! Please install it with 'npm install hwp --save' command.",
+				err,
+				true
+			);
+		}
+
 		// this.checkClientLibVersion("@platformatic/kafka", "^1.15.0 || ^2.0.0");
 
 		this.opts.kafka.clientId = this.opts.consumerName;
@@ -162,13 +176,11 @@ class KafkaAdapter extends BaseAdapter {
 	async tryConnect() {
 		this.logger.debug("Connecting to Kafka brokers...", this.opts.kafka.brokers);
 
-		// this.client = new KafkaLibRef(this.opts.kafka);
 		this.admin = new KafkaLibRef.Admin(this.opts.kafka);
 
 		this.producer = new KafkaLibRef.Producer({
 			serializers: {
 				key: KafkaLibRef.stringSerializers.key,
-				// value: this._serialize.bind(this),
 				value: data => data,
 				headerKey: KafkaLibRef.stringSerializers.headerKey,
 				headerValue: KafkaLibRef.stringSerializers.headerValue
@@ -296,8 +308,7 @@ class KafkaAdapter extends BaseAdapter {
 					headerValue: KafkaLibRef.stringDeserializers.headerValue
 				},
 				groupId: `${chan.group}:${chan.name}`,
-				bootstrapBrokers: this.opts.kafka.bootstrapBrokers,
-				maxInflights: chan.maxInFlight
+				bootstrapBrokers: this.opts.kafka.bootstrapBrokers
 			});
 
 			this.consumers.set(chan.id, consumer);
@@ -340,13 +351,23 @@ class KafkaAdapter extends BaseAdapter {
 
 			this.consumerStreams.set(chan.id, consumerStream);
 
-			consumerStream.on("data", async message => {
-				await this.processMessage(chan, consumer, message).catch(err => {
-					this.logger.error(
-						`Error while processing message at '${chan.name}' topic in '${chan.id}'...`,
-						err
-					);
-				});
+			// run detached so we don't block broker's startup process
+			HWPRef.forEach(
+				consumerStream,
+				async message => {
+					await this.processMessage(chan, consumer, message).catch(err => {
+						this.logger.error(
+							`Error while processing message at '${chan.name}' topic in '${chan.id}'...`,
+							err
+						);
+					});
+				},
+				chan.maxInFlight
+			).catch(err => {
+				this.logger.error(
+					`Error in HWP processing for '${chan.name}' topic in '${chan.id}'...`,
+					err
+				);
 			});
 
 			consumerStream.on("error", err => {

@@ -57,7 +57,6 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		{ type: "NATS", options: {} },*/
 		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } }
 		// { type: "Redis", options: {} }
-		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
 	];
 }
 
