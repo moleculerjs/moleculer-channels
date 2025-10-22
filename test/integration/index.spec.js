@@ -161,11 +161,11 @@ describe("Integration tests", () => {
 					return Promise.resolve();
 				});
 
-				const anotherTestTopicHandler = jest.fn(() => {
+				const anotherTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
-				const thirdTestTopicHandler = jest.fn(() => {
+				const thirdTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
