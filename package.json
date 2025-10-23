@@ -35,7 +35,7 @@
     "moleculer": "^0.14.12 || ^0.15.0-0"
   },
   "devDependencies": {
-    "@platformatic/kafka": "^1.17.1",
+    "@platformatic/kafka": "^1.18.0",
     "@types/node": "^24.7.2",
     "@vitest/coverage-v8": "^3.2.4",
     "amqplib": "^0.10.9",
