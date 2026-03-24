@@ -687,6 +687,7 @@ class KafkaAdapter extends BaseAdapter {
 	 * @param {number} [opts.acks]
 	 * @param {"none" | "gzip" | "snappy" | "lz4" | "zstd"} [opts.compression]
 	 * @param {boolean} [opts.idempotent]
+	 * @param {boolean} [opts.autocreateTopics] Whether to autocreate the topic if it doesn't exist. Default: true
 	 */
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
@@ -722,7 +723,7 @@ class KafkaAdapter extends BaseAdapter {
 					topic: channelName
 				}
 			],
-			autocreateTopics: true,
+			autocreateTopics: opts.autocreateTopics ?? true,
 			acks: opts.acks,
 			compression: opts.compression,
 			idempotent: opts.idempotent
