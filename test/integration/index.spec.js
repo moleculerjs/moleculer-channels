@@ -757,6 +757,7 @@ describe("Integration tests", () => {
 					channels: {
 						"test.mif.topic": {
 							maxInFlight: 1,
+							kafka: { partitions: 1 },
 							async handler(payload) {
 								FLOW.push(`BEGIN: ${payload.id}`);
 								await this.Promise.delay(300);
