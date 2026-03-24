@@ -30,7 +30,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } },
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } },
 		{ type: "Fake", name: "Multi", options: {} }
 	].filter(a => (a.name || a.type) == process.env.ADAPTER);
 } else {
@@ -437,7 +437,6 @@ describe("Integration tests", () => {
 					name: "sub1",
 					channels: {
 						"test.balanced.topic": {
-							kafka: { partitions: 3 },
 							group: "mygroup",
 							handler: sub1Handler
 						}
@@ -448,7 +447,6 @@ describe("Integration tests", () => {
 					name: "sub2",
 					channels: {
 						"test.balanced.topic": {
-							kafka: { partitions: 3 },
 							group: "mygroup",
 							handler: sub2Handler
 						}
@@ -459,7 +457,6 @@ describe("Integration tests", () => {
 					name: "sub3",
 					channels: {
 						"test.balanced.topic": {
-							kafka: { partitions: 3 },
 							group: "mygroup",
 							handler: sub3Handler
 						}
@@ -1422,7 +1419,15 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 	});
 }
 
+/**
+ *
+ * @param {any} adapter
+ * @param {{ topic: string, numPartitions?: number }[]} defs
+ * @returns
+ */
 async function createKafkaTopics(adapter, defs) {
+	if (defs?.length === 0) return;
+
 	const admin = new Kafka.Admin({
 		clientId: "moleculer-channel-test",
 		bootstrapBrokers: adapter.options.kafka.bootstrapBrokers
@@ -1431,8 +1436,11 @@ async function createKafkaTopics(adapter, defs) {
 	await admin.connectToBrokers();
 	const topics = await admin.listTopics();
 	defs = defs.filter(def => !topics.includes(def.topic));
-	await admin.createTopics({
-		topics: defs
-	});
+	for (const def of defs) {
+		await admin.createTopics({
+			topics: [def.topic],
+			...(def.numPartitions ? { numPartitions: def.numPartitions } : {})
+		});
+	}
 	await admin.close();
 }
