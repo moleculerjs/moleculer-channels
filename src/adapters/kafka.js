@@ -380,7 +380,8 @@ class KafkaAdapter extends BaseAdapter {
 				autocommit: false,
 				topics: [chan.name],
 				// More info: https://github.com/platformatic/kafka/blob/main/docs/consumer.md
-				mode: this.opts.kafka.consumerOptions?.mode || "committed"
+				mode: this.opts.kafka.consumerOptions?.mode || "committed",
+				fallbackMode: this.opts.kafka.consumerOptions?.fallbackMode || "earliest"
 			});
 
 			this.consumerStreams.set(chan.id, consumerStream);

@@ -437,6 +437,7 @@ describe("Integration tests", () => {
 					name: "sub1",
 					channels: {
 						"test.balanced.topic": {
+							kafka: { partitions: 3 },
 							group: "mygroup",
 							handler: sub1Handler
 						}
@@ -447,6 +448,7 @@ describe("Integration tests", () => {
 					name: "sub2",
 					channels: {
 						"test.balanced.topic": {
+							kafka: { partitions: 3 },
 							group: "mygroup",
 							handler: sub2Handler
 						}
@@ -457,13 +459,17 @@ describe("Integration tests", () => {
 					name: "sub3",
 					channels: {
 						"test.balanced.topic": {
+							kafka: { partitions: 3 },
 							group: "mygroup",
 							handler: sub3Handler
 						}
 					}
 				});
 
-				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				beforeAll(async () => {
+					await broker.start();
+					await broker.Promise.delay(6 * 1000); // add more delay for rebalancing in Kafka
+				});
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
