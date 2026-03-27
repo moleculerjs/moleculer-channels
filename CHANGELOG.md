@@ -1,6 +1,6 @@
 <a name="v0.3.0"></a>
 
-# [0.3.0](https://github.com/moleculerjs/moleculer-channels/compare/v0.2.0...v0.3.0) (2026-xx-xx)
+# [0.3.0](https://github.com/moleculerjs/moleculer-channels/compare/v0.2.0...v0.3.0)
 
 ## Breaking changes
 - Minimum Node.js version is **22.x** (matching Moleculer 0.15)

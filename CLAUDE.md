@@ -12,8 +12,8 @@ This is `@moleculer/channels` - a reliable messaging solution for Moleculer micr
 - `npm test` - Run Jest tests with coverage
 - `npm run ci` - Run Jest in watch mode
 - `npm run lint` - ESLint check on src, examples, and test directories
-- `npm run check` - TypeScript type checking without emitting files
-- `npm run types` - Generate TypeScript declaration files
+- `npm run typecheck` - TypeScript type checking without emitting files
+- `npm run test:ts` - Validate TypeScript declaration files
 
 ### Testing Infrastructure
 - `npm run test:up` - Start Docker services (Redis, NATS, RabbitMQ, Kafka, etc.)
@@ -104,6 +104,6 @@ Extensive examples in `examples/` directory demonstrate:
 ## Code Style
 
 - Uses Prettier with tabs (tabWidth: 4)  
-- ESLint with security, Node.js, and Prettier plugins
-- TypeScript definitions generated from JSDoc comments
+- ESLint flat config with security rules and Prettier integration
+- TypeScript definitions provided via a hand-maintained root `index.d.ts`
 - Lodash for utilities, semver for version handling
