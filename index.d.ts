@@ -11,7 +11,7 @@ declare module "@moleculer/channels" {
 		Service,
 		Middleware,
 		Logger,
-		Serializer
+		Serializers
 	} from "moleculer";
 
 	// === Core Interfaces ===
@@ -30,6 +30,12 @@ declare module "@moleculer/channels" {
 		exchangeOptions?: Record<string, any>;
 		/** Options for the dead-letter queue (only for AMQP adapter) */
 		queueOptions?: Record<string, any>;
+		/** Custom function to convert Error object to header entries */
+		transformErrorToHeaders?: (error: Error) => Record<string, string>;
+		/** Custom function to parse error info from headers back to data */
+		transformHeadersToErrorData?: (headers: Record<string, string>) => Record<string, any>;
+		/** Time-to-live in seconds for error info storage (only for Redis adapter) */
+		errorInfoTTL?: number;
 	}
 
 	/**
@@ -157,18 +163,23 @@ declare module "@moleculer/channels" {
 		/** Promise constructor */
 		Promise: typeof Promise;
 		/** Serializer instance */
-		serializer: Serializer;
+		serializer: Serializers.Base;
 		/** Active messages tracking */
 		activeMessages: Map<string, Array<string | number>>;
 		/** Connection status */
 		connected: boolean;
+
+		/** Function to convert Error to header entries for dead-lettering */
+		transformErrorToHeaders: (error: Error) => Record<string, string> | null;
+		/** Function to parse error info from headers */
+		transformHeadersToErrorData: (headers: Record<string, string>) => Record<string, any> | null;
 
 		constructor(opts?: BaseDefaultOptions);
 
 		/**
 		 * Initialize the adapter
 		 */
-		init(broker: ServiceBroker, logger: Loggers): void;
+		init(broker: ServiceBroker, logger: Logger): void;
 
 		/**
 		 * Register adapter related metrics
@@ -413,6 +424,26 @@ declare module "@moleculer/channels" {
 		HEADER_ORIGINAL_CHANNEL: string;
 		/** Name of consumer group that could not process the message properly */
 		HEADER_ORIGINAL_GROUP: string;
+
+		/** Prefix for error-related headers */
+		HEADER_ERROR_PREFIX: string;
+		/** Error message */
+		HEADER_ERROR_MESSAGE: string;
+		/** Error code */
+		HEADER_ERROR_CODE: string;
+		/** Error stack trace */
+		HEADER_ERROR_STACK: string;
+		/** Error type */
+		HEADER_ERROR_TYPE: string;
+		/** Error data */
+		HEADER_ERROR_DATA: string;
+		/** Error name */
+		HEADER_ERROR_NAME: string;
+		/** Error retryable flag */
+		HEADER_ERROR_RETRYABLE: string;
+		/** Timestamp when the error happened */
+		HEADER_ERROR_TIMESTAMP: string;
+
 		/** Metrics constants */
 		METRIC_CHANNELS_MESSAGES_SENT: string;
 		METRIC_CHANNELS_MESSAGES_TOTAL: string;
@@ -421,6 +452,9 @@ declare module "@moleculer/channels" {
 		METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL: string;
 		METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL: string;
 		METRIC_CHANNELS_MESSAGES_DEAD_LETTERING_TOTAL: string;
+
+		/** Thrown when incoming messages cannot be deserialized */
+		INVALID_MESSAGE_SERIALIZATION_ERROR_CODE: string;
 	}
 
 	// === Enhanced ServiceBroker interface ===
@@ -446,7 +480,7 @@ declare module "@moleculer/channels" {
 
 	declare module "moleculer" {
 		export interface ServiceBroker {
-			sendToChannel(channelName: string, payload: any, opts?: { ctx?: Context<any, any> });
+			sendToChannel(channelName: string, payload: any, opts?: SendOptions): Promise<void>;
 		}
 
 		export interface ServiceSchema<TSettings = ServiceSettingSchema,
@@ -469,7 +503,14 @@ declare module "@moleculer/channels" {
 	/**
 	 * Create Channels middleware
 	 */
-	declare function ChannelsMiddleware(opts: MiddlewareOptions): Middleware;
+	declare function ChannelsMiddleware(opts: MiddlewareOptions): Middleware & {
+		name: string;
+		created(broker: ServiceBroker): void;
+		serviceCreated(svc: Service): Promise<void>;
+		serviceStopping(svc: Service): Promise<void>;
+		starting(): Promise<void>;
+		stopped(): Promise<void>;
+	};
 
 	/**
 	 * Tracing middleware factory

@@ -1,13 +1,13 @@
 {
 	"compilerOptions": {
-		"allowJs": true,
 		"strict": false,
-		"checkJs": true,
 		"noEmit": true,
 		"skipLibCheck": true,
 		"skipDefaultLibCheck": true,
-		"resolveJsonModule": true
+		"moduleResolution": "node",
+		"module": "commonjs",
+		"target": "es2020"
 	},
-	"include": ["index.d.ts", "./src/**/*.js"],
-	"exclude": ["node_modules", ".eslintrc.js", "prettier.config.js", "types"]
+	"include": ["index.d.ts"],
+	"exclude": ["node_modules"]
 }
