@@ -9,7 +9,9 @@
 const BaseAdapter = require("./base");
 const _ = require("lodash");
 const C = require("../constants");
-const { MoleculerRetryableError } = require("moleculer").Errors;
+const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { transformErrorToHeaders } = require("../utils");
+const { MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 
 let NATS;
 
@@ -28,12 +30,17 @@ let NATS;
  * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Logger} Logger Logger instance
- * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
- * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("../index").Channel} Channel Base channel definition
+ * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {import("@moleculer/channels").NatsDefaultOptions} NatsDefaultOptions
+ * @typedef {Object} NatsDefaultOptions
+ * @property {Object} nats NATS lib configuration
+ * @property {String} url String containing the URL to NATS server
+ * @property {ConnectionOptions} nats.connectionOptions
+ * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
+ * @property {ConsumerOpts} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
  */
 
 /**
@@ -52,7 +59,7 @@ class NatsAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type { NatsDefaultOptions } */
+		/** @type { BaseDefaultOptions & NatsDefaultOptions } */
 		this.opts = _.defaultsDeep(this.opts, {
 			nats: {
 				/** @type {ConnectionOptions} */
@@ -264,13 +271,24 @@ class NatsAdapter extends BaseAdapter {
 				try {
 					// Working on the message and thus prevent receiving the message again as a redelivery.
 					message.working();
-					await chan.handler(
-						this.serializer.deserialize(Buffer.from(message.data)),
-						message
-					);
+
+					let content;
+					try {
+						content = this.serializer.deserialize(Buffer.from(message.data));
+					} catch (error) {
+						const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+						throw new MoleculerError(
+							msg,
+							400,
+							INVALID_MESSAGE_SERIALIZATION_ERROR_CODE,
+							{ error }
+						);
+					}
+
+					await chan.handler(content, message);
 					message.ack();
 				} catch (error) {
-					// this.logger.error(error);
+					this.logger.warn(`NATS message processing error in '${chan.name}'`, error);
 					this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_ERRORS_TOTAL, chan);
 
 					// Message rejected
@@ -281,7 +299,11 @@ class NatsAdapter extends BaseAdapter {
 							this.logger.debug(
 								`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 							);
-							await this.moveToDeadLetter(chan, message);
+							await this.moveToDeadLetter(
+								chan,
+								message,
+								this.transformErrorToHeaders(error)
+							);
 						} else {
 							// Drop message
 							this.logger.error(`No retries, drop message...`, message.seq);
@@ -298,7 +320,11 @@ class NatsAdapter extends BaseAdapter {
 							this.logger.debug(
 								`Message redelivered too many times (${message.info.redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 							);
-							await this.moveToDeadLetter(chan, message);
+							await this.moveToDeadLetter(
+								chan,
+								message,
+								this.transformErrorToHeaders(error)
+							);
 						} else {
 							// Drop message
 							this.logger.error(
@@ -341,20 +367,20 @@ class NatsAdapter extends BaseAdapter {
 					streamOpts && streamOpts.name
 						? streamOpts.name
 						: // Global stream config
-						this.opts.nats.streamConfig && this.opts.nats.streamConfig.name
-						? this.opts.nats.streamConfig.name
-						: // Default
-						  streamName,
+							this.opts.nats.streamConfig && this.opts.nats.streamConfig.name
+							? this.opts.nats.streamConfig.name
+							: // Default
+								streamName,
 
 				subjects:
 					// Local stream subjects
 					streamOpts && streamOpts.subjects
 						? streamOpts.subjects
 						: // Global stream subjects
-						this.opts.nats.streamConfig && this.opts.nats.streamConfig.subjects
-						? this.opts.nats.streamConfig.subjects
-						: // Default
-						  subjects
+							this.opts.nats.streamConfig && this.opts.nats.streamConfig.subjects
+							? this.opts.nats.streamConfig.subjects
+							: // Default
+								subjects
 			},
 			streamOpts,
 			this.opts.nats.streamConfig
@@ -379,8 +405,9 @@ class NatsAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel} chan
 	 * @param {JsMsg} message JetStream message
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, message) {
+	async moveToDeadLetter(chan, message, errorData) {
 		// this.logger.warn(`Moved message to '${chan.deadLettering.queueName}'`);
 		try {
 			/** @type {JetStreamPublishOptions} */
@@ -392,6 +419,10 @@ class NatsAdapter extends BaseAdapter {
 					[C.HEADER_ORIGINAL_GROUP]: chan.group
 				}
 			};
+
+			if (errorData) {
+				Object.entries(errorData).forEach(([key, value]) => (opts.headers[key] = value));
+			}
 
 			await this.publish(chan.deadLettering.queueName, message.data, opts);
 

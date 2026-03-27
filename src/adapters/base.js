@@ -11,15 +11,25 @@ const semver = require("semver");
 const { MoleculerError } = require("moleculer").Errors;
 const { Serializers, METRIC } = require("moleculer");
 const C = require("../constants");
+const { transformErrorToHeaders, transformHeadersToErrorData } = require("../utils");
 
 /**
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Service} Service Moleculer Service definition
  * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("moleculer").Serializers.Base} Serializer Moleculer Serializer
- * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
- * @typedef {import("@moleculer/channels").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
- * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions
+ * @typedef {import("../index").Channel} Channel Base channel definition
+ * @typedef {import("../index").DeadLetteringOptions} DeadLetteringOptions Dead-letter-queue options
+ */
+
+/**
+ * @typedef {Object} BaseDefaultOptions Base Adapter configuration
+ * @property {String?} prefix Adapter prefix
+ * @property {String} consumerName Name of the consumer
+ * @property {String} serializer Type of serializer to use in message exchange. Defaults to JSON
+ * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue or drop
+ * @property {Number} maxInFlight Maximum number of messages that can be processed in parallel.
+ * @property {DeadLetteringOptions} deadLettering Dead-letter-queue options
  */
 
 class BaseAdapter {
@@ -49,6 +59,21 @@ class BaseAdapter {
 
 		/** @type {Boolean} Flag indicating the adapter's connection status */
 		this.connected = false;
+
+		/**
+		 * Function to convert Error to a plain object and gets error info ready to be placed in message headers
+		 *
+		 * @type {(error: Error) => Record<string, string>}
+		 */
+		this.transformErrorToHeaders =
+			this.opts?.deadLettering?.transformErrorToHeaders || transformErrorToHeaders;
+
+		/**
+		 * Function to parse error info from message headers to a plain object. Also attempts to covert data entries to original types
+		 * @type {(headers: Record<string, string>) => Record<string, any>}
+		 */
+		this.transformHeadersToErrorData =
+			this.opts?.deadLettering?.transformHeadersToErrorData || transformHeadersToErrorData;
 	}
 
 	/**

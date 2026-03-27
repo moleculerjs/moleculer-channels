@@ -10,6 +10,7 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
+const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
 /** Name of the partition where an error occurred while processing the message */
 const HEADER_ORIGINAL_PARTITION = "x-original-partition";
 
@@ -23,12 +24,14 @@ const HEADER_ORIGINAL_PARTITION = "x-original-partition";
  * @typedef {import('kafkajs').EachMessagePayload} EachMessagePayload Incoming message payload
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Logger} Logger Logger instance
- * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
- * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("../index").Channel} Channel Base channel definition
+ * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {import("@moleculer/channels").KafkaDefaultOptions} KafkaDefaultOptions
+ * @typedef {Object} KafkaDefaultOptions Kafka Adapter configuration
+ * @property {Number} maxInFlight Max-in-flight messages
+ * @property {KafkaConfig} kafka Kafka config
  */
 
 /** @type {KafkaClient} */
@@ -330,7 +333,15 @@ class KafkaAdapter extends BaseAdapter {
 		try {
 			this.addChannelActiveMessages(chan.id, [id]);
 
-			const content = this.serializer.deserialize(message.value);
+			let content;
+			try {
+				content = this.serializer.deserialize(message.value);
+			} catch (error) {
+				const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+				throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+					error
+				});
+			}
 			//this.logger.debug("Content:", content);
 
 			await chan.handler(content, message);
@@ -356,7 +367,11 @@ class KafkaAdapter extends BaseAdapter {
 					this.logger.debug(
 						`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 					);
-					await this.moveToDeadLetter(chan, { topic, partition, message });
+					await this.moveToDeadLetter(
+						chan,
+						{ topic, partition, message },
+						this.transformErrorToHeaders(err)
+					);
 				} else {
 					// No retries, drop message
 					this.logger.error(`No retries, drop message...`);
@@ -376,7 +391,11 @@ class KafkaAdapter extends BaseAdapter {
 					this.logger.debug(
 						`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 					);
-					await this.moveToDeadLetter(chan, { topic, partition, message });
+					await this.moveToDeadLetter(
+						chan,
+						{ topic, partition, message },
+						this.transformErrorToHeaders(err)
+					);
 				} else {
 					// Reached max retries and no dead-letter topic, drop message
 					this.logger.error(
@@ -409,8 +428,9 @@ class KafkaAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel} chan
 	 * @param {Object} message message
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, { partition, message }) {
+	async moveToDeadLetter(chan, { partition, message }, errorData) {
 		try {
 			const headers = {
 				...(message.headers || {}),
@@ -418,6 +438,10 @@ class KafkaAdapter extends BaseAdapter {
 				[C.HEADER_ORIGINAL_GROUP]: chan.group,
 				[HEADER_ORIGINAL_PARTITION]: "" + partition
 			};
+
+			if (errorData) {
+				Object.entries(errorData).forEach(([key, value]) => (headers[key] = value));
+			}
 
 			// Remove original group filter after redelivery.
 			delete headers[C.HEADER_GROUP];

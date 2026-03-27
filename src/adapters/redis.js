@@ -8,8 +8,10 @@
 
 const _ = require("lodash");
 const BaseAdapter = require("./base");
-const { ServiceSchemaError, MoleculerRetryableError } = require("moleculer").Errors;
+const { ServiceSchemaError, MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 const C = require("../constants");
+const { transformErrorToHeaders } = require("../utils");
+
 /** Redis generated ID of the message that was not processed properly*/
 const HEADER_ORIGINAL_ID = "x-original-id";
 
@@ -21,17 +23,31 @@ let Redis;
  * @typedef {import("ioredis").RedisOptions} RedisOptions
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Logger} Logger Logger instance
- * @typedef {import("@moleculer/channels").Channel} Channel Base channel definition
- * @typedef {import("@moleculer/channels").BaseDefaultOptions} BaseDefaultOptions Base adapter options
+ * @typedef {import("../index").Channel} Channel Base channel definition
+ * @typedef {import("./base").BaseDefaultOptions} BaseDefaultOptions Base adapter options
  */
 
 /**
- * @typedef {import("@moleculer/channels").RedisDefaultOptions} RedisDefaultOptions
+ * @typedef {Object} RedisDefaultOptions Redis Adapter configuration
+ * @property {Number} readTimeoutInterval Timeout interval (in milliseconds) while waiting for new messages. By default equals to 0, i.e., never timeout
+ * @property {Number} minIdleTime Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.
+ * @property {Number} claimInterval Interval (in milliseconds) between message claims
+ * @property {String} startID Starting point when consumers fetch data from the consumer group. By default equals to "$", i.e., consumers will only see new elements arriving in the stream.
+ * @property {Number} processingAttemptsInterval Interval (in milliseconds) between message transfer into FAILED_MESSAGES channel
+ */
+
+/**
  * @typedef {Object} RedisChannel Redis specific channel options
  * @property {Function} xreadgroup Function for fetching new messages from redis stream
  * @property {Function} xclaim Function for claiming pending messages
  * @property {Function} failed_messages Function for checking NACKed messages and moving them into dead letter queue
  * @property {RedisDefaultOptions} redis
+ */
+
+/**
+ * @typedef {Object} RedisOpts
+ * @property {Object} redis Redis lib configuration
+ * @property {RedisDefaultOptions} redis.consumerOptions
  */
 
 /**
@@ -65,7 +81,7 @@ class RedisAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type {RedisDefaultOptions} */
+		/** @type {RedisOpts & BaseDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			redis: {
 				consumerOptions: {
@@ -84,6 +100,9 @@ class RedisAdapter extends BaseAdapter {
 				}
 			}
 		});
+
+		/** @type {Number} Time-to-live in seconds for error info storage (only for Redis adapter) */
+		this.errorInfoTTL = this.opts?.deadLettering?.errorInfoTTL || 24 * 3600; // 24 hours
 
 		/**
 		 * @type {Map<string,Cluster|Redis>}
@@ -404,16 +423,27 @@ class RedisAdapter extends BaseAdapter {
 						if (chan.deadLettering.enabled) {
 							// Move the messages to a dedicated channel
 							await Promise.all(
-								messages.map(entry =>
-									this.moveToDeadLetter(
+								messages.map(async entry => {
+									const id = entry[0].toString();
+
+									const messageKey = `chan:${chan.name}:msg:${id}`;
+									const errorData = await nackedClient.hgetall(messageKey);
+									// delete from hash after retrieving data
+									await nackedClient.del(messageKey);
+
+									// Move to dead letter
+									const errorInfo = errorData ? errorData : undefined;
+
+									return this.moveToDeadLetter(
 										chan,
 										entry[0].toString(),
 										entry[1][1],
 										entry[1][2] && entry[1][2].toString() === "headers"
 											? this.serializer.deserialize(entry[1][3])
-											: undefined
-									)
-								)
+											: undefined,
+										errorInfo
+									);
+								})
 							);
 						} else {
 							this.logger.error(`Dropped ${pendingMessages.length} message(s).`, ids);
@@ -541,8 +571,10 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {Array<Object>} message
 	 */
 	async processMessage(chan, message) {
-		const { ids, parsedMessages, parsedHeaders, serializedMessages } =
-			this.parseMessage(message);
+		const { ids, parsedMessages, parsedHeaders, serializedMessages } = this.parseMessage(
+			chan,
+			message
+		);
 
 		this.addChannelActiveMessages(chan.id, ids);
 
@@ -556,6 +588,7 @@ class RedisAdapter extends BaseAdapter {
 			});
 		});
 
+		/** @type {Array<PromiseSettledResult<unknown>>} */
 		const promiseResults = await this.Promise.allSettled(promises);
 		const pubClient = this.clients.get(this.pubName);
 
@@ -563,12 +596,17 @@ class RedisAdapter extends BaseAdapter {
 			const result = promiseResults[i];
 			const id = ids[i];
 			const messageHeaders = parsedHeaders[i];
+			const messageKey = `chan:${chan.name}:msg:${id}`;
 
 			if (result.status == "fulfilled") {
 				// Send ACK message
 				// https://redis.io/commands/xack
 				// Use pubClient to ensure that ACK is delivered to redis
 				await pubClient.xack(chan.name, chan.group, id);
+
+				// clear any previous error info
+				await pubClient.del(messageKey);
+
 				this.logger.debug(`Message is ACKed.`, {
 					id,
 					name: chan.name,
@@ -586,7 +624,8 @@ class RedisAdapter extends BaseAdapter {
 							chan,
 							id,
 							serializedMessages[i],
-							messageHeaders
+							messageHeaders,
+							this.transformErrorToHeaders(result.reason)
 						);
 					} else {
 						// Drop message
@@ -594,7 +633,15 @@ class RedisAdapter extends BaseAdapter {
 					}
 					await pubClient.xack(chan.name, chan.group, id);
 				} else {
-					// It will be (eventually) picked by xclaim
+					// write back to the stream for retrying
+					// It will be (eventually) picked by xclaim failed_messages() or xreadgroup()
+					const parsedError = this.transformErrorToHeaders(result.reason);
+
+					if (parsedError && Object.keys(parsedError).length > 0) {
+						await pubClient.hset(messageKey, parsedError);
+						// auto-expire to avoid stale data
+						await pubClient.expire(messageKey, this.errorInfoTTL);
+					}
 				}
 			}
 		}
@@ -605,22 +652,42 @@ class RedisAdapter extends BaseAdapter {
 	/**
 	 * Parse the message(s).
 	 *
+	 * @param {Channel & RedisChannel & RedisDefaultOptions} chan
 	 * @param {Array} messages
 	 * @returns {any}
 	 */
-	parseMessage(messages) {
+	parseMessage(chan, messages) {
 		return messages[0][1].reduce(
 			(accumulator, currentVal) => {
+				let content;
+				try {
+					content = this.serializer.deserialize(currentVal[1][1]);
+				} catch (error) {
+					const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+					throw new MoleculerError(msg, 400, C.INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+						error
+					});
+				}
+
+				let headers;
+				try {
+					headers =
+						currentVal[1][2] && currentVal[1][2].toString() === "headers"
+							? this.serializer.deserialize(currentVal[1][3])
+							: undefined;
+				} catch (error) {
+					const msg = `Failed to parse incoming headers at '${chan.name}' channel. Incoming headers must use ${this.opts.serializer} serialization.`;
+					throw new MoleculerError(msg, 400, C.INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+						error
+					});
+				}
+
 				accumulator.ids.push(currentVal[0].toString());
 
 				accumulator.serializedMessages.push(currentVal[1][1]);
-				accumulator.parsedMessages.push(this.serializer.deserialize(currentVal[1][1]));
+				accumulator.parsedMessages.push(content);
 
-				accumulator.parsedHeaders.push(
-					currentVal[1][2] && currentVal[1][2].toString() === "headers"
-						? this.serializer.deserialize(currentVal[1][3])
-						: undefined
-				);
+				accumulator.parsedHeaders.push(headers);
 
 				return accumulator;
 			},
@@ -640,8 +707,9 @@ class RedisAdapter extends BaseAdapter {
 	 * @param {String} originalID ID of the dead message
 	 * @param {Object} message Raw (not serialized) message contents
 	 * @param {Object} headers Header contents
+	 * @param {Record<string, any>} [errorInfo] Error info
 	 */
-	async moveToDeadLetter(chan, originalID, message, headers) {
+	async moveToDeadLetter(chan, originalID, message, headers, errorInfo) {
 		this.logger.debug(`Moving message to '${chan.deadLettering.queueName}'...`, originalID);
 
 		const msgHdrs = {
@@ -650,6 +718,10 @@ class RedisAdapter extends BaseAdapter {
 			[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
 			[C.HEADER_ORIGINAL_GROUP]: chan.group
 		};
+
+		if (errorInfo && Object.keys(errorInfo).length) {
+			Object.entries(errorInfo).forEach(([key, val]) => (msgHdrs[key] = val));
+		}
 
 		// Move the message to a dedicated channel
 		const nackedClient = this.clients.get(this.nackedName);

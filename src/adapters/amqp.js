@@ -10,6 +10,8 @@ const BaseAdapter = require("./base");
 const _ = require("lodash");
 const { MoleculerError, MoleculerRetryableError } = require("moleculer").Errors;
 const C = require("../constants");
+const { INVALID_MESSAGE_SERIALIZATION_ERROR_CODE } = require("../constants");
+const { transformErrorToHeaders } = require("../utils");
 
 let Amqplib;
 
@@ -119,7 +121,7 @@ class AmqpAdapter extends BaseAdapter {
 			);
 		}
 
-		this.checkClientLibVersion("amqplib", "^0.8.0 || ^0.9.0");
+		this.checkClientLibVersion("amqplib", "^0.8.0 || ^0.9.0 || ^0.10.0");
 	}
 
 	/**
@@ -379,7 +381,15 @@ class AmqpAdapter extends BaseAdapter {
 
 			try {
 				this.addChannelActiveMessages(chan.id, [id]);
-				const content = this.serializer.deserialize(msg.content);
+				let content;
+				try {
+					content = this.serializer.deserialize(msg.content);
+				} catch (error) {
+					const msg = `Failed to parse incoming message at '${chan.name}' channel. Incoming messages must use ${this.opts.serializer} serialization.`;
+					throw new MoleculerError(msg, 400, INVALID_MESSAGE_SERIALIZATION_ERROR_CODE, {
+						error
+					});
+				}
 				//this.logger.debug("Content:", content);
 
 				await chan.handler(content, msg);
@@ -398,7 +408,7 @@ class AmqpAdapter extends BaseAdapter {
 						this.logger.debug(
 							`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						await this.moveToDeadLetter(chan, msg);
+						await this.moveToDeadLetter(chan, msg, this.transformErrorToHeaders(err));
 					} else {
 						// No retries, drop message
 						this.logger.error(`No retries, drop message...`);
@@ -415,7 +425,7 @@ class AmqpAdapter extends BaseAdapter {
 						this.logger.debug(
 							`Message redelivered too many times (${redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 						);
-						await this.moveToDeadLetter(chan, msg);
+						await this.moveToDeadLetter(chan, msg, this.transformErrorToHeaders(err));
 					} else {
 						// Reached max retries and no dead-letter topic, drop message
 						this.logger.error(
@@ -452,19 +462,27 @@ class AmqpAdapter extends BaseAdapter {
 	 *
 	 * @param {Channel & AmqpDefaultOptions} chan
 	 * @param {Object} msg
+	 * @param {Record<string, any>} [errorData] Optional error data to store as headers
 	 */
-	async moveToDeadLetter(chan, msg) {
+	async moveToDeadLetter(chan, msg, errorData) {
+		const headers = {
+			[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
+			[C.HEADER_ORIGINAL_GROUP]: chan.group
+		};
+
+		if (errorData) {
+			Object.entries(errorData).forEach(([key, value]) => (headers[key] = value));
+		}
+
 		const res = this.channel.publish(
 			chan.deadLettering.exchangeName || "",
 			chan.deadLettering.queueName,
 			msg.content,
 			{
-				headers: {
-					[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
-					[C.HEADER_ORIGINAL_GROUP]: chan.group
-				}
+				headers
 			}
 		);
+
 		if (res === false) {
 			this.broker.logger.error(
 				"AMQP publish error. Write buffer is full. Throwing away message"

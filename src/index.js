@@ -1,6 +1,6 @@
 /*
  * @moleculer/channels
- * Copyright (c) 2025 MoleculerJS (https://github.com/moleculerjs/channels)
+ * Copyright (c) 2021 MoleculerJS (https://github.com/moleculerjs/channels)
  * MIT Licensed
  */
 
@@ -17,12 +17,55 @@ const C = require("./constants");
  * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("moleculer").Service} Service Moleculer service
  * @typedef {import("moleculer").Middleware} Middleware Moleculer middleware
- * @typedef {import("@moleculer/channels").BaseAdapter} BaseAdapter Base adapter class
- * @typedef {import("@moleculer/channels").DeadLetteringOptions} DeadLetteringOptions
- * @typedef {import("@moleculer/channels").Channel} Channel
- * @typedef {import("@moleculer/channels").ChannelRegistryEntry} ChannelRegistryEntry
- * @typedef {import("@moleculer/channels").AdapterConfig} AdapterConfig
- * @typedef {import("@moleculer/channels").MiddlewareOptions} MiddlewareOptions
+ * @typedef {import("./adapters/base")} BaseAdapter Base adapter class
+ */
+
+/**
+ * @typedef {Object} DeadLetteringOptions Dead-letter-queue options
+ * @property {Boolean} enabled Enable dead-letter-queue
+ * @property {String} queueName Name of the dead-letter queue
+ * @property {String} exchangeName Name of the dead-letter exchange (only for AMQP adapter)
+ * @property {Object} exchangeOptions Options for the dead-letter exchange (only for AMQP adapter)
+ * @property {Object} queueOptions Options for the dead-letter queue (only for AMQP adapter)
+ * @property {(error: Error) => Record<string, string>} [transformErrorToHeaders] Function to convert Error object to a plain object
+ * @property {(headers: Record<string, string>) => Record<string, any>} [transformHeadersToErrorData] Function to parse error info from headers
+ * @property {Number} errorInfoTTL Time-to-live in seconds for error info storage (only for Redis adapter)
+ */
+
+/**
+ * @typedef {Object} Channel Base consumer configuration
+ * @property {String} id Consumer ID
+ * @property {String} name Channel/Queue/Stream name
+ * @property {String} group Consumer group name
+ * @property {Boolean} context Create Moleculer Context
+ * @property {Boolean} unsubscribing Flag denoting if service is stopping
+ * @property {Number?} maxInFlight Maximum number of messages that can be processed simultaneously
+ * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
+ * @property {DeadLetteringOptions?} deadLettering Dead-letter-queue options
+ * @property {Function} handler User defined handler
+ */
+
+/**
+ * @typedef {Object} ChannelRegistryEntry Registry entry
+ * @property {Service} svc Service instance class
+ * @property {String} name Channel name
+ * @property {Channel} chan Channel object
+ */
+
+/**
+ * @typedef {Object} AdapterConfig
+ * @property {String} type Adapter name
+ * @property {import("./adapters/base").BaseDefaultOptions & import("./adapters/amqp").AmqpDefaultOptions & import("./adapters/kafka").KafkaDefaultOptions & import("./adapters/nats").NatsDefaultOptions & import("./adapters/redis").RedisDefaultOptions} options Adapter options
+ */
+
+/**
+ * @typedef {Object} MiddlewareOptions Middleware options
+ * @property {String|AdapterConfig} adapter Adapter name or connection string or configuration object.
+ * @property {String?} schemaProperty Property name of channels definition in service schema.
+ * @property {String?} sendMethodName Method name to send messages.
+ * @property {String?} adapterPropertyName Property name of the adapter instance in broker instance.
+ * @property {String?} channelHandlerTrigger Method name to add to service in order to trigger channel handlers.
+ * @property {boolean?} context Using Moleculer context in channel handlers by default.
  */
 
 /**
@@ -152,6 +195,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							if (opts.ctx.service) {
 								opts.headers.$caller = opts.ctx.service.fullName;
 							}
+
+							if (opts.ctx.channelName) {
+								opts.headers.$parentChannelName = opts.ctx.channelName;
+							}
+
+							// Serialize meta and headers
 							opts.headers.$meta = adapter.serializer
 								.serialize(opts.ctx.meta)
 								.toString("base64");
@@ -246,7 +295,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 						// Wrap the handler with context creating
 						if (chan.context) {
 							wrappedHandler = (msg, raw) => {
-								let parentCtx, caller, meta, ctxHeaders;
+								let parentCtx, caller, meta, ctxHeaders, parentChannelName;
 								const headers = adapter.parseMessageHeaders(raw);
 								if (headers) {
 									if (headers.$requestID) {
@@ -257,6 +306,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 											level: headers.$level ? parseInt(headers.$level) : 0
 										};
 										caller = headers.$caller;
+										parentChannelName = headers.$parentChannelName;
 									}
 
 									if (headers.$meta) {
@@ -270,6 +320,19 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 											Buffer.from(headers.$headers, "base64")
 										);
 									}
+
+									if (
+										Object.keys(headers).some(key =>
+											key.startsWith(C.HEADER_ERROR_PREFIX)
+										)
+									) {
+										ctxHeaders = ctxHeaders || {};
+
+										ctxHeaders = {
+											...ctxHeaders,
+											...adapter.transformHeadersToErrorData(headers)
+										};
+									}
 								}
 
 								const ctx = Context.create(broker, null, msg, {
@@ -278,6 +341,12 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 									meta,
 									headers: ctxHeaders
 								});
+
+								ctx.channelName = chan.name;
+								ctx.parentChannelName = parentChannelName;
+
+								// Attach current service that has the channel handler to the context
+								ctx.service = svc;
 
 								return handler2(ctx, raw);
 							};
@@ -396,9 +465,9 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		},
 
 		/**
-		 * Start lifecycle hook of service
+		 * This hook is called after broker starting.
 		 */
-		async started() {
+		async starting() {
 			logger.info("Channel adapter is connecting...");
 			await adapter.connect();
 			logger.debug("Channel adapter connected.");
@@ -413,7 +482,7 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 		},
 
 		/**
-		 * Stop lifecycle hook of service
+		 * This hook is called after broker stopped.
 		 */
 		async stopped() {
 			logger.info("Channel adapter is disconnecting...");
