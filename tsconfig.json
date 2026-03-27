@@ -4,9 +4,10 @@
 		"noEmit": true,
 		"skipLibCheck": true,
 		"skipDefaultLibCheck": true,
-		"moduleResolution": "node",
+		"moduleResolution": "node10",
 		"module": "commonjs",
-		"target": "es2020"
+		"target": "es2020",
+		"ignoreDeprecations": "6.0"
 	},
 	"include": ["index.d.ts"],
 	"exclude": ["node_modules"]

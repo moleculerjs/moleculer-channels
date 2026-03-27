@@ -22,6 +22,7 @@
     "strictPropertyInitialization": true,
     "useUnknownInCatchVariables": true,
     "alwaysStrict": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": "../../",
     "paths": {
       "@moleculer/channels": ["./index.d.ts"],

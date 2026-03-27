@@ -111,7 +111,7 @@ class FakeAdapter extends BaseAdapter {
 								? {
 										enabled: true,
 										concurrency: chan.maxInFlight
-								  }
+									}
 								: undefined,
 						group: chan.group,
 						handler: ctx => this.processMessage(chan, ctx)
