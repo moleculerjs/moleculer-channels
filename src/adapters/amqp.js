@@ -25,19 +25,7 @@ let Amqplib;
  */
 
 /**
- * @typedef {Object} AmqpDefaultOptions AMQP Adapter configuration
- * @property {Number} maxInFlight Max-in-flight messages
- * @property {Object} amqp AMQP lib configuration
- * @property {String|String[]} amqp.url Connection URI
- * @property {Object} amqp.socketOptions AMQP lib socket configuration
- * @property {Object} amqp.queueOptions AMQP lib queue configuration
- * @property {Object} amqp.exchangeOptions AMQP lib exchange configuration
- * @property {Object} amqp.messageOptions AMQP lib message configuration
- * @property {Object} amqp.consumerOptions AMQP lib consume configuration
- * @property {publishAssertExchange} amqp.publishAssertExchange AMQP lib exchange configuration for one-time calling assertExchange() before publishing in new exchange by sendToChannel
- */
-
-/**
+ * @typedef {import("@moleculer/channels").AmqpDefaultOptions} AmqpDefaultOptions
  * @typedef {Object} publishAssertExchange
  * @property {Boolean} enabled Enable/disable one-time calling channel.assertExchange() before publishing in new exchange by sendToChannel
  * @property {Object} exchangeOptions AMQP lib exchange configuration  https://amqp-node.github.io/amqplib/channel_api.html#channel_assertExchange
@@ -74,7 +62,7 @@ class AmqpAdapter extends BaseAdapter {
 
 		super(opts);
 
-		/** @type {AmqpDefaultOptions & BaseDefaultOptions} */
+		/** @type {AmqpDefaultOptions} */
 		this.opts = _.defaultsDeep(this.opts, {
 			maxInFlight: 1,
 			amqp: {
