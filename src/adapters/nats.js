@@ -55,7 +55,7 @@ let NATS;
  */
 class NatsAdapter extends BaseAdapter {
 	constructor(opts) {
-		if (_.isString(opts)) opts = { url: opts };
+		if (_.isString(opts)) opts = { nats: { url: opts } };
 
 		super(opts);
 
