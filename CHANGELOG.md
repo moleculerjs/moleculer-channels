@@ -1,3 +1,13 @@
+<a name="v0.3.1"></a>
+
+# [0.3.1](https://github.com/moleculerjs/moleculer-channels/compare/v0.3.0...v0.3.1)
+
+## Fixes
+- Fix NATS adapter ignoring connection URL when passed as string (e.g. `"nats://host:4222"`) [#95](https://github.com/moleculerjs/moleculer-channels/issues/95)
+- Add unit tests for string URL constructor handling across all adapters
+
+---
+
 <a name="v0.3.0"></a>
 
 # [0.3.0](https://github.com/moleculerjs/moleculer-channels/compare/v0.2.0...v0.3.0)
