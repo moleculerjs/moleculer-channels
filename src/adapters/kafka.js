@@ -141,7 +141,7 @@ class KafkaAdapter extends BaseAdapter {
 			);
 		}
 
-		// this.checkClientLibVersion("@platformatic/kafka", "^1.15.0 || ^2.0.0");
+		this.checkClientLibVersion("@platformatic/kafka", "^1.33.2 || ^2.0.0");
 
 		this.opts.kafka.clientId = this.opts.consumerName;
 	}
@@ -307,13 +307,6 @@ class KafkaAdapter extends BaseAdapter {
 				chan.kafka = {};
 			}
 
-			// const consumer = this.client.consumer({
-			// 	groupId: `${chan.group}:${chan.name}`,
-			// 	maxInFlightRequests: chan.maxInFlight,
-			// 	...(this.opts.kafka.consumerOptions || {}),
-			// 	...chan.kafka
-			// });
-
 			const consumer = new KafkaLibRef.Consumer({
 				clientId: chan.id,
 				...this.opts.kafka.consumerOptions,
@@ -355,9 +348,13 @@ class KafkaAdapter extends BaseAdapter {
 					topicConfig
 				);
 
-				await this.admin.createTopics(topicConfig);
-
-				this.existingTopics.add(chan.name);
+				try {
+					await this.admin.createTopics(topicConfig);
+					this.existingTopics.add(chan.name);
+				} catch (err) {
+					this.existingTopics.delete(chan.name);
+					throw err;
+				}
 			}
 
 			// Start consuming messages
