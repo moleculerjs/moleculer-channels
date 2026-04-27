@@ -1426,7 +1426,7 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
  * @returns
  */
 async function createKafkaTopics(adapter, defs) {
-	if (defs?.length === 0) return;
+	if (!defs || defs.length === 0) return;
 
 	const admin = new Kafka.Admin({
 		clientId: "moleculer-channel-test",
@@ -1436,6 +1436,11 @@ async function createKafkaTopics(adapter, defs) {
 	await admin.connectToBrokers();
 	const topics = await admin.listTopics();
 	defs = defs.filter(def => !topics.includes(def.topic));
+	if (defs.length === 0) {
+		await admin.close();
+		return;
+	}
+
 	for (const def of defs) {
 		await admin.createTopics({
 			topics: [def.topic],

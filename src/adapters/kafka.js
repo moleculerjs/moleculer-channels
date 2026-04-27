@@ -88,9 +88,6 @@ class KafkaAdapter extends BaseAdapter {
 			}
 		});
 
-		/** @type {KafkaConsumer} */
-		this.client = null;
-
 		/** @type {KafkaProducer} */
 		this.producer = null;
 
@@ -340,7 +337,7 @@ class KafkaAdapter extends BaseAdapter {
 				const topicConfig = {
 					topics: [chan.name],
 					partitions: chan.kafka.partitions || 2,
-					replicas: chan.kafka.replicas || this.opts.kafka.bootstrapBrokers?.length || 1
+					replicas: chan.kafka.replicas || 1
 				};
 
 				this.logger.warn(
@@ -417,22 +414,6 @@ class KafkaAdapter extends BaseAdapter {
 	}
 
 	/**
-	 * Commit new offset to Kafka broker.
-	 *
-	 * @param {KafkaConsumer} consumer
-	 * @param {string} topic
-	 * @param {number} partition
-	 * @param {bigint} offset
-	 * @param {number?} leaderEpoch
-	 */
-	async commitOffset(consumer, topic, partition, offset, leaderEpoch) {
-		this.logger.debug("Committing new offset.", { topic, partition, offset, leaderEpoch });
-		await consumer.commit({
-			offsets: [{ topic, partition, offset, leaderEpoch }]
-		});
-	}
-
-	/**
 	 * Process a message
 	 *
 	 * @param {Channel & KafkaDefaultOptions} chan
@@ -441,7 +422,7 @@ class KafkaAdapter extends BaseAdapter {
 	 * @returns {Promise<void>}
 	 */
 	async processMessage(chan, consumer, message) {
-		const { topic, partition, value, commit, headers, key, offset, timestamp } = message;
+		const { topic, partition, value, commit, headers, key, offset } = message;
 
 		// Service is stopping. Skip processing...
 		if (chan.unsubscribing) return;
@@ -463,7 +444,6 @@ class KafkaAdapter extends BaseAdapter {
 				);
 				// Acknowledge
 				await commit();
-				// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 				return;
 			}
 		}
@@ -494,7 +474,6 @@ class KafkaAdapter extends BaseAdapter {
 			});
 			// Acknowledge
 			await commit();
-			// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 
 			this.removeChannelActiveMessages(chan.id, [id]);
 		} catch (err) {
@@ -520,13 +499,13 @@ class KafkaAdapter extends BaseAdapter {
 					this.logger.error(`No retries, drop message...`);
 				}
 				await commit();
-				// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 				return;
 			}
 
-			let redeliveryCount = headers.has(C.HEADER_REDELIVERED_COUNT)
-				? Number(headers.get(C.HEADER_REDELIVERED_COUNT))
-				: 0;
+			let redeliveryCount =
+				headers && headers.has(C.HEADER_REDELIVERED_COUNT)
+					? Number(headers.get(C.HEADER_REDELIVERED_COUNT))
+					: 0;
 			redeliveryCount++;
 			if (chan.maxRetries > 0 && redeliveryCount >= chan.maxRetries) {
 				if (chan.deadLettering.enabled) {
@@ -563,7 +542,6 @@ class KafkaAdapter extends BaseAdapter {
 				this.metricsIncrement(C.METRIC_CHANNELS_MESSAGES_RETRIES_TOTAL, chan);
 			}
 			await commit();
-			// await this.commitOffset(consumer, topic, partition, newOffset, leaderEpoch);
 		}
 	}
 
