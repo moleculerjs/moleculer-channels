@@ -845,15 +845,15 @@ describe("Integration tests", () => {
 						channels: { "test.ns.topic": { handler: subHandler5 } }
 					});
 
-					beforeAll(() =>
-						broker1.Promise.mapSeries(
+					beforeAll(async () => {
+						await broker1.Promise.mapSeries(
 							[broker1, broker2, broker3, broker4, broker5],
 							async broker => {
 								await broker.start();
-								await broker.Promise.delay(DELAY_AFTER_BROKER_START);
 							}
-						)
-					);
+						);
+						await broker1.Promise.delay(DELAY_AFTER_BROKER_START);
+					});
 
 					afterAll(() =>
 						Promise.all([
@@ -1439,7 +1439,7 @@ async function createKafkaTopics(adapter, defs) {
 	for (const def of defs) {
 		await admin.createTopics({
 			topics: [def.topic],
-			...(def.numPartitions ? { numPartitions: def.numPartitions } : {})
+			partitions: typeof def.numPartitions === "number" ? def.numPartitions : undefined
 		});
 	}
 	await admin.close();

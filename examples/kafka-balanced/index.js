@@ -97,11 +97,13 @@ async function main() {
 			producerBroker.sendToChannel(
 				TOPIC,
 				{ id: i, item: `product-${i}` },
-				{ key: String(i), autocreateTopics: false }
+				{ autocreateTopics: false }
 			)
 		);
 	}
-	await Promise.all(sends);
+	await Promise.all(sends).catch(err => {
+		producerBroker.logger.error("Error sending messages:", err);
+	});
 
 	// Wait for all messages to be processed
 	await new Promise(r => setTimeout(r, 5000));
