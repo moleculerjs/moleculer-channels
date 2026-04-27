@@ -380,7 +380,8 @@ class KafkaAdapter extends BaseAdapter {
 				autocommit: false,
 				topics: [chan.name],
 				// More info: https://github.com/platformatic/kafka/blob/main/docs/consumer.md
-				mode: this.opts.kafka.consumerOptions?.mode || "committed"
+				mode: this.opts.kafka.consumerOptions?.mode || "committed",
+				fallbackMode: this.opts.kafka.consumerOptions?.fallbackMode || "earliest"
 			});
 
 			this.consumerStreams.set(chan.id, consumerStream);
@@ -687,6 +688,7 @@ class KafkaAdapter extends BaseAdapter {
 	 * @param {number} [opts.acks]
 	 * @param {"none" | "gzip" | "snappy" | "lz4" | "zstd"} [opts.compression]
 	 * @param {boolean} [opts.idempotent]
+	 * @param {boolean} [opts.autocreateTopics] Whether to autocreate the topic if it doesn't exist. Default: true
 	 */
 	async publish(channelName, payload, opts = {}) {
 		// Adapter is stopping. Publishing no longer is allowed
@@ -722,7 +724,7 @@ class KafkaAdapter extends BaseAdapter {
 					topic: channelName
 				}
 			],
-			autocreateTopics: true,
+			autocreateTopics: opts.autocreateTopics ?? true,
 			acks: opts.acks,
 			compression: opts.compression,
 			idempotent: opts.idempotent

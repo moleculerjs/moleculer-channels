@@ -30,7 +30,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } },
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } },
 		{ type: "Fake", name: "Multi", options: {} }
 	].filter(a => (a.name || a.type) == process.env.ADAPTER);
 } else {
@@ -463,7 +463,10 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				beforeAll(async () => {
+					await broker.start();
+					await broker.Promise.delay(6 * 1000); // add more delay for rebalancing in Kafka
+				});
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -751,6 +754,7 @@ describe("Integration tests", () => {
 					channels: {
 						"test.mif.topic": {
 							maxInFlight: 1,
+							kafka: { partitions: 1 },
 							async handler(payload) {
 								FLOW.push(`BEGIN: ${payload.id}`);
 								await this.Promise.delay(300);
@@ -841,15 +845,15 @@ describe("Integration tests", () => {
 						channels: { "test.ns.topic": { handler: subHandler5 } }
 					});
 
-					beforeAll(() =>
-						broker1.Promise.mapSeries(
+					beforeAll(async () => {
+						await broker1.Promise.mapSeries(
 							[broker1, broker2, broker3, broker4, broker5],
 							async broker => {
 								await broker.start();
-								await broker.Promise.delay(DELAY_AFTER_BROKER_START);
 							}
-						)
-					);
+						);
+						await broker1.Promise.delay(DELAY_AFTER_BROKER_START);
+					});
 
 					afterAll(() =>
 						Promise.all([
@@ -1415,7 +1419,15 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 	});
 }
 
+/**
+ *
+ * @param {any} adapter
+ * @param {{ topic: string, numPartitions?: number }[]} defs
+ * @returns
+ */
 async function createKafkaTopics(adapter, defs) {
+	if (defs?.length === 0) return;
+
 	const admin = new Kafka.Admin({
 		clientId: "moleculer-channel-test",
 		bootstrapBrokers: adapter.options.kafka.bootstrapBrokers
@@ -1424,8 +1436,11 @@ async function createKafkaTopics(adapter, defs) {
 	await admin.connectToBrokers();
 	const topics = await admin.listTopics();
 	defs = defs.filter(def => !topics.includes(def.topic));
-	await admin.createTopics({
-		topics: defs
-	});
+	for (const def of defs) {
+		await admin.createTopics({
+			topics: [def.topic],
+			partitions: typeof def.numPartitions === "number" ? def.numPartitions : undefined
+		});
+	}
 	await admin.close();
 }
