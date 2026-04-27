@@ -46,6 +46,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-security": "^4.0.0",
+    "hwp": "^0.4.1",
     "ioredis": "^5.10.1",
     "kleur": "^4.1.5",
     "moleculer": "^0.15.0",
