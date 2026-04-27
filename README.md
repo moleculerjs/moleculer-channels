@@ -556,7 +556,7 @@ broker.createService({
 | `amqp.publishAssertExchange.exchangeOptions`          | `Object`                         | `null`                  | AMQP               | AMQP lib exchange configuration. More info [here](http://www.squaremobius.net/amqp.node/channel_api.html#channel_assertExchange).                                                                                                  |
 | `nats.streamConfig`                                   | `Object`                         | `null`                  | NATS               | NATS JetStream storage configuration. More info [here](https://docs.nats.io/jetstream/concepts/streams).                                                                                                                           |
 | `nats.consumerOptions`                                | `Object`                         | `null`                  | NATS               | NATS JetStream consumer configuration. More info [here](https://docs.nats.io/jetstream/concepts/consumers).                                                                                                                        |
-| `kafka.brokers`                                       | `String[]`                       | `null`                  | Kafka              | Kafka bootstrap brokers.                                                                                                                                                                                                           |
+| `kafka.bootstrapBrokers`                              | `String[]`                       | `null`                  | Kafka              | Kafka bootstrap brokers.                                                                                                                                                                                                           |
 | `kafka.logCreator`                                    | `Function`                       | `null`                  | Kafka              | Kafka logCreator. More info [here](https://kafka.js.org/docs/custom-logger).                                                                                                                                                       |
 | `kafka.producerOptions`                               | `Object`                         | `null`                  | Kafka              | Kafka producer constructor configuration. More info [here](https://kafka.js.org/docs/producing#options).                                                                                                                           |
 | `kafka.consumerOptions`                               | `Object`                         | `null`                  | Kafka              | Kafka consumer constructor configuration. More info [here](https://kafka.js.org/docs/consuming#options).                                                                                                                           |
@@ -907,7 +907,7 @@ module.exports = {
                 type: "Kafka",
                 options: {
                     kafka: {
-                        brokers: ["kafka-1:9092", "kafka-1:9092"],
+                        bootstrapBrokers: ["kafka-1:9092", "kafka-1:9092"],
                         // Options for `producer()`
                         producerOptions: {},
                         // Options for `consumer()`
