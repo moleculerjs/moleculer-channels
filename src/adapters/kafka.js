@@ -339,16 +339,6 @@ class KafkaAdapter extends BaseAdapter {
 
 			this.initChannelActiveMessages(chan.id);
 
-			// Old KafkaJS code:
-			// await consumer.subscribe({ topic: chan.name, fromBeginning: chan.kafka.fromBeginning });
-			// await consumer.run({
-			// 	autoCommit: false,
-			// 	partitionsConsumedConcurrently: chan.kafka.partitionsConsumedConcurrently,
-			// 	eachMessage: payload => this.processMessage(chan, consumer, payload)
-			// });
-
-			// New Platformatic Kafka code:
-
 			// check if topic exists
 			if (!this.existingTopics.has(chan.name)) {
 				// Create topic if not exists
@@ -443,8 +433,6 @@ class KafkaAdapter extends BaseAdapter {
 		await consumer.commit({
 			offsets: [{ topic, partition, offset, leaderEpoch }]
 		});
-		// Old KafkaJS code:
-		// await consumer.commitOffsets([{ topic, partition, offset }]);
 	}
 
 	/**
@@ -701,17 +689,6 @@ class KafkaAdapter extends BaseAdapter {
 		this.logger.debug(`Publish a message to '${channelName}' topic...`, payload, opts);
 
 		const data = opts.raw ? payload : this._serialize(payload);
-		// const data = opts.raw ? payload : this.serializer.serialize(payload);
-		// old KafkaJS code:
-		// const res = await this.producer.send({
-		// 	topic: channelName,
-		// 	messages: [
-		// 		{ key: opts.key, value: data, partition: opts.partition, headers: opts.headers }
-		// 	],
-		// 	acks: opts.acks,
-		// 	timeout: opts.timeout,
-		// 	compression: opts.compression
-		// });
 
 		const res = await this.producer.send({
 			messages: [
@@ -730,15 +707,6 @@ class KafkaAdapter extends BaseAdapter {
 			idempotent: opts.idempotent
 		});
 
-		// old KafkaJS code:
-		// if (res.length == 0 || res[0].errorCode != 0) {
-		// 	throw new MoleculerError(
-		// 		`Unable to publish message to '${channelName}'. Error code: ${res[0].errorCode}`,
-		// 		500,
-		// 		"UNABLE_PUBLISH",
-		// 		{ channelName, result: res }
-		// 	);
-		// }
 		this.logger.debug(`Message was published at '${channelName}'`, res);
 	}
 
