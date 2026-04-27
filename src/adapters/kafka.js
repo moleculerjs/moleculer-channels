@@ -350,14 +350,14 @@ class KafkaAdapter extends BaseAdapter {
 					replicas: chan.kafka.replicas || this.opts.kafka.bootstrapBrokers?.length || 1
 				};
 
-				this.existingTopics.add(chan.name);
-
 				this.logger.warn(
 					`The topic '${chan.name}' does not exist. Creating the topic automatically...`,
 					topicConfig
 				);
 
 				await this.admin.createTopics(topicConfig);
+
+				this.existingTopics.add(chan.name);
 			}
 
 			// Start consuming messages
@@ -455,7 +455,7 @@ class KafkaAdapter extends BaseAdapter {
 		);
 
 		const id = `${partition}:${offset}`;
-		const newOffset = BigInt(Number(offset) + 1);
+		const newOffset = BigInt(offset) + 1n;
 
 		// Check group filtering
 		if (headers && headers.has(C.HEADER_GROUP)) {
@@ -512,6 +512,7 @@ class KafkaAdapter extends BaseAdapter {
 					this.logger.debug(
 						`No retries, moving message to '${chan.deadLettering.queueName}' queue...`
 					);
+
 					await this.moveToDeadLetter(
 						chan,
 						{ topic, partition, message },
@@ -578,8 +579,13 @@ class KafkaAdapter extends BaseAdapter {
 	 */
 	async moveToDeadLetter(chan, { partition, message }, errorData) {
 		try {
+			const normalizedHeaders =
+				message?.headers instanceof Map
+					? Object.fromEntries(message.headers.entries())
+					: message?.headers;
+
 			const headers = {
-				...(message.headers || {}),
+				...(normalizedHeaders || {}),
 				[C.HEADER_ORIGINAL_CHANNEL]: chan.name,
 				[C.HEADER_ORIGINAL_GROUP]: chan.group,
 				[HEADER_ORIGINAL_PARTITION]: "" + partition

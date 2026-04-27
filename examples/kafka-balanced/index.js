@@ -89,7 +89,7 @@ async function main() {
 	producerBroker.logger.info("Waiting for consumer group to stabilise...");
 	await new Promise(r => setTimeout(r, 6000));
 
-	// Send 30 messages — ideally each worker handles ~10
+	// Send 20 messages — ideally each worker handles ~6-7
 	producerBroker.logger.info("Sending 20 orders...");
 	const sends = [];
 	for (let i = 1; i <= 20; i++) {
