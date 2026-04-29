@@ -1,11 +1,11 @@
 "use strict";
 
-const _ = require("lodash");
-const { ServiceBroker, Context } = require("moleculer");
-const ChannelMiddleware = require("./../../").Middleware;
-const { parseBase64 } = require("./../../src/utils");
-
-const Kafka = require("kafkajs").Kafka;
+import * as _ from "lodash";
+import { ServiceBroker, Context } from "moleculer";
+import { Middleware as ChannelMiddleware } from "./../../";
+import { parseBase64 } from "../../src/utils";
+import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import * as Kafka from "@platformatic/kafka";
 
 let Adapters;
 
@@ -30,7 +30,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } },
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } },
 		{ type: "Fake", name: "Multi", options: {} }
 	].filter(a => (a.name || a.type) == process.env.ADAPTER);
 } else {
@@ -55,12 +55,10 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
-		{ type: "Redis", options: {} }
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } }
+		// { type: "Redis", options: {} }
 	];
 }
-
-jest.setTimeout(60000);
 
 let DELAY_AFTER_BROKER_START = 1000;
 
@@ -92,7 +90,7 @@ describe("Integration tests", () => {
 			describe("Test simple publish/subscribe logic", () => {
 				const broker = createBroker(adapter);
 
-				const subTestTopicHandler = jest.fn(() => {
+				const subTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
@@ -126,7 +124,7 @@ describe("Integration tests", () => {
 					_.defaultsDeep({ options: { serializer: "MsgPack" } }, adapter)
 				);
 
-				const subTestTopicHandler = jest.fn(() => {
+				const subTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
@@ -158,15 +156,15 @@ describe("Integration tests", () => {
 			describe("Test publish/subscribe logic with context", () => {
 				const broker = createBroker(adapter);
 
-				const subTestTopicHandler = jest.fn(() => {
+				const subTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
-				const anotherTestTopicHandler = jest.fn(() => {
+				const anotherTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
-				const thirdTestTopicHandler = jest.fn(() => {
+				const thirdTestTopicHandler = vi.fn(() => {
 					return Promise.resolve();
 				});
 
@@ -352,10 +350,10 @@ describe("Integration tests", () => {
 			describe("Test multiple subscription logic", () => {
 				const broker = createBroker(adapter);
 
-				const sub1TestTopic1Handler = jest.fn(() => Promise.resolve());
-				const sub1TestTopic2Handler = jest.fn(() => Promise.resolve());
-				const sub2TestTopic1Handler = jest.fn(() => Promise.resolve());
-				const sub2TestTopic2Handler = jest.fn(() => Promise.resolve());
+				const sub1TestTopic1Handler = vi.fn(() => Promise.resolve());
+				const sub1TestTopic2Handler = vi.fn(() => Promise.resolve());
+				const sub2TestTopic1Handler = vi.fn(() => Promise.resolve());
+				const sub2TestTopic2Handler = vi.fn(() => Promise.resolve());
 
 				broker.createService({
 					name: "sub1",
@@ -431,9 +429,9 @@ describe("Integration tests", () => {
 			describe("Test balanced subscription logic", () => {
 				const broker = createBroker(adapter);
 
-				const sub1Handler = jest.fn(() => Promise.resolve());
-				const sub2Handler = jest.fn(() => Promise.resolve());
-				const sub3Handler = jest.fn(() => Promise.resolve());
+				const sub1Handler = vi.fn(() => Promise.resolve());
+				const sub2Handler = vi.fn(() => Promise.resolve());
+				const sub3Handler = vi.fn(() => Promise.resolve());
 
 				broker.createService({
 					name: "sub1",
@@ -465,7 +463,10 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				beforeAll(async () => {
+					await broker.start();
+					await broker.Promise.delay(6 * 1000); // add more delay for rebalancing in Kafka
+				});
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -510,11 +511,11 @@ describe("Integration tests", () => {
 
 			if (adapter.type != "Fake") {
 				describe("Test retried messages logic", () => {
-					const broker = createBroker(adapter);
+					const broker = createBroker(adapter, { logger: false });
 
 					const error = new Error("Something happened");
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
-					const subGoodHandler = jest.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
+					const subGoodHandler = vi.fn(() => Promise.resolve());
 
 					broker.createService({
 						name: "sub1",
@@ -575,8 +576,8 @@ describe("Integration tests", () => {
 				describe("Test Connection/Reconnection logic", () => {
 					const broker = createBroker(adapter);
 
-					const sub1Handler = jest.fn(() => Promise.resolve());
-					const sub2Handler = jest.fn(() => Promise.resolve());
+					const sub1Handler = vi.fn(() => Promise.resolve());
+					const sub2Handler = vi.fn(() => Promise.resolve());
 
 					beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 					afterAll(() => broker.stop());
@@ -684,8 +685,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter);
 
 					const error = new Error("Something happened");
-					const subGoodHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+					const subGoodHandler = vi.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
 
 					beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
 					afterAll(() => broker.stop());
@@ -753,6 +754,7 @@ describe("Integration tests", () => {
 					channels: {
 						"test.mif.topic": {
 							maxInFlight: 1,
+							kafka: { partitions: 1 },
 							async handler(payload) {
 								FLOW.push(`BEGIN: ${payload.id}`);
 								await this.Promise.delay(300);
@@ -796,7 +798,7 @@ describe("Integration tests", () => {
 				describe("Test namespaces logic", () => {
 					// --- NO NAMESPACE ---
 					const broker1 = createBroker(adapter, { nodeID: "int-test-1" });
-					const subHandler1 = jest.fn(() => Promise.resolve());
+					const subHandler1 = vi.fn(() => Promise.resolve());
 					broker1.createService({
 						name: "sub",
 						channels: { "test.ns.topic": subHandler1 }
@@ -804,7 +806,7 @@ describe("Integration tests", () => {
 
 					// --- NAMESPACE A ---
 					const broker2 = createBroker(adapter, { nodeID: "int-test-2", namespace: "A" });
-					const subHandler2 = jest.fn(() => Promise.resolve());
+					const subHandler2 = vi.fn(() => Promise.resolve());
 					broker2.createService({
 						name: "sub",
 						channels: { "test.ns.topic": subHandler2 }
@@ -812,7 +814,7 @@ describe("Integration tests", () => {
 
 					// --- NAMESPACE B ---
 					const broker3 = createBroker(adapter, { nodeID: "int-test-3", namespace: "B" });
-					const subHandler3 = jest.fn(() => Promise.resolve());
+					const subHandler3 = vi.fn(() => Promise.resolve());
 					broker3.createService({
 						name: "sub",
 						channels: { "test.ns.topic": subHandler3 }
@@ -826,7 +828,7 @@ describe("Integration tests", () => {
 							namespace: "C"
 						}
 					);
-					const subHandler4 = jest.fn(() => Promise.resolve());
+					const subHandler4 = vi.fn(() => Promise.resolve());
 					broker4.createService({
 						name: "sub",
 						channels: { "test.ns.topic": { group: "other", handler: subHandler4 } }
@@ -837,21 +839,21 @@ describe("Integration tests", () => {
 						_.defaultsDeep({ options: { prefix: "C" } }, adapter),
 						{ nodeID: "int-test-5" }
 					);
-					const subHandler5 = jest.fn(() => Promise.resolve());
+					const subHandler5 = vi.fn(() => Promise.resolve());
 					broker5.createService({
 						name: "sub",
 						channels: { "test.ns.topic": { handler: subHandler5 } }
 					});
 
-					beforeAll(() =>
-						broker1.Promise.mapSeries(
+					beforeAll(async () => {
+						await broker1.Promise.mapSeries(
 							[broker1, broker2, broker3, broker4, broker5],
 							async broker => {
 								await broker.start();
-								await broker.Promise.delay(DELAY_AFTER_BROKER_START);
 							}
-						)
-					);
+						);
+						await broker1.Promise.delay(DELAY_AFTER_BROKER_START);
+					});
 
 					afterAll(() =>
 						Promise.all([
@@ -984,8 +986,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter, { logLevel: "debug" });
 
 					const error = new Error("Something happened");
-					const deadLetterHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+					const deadLetterHandler = vi.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
 
 					broker.createService({
 						name: "sub1",
@@ -1128,19 +1130,24 @@ describe("Integration tests", () => {
 							// Confirm raw message headers
 							expect(arg2Raw).toBeDefined();
 							expect(arg2Raw.headers).toBeDefined();
-							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
-							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
-								"Something happened"
-							);
-							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
-								"Error"
-							);
+							// In Kafka headers are a map of Buffers
 							expect(
-								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
+								Buffer.from(arg2Raw.headers.get("x-error-message")).toString()
+							).toBe("Something happened");
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-name")).toString()
+							).toBe("Error");
+							expect(
+								parseBase64(
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
+								)
+							).toEqual(expect.any(String));
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-timestamp")).toString()
 							).toEqual(expect.any(String));
 							expect(
 								parseBase64(
-									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
 							).toEqual(expect.any(String));
 						}
@@ -1153,8 +1160,8 @@ describe("Integration tests", () => {
 					const broker = createBroker(adapter);
 
 					const error = new Error("Something happened");
-					const deadLetterHandler = jest.fn(() => Promise.resolve());
-					const subWrongHandler = jest.fn(() => Promise.reject(error));
+					const deadLetterHandler = vi.fn(() => Promise.resolve());
+					const subWrongHandler = vi.fn(() => Promise.reject(error));
 
 					broker.createService({
 						name: "sub1",
@@ -1297,19 +1304,24 @@ describe("Integration tests", () => {
 							// Confirm raw message headers
 							expect(arg2Raw).toBeDefined();
 							expect(arg2Raw.headers).toBeDefined();
-							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
-							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
-								"Something happened"
-							);
-							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
-								"Error"
-							);
+							// In Kafka headers are a map of Buffers
 							expect(
-								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
+								Buffer.from(arg2Raw.headers.get("x-error-message")).toString()
+							).toBe("Something happened");
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-name")).toString()
+							).toBe("Error");
+							expect(
+								parseBase64(
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
+								)
+							).toEqual(expect.any(String));
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-timestamp")).toString()
 							).toEqual(expect.any(String));
 							expect(
 								parseBase64(
-									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
 							).toEqual(expect.any(String));
 						}
@@ -1350,9 +1362,9 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 			]
 		});
 
-		const defaultChannelHandler = jest.fn(() => Promise.resolve());
-		const redisChannelHandler = jest.fn(() => Promise.resolve());
-		const amqpChannelHandler = jest.fn(() => Promise.resolve());
+		const defaultChannelHandler = vi.fn(() => Promise.resolve());
+		const redisChannelHandler = vi.fn(() => Promise.resolve());
+		const amqpChannelHandler = vi.fn(() => Promise.resolve());
 
 		broker.createService({
 			name: "sub",
@@ -1407,18 +1419,33 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 	});
 }
 
+/**
+ *
+ * @param {any} adapter
+ * @param {{ topic: string, numPartitions?: number }[]} defs
+ * @returns
+ */
 async function createKafkaTopics(adapter, defs) {
-	const kafka = new Kafka({
-		clientId: "moleculer-channel-test",
-		brokers: adapter.options.kafka.brokers
-	});
-	const admin = kafka.admin();
+	if (!defs || defs.length === 0) return;
 
-	await admin.connect();
+	const admin = new Kafka.Admin({
+		clientId: "moleculer-channel-test",
+		bootstrapBrokers: adapter.options.kafka.bootstrapBrokers
+	});
+
+	await admin.connectToBrokers();
 	const topics = await admin.listTopics();
 	defs = defs.filter(def => !topics.includes(def.topic));
-	await admin.createTopics({
-		topics: defs
-	});
-	await admin.disconnect();
+	if (defs.length === 0) {
+		await admin.close();
+		return;
+	}
+
+	for (const def of defs) {
+		await admin.createTopics({
+			topics: [def.topic],
+			partitions: typeof def.numPartitions === "number" ? def.numPartitions : undefined
+		});
+	}
+	await admin.close();
 }

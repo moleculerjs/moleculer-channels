@@ -1,3 +1,7 @@
+---
+applyTo: "**"
+---
+
 # Context
 
 This is a codebase for message delivery for MoleculerJS services via external queue/channel/topic. Unlike moleculer built-in events, this is **not** a fire-and-forget solution. It's a persistent, durable and reliable message sending solution. The module uses an external message queue/streaming server that stores messages until they are successfully processed.
@@ -32,14 +36,14 @@ The module supports multiple queue/streaming servers, including Redis, RabbitMQ,
 
 # Key Files
 
--   `index.js`: Entry point of the module.
--   `src/adapters/`: Contains adapter implementations for different message brokers (Redis, RabbitMQ, NATS, Kafka). All of adapters extend from `base.js`.
--   `src/constants.js`: Defines constants used across the module such as metrics names, Redis header keys, etc.
--   `src/tracing.js`: Implements tracing middleware for tracing the message flow. The middleware is implemented via MoleculerJS middleware, and it works with any adapter. It is initialized via `created()` [lifecycle method](https://moleculer.services/docs/0.15/middlewares#created-broker-async) of the service broker.
--   `src/index.js`: Main file that implements `created()`, `serviceCreated()`, `serviceStopping()`, and `stopped()`. It is responsible for creating broker-level methods like `sendToChannel()` (configurable via `sendMethodName` option), exposing raw adapter via `channelAdapter` (configurable via `adapterPropertyName` option), registering metrics, registering service topics listeners and cleaning up resources on broker stop.
--   `test/`: Contains integration tests. Integration tests use Docker Compose to spin up required message brokers. The focus of the tests is to verify the integration with different message brokers and ensure that messages are sent and received correctly and that from Moleculer's perspective, the behavior is consistent across different adapters.
--   `package.json`: Defines the module's dependencies, scripts, jest configuration, and metadata
--   `examples/`: Contains different ways of using the module with different adapters and configurations.
+- `index.js`: Entry point of the module.
+- `src/adapters/`: Contains adapter implementations for different message brokers (Redis, RabbitMQ, NATS, Kafka). All of adapters extend from `base.js`.
+- `src/constants.js`: Defines constants used across the module such as metrics names, Redis header keys, etc.
+- `src/tracing.js`: Implements tracing middleware for tracing the message flow. The middleware is implemented via MoleculerJS middleware, and it works with any adapter. It is initialized via `created()` [lifecycle method](https://moleculer.services/docs/0.15/middlewares#created-broker-async) of the service broker.
+- `src/index.js`: Main file that implements `created()`, `serviceCreated()`, `serviceStopping()`, and `stopped()`. It is responsible for creating broker-level methods like `sendToChannel()` (configurable via `sendMethodName` option), exposing raw adapter via `channelAdapter` (configurable via `adapterPropertyName` option), registering metrics, registering service topics listeners and cleaning up resources on broker stop.
+- `test/`: Contains integration tests. Integration tests use Docker Compose to spin up required message brokers. The focus of the tests is to verify the integration with different message brokers and ensure that messages are sent and received correctly and that from Moleculer's perspective, the behavior is consistent across different adapters.
+- `package.json`: Defines the module's dependencies, scripts, jest configuration, and metadata
+- `examples/`: Contains different ways of using the module with different adapters and configurations.
 
 The core file from which the adapters are created from is `src/adapters/base.js`. All adapters extend from this base class and implement the required methods for sending and receiving messages.
 
@@ -423,7 +427,7 @@ In order to use Moleculer Context in handlers (transferring `ctx.meta` and traci
 
 To solve any potential issues or add new features, please follow these steps:
 
--   create a new folder in the `examples/` directory with a descriptive name for your example
--   create `index.js` file inside the new folder that demonstrates the feature or fixes the issue
--   modify or add logic in the `src/` directory as needed
--   create or modify tests in the `test/` directory to cover your changes
+- create a new folder in the `examples/` directory with a descriptive name for your example
+- create `index.js` file inside the new folder that demonstrates the feature or fixes the issue
+- modify or add logic in the `src/` directory as needed
+- create or modify tests in the `test/` directory to cover your changes
