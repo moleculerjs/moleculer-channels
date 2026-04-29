@@ -138,7 +138,7 @@ class KafkaAdapter extends BaseAdapter {
 			);
 		}
 
-		this.checkClientLibVersion("@platformatic/kafka", "^1.33.2 || ^2.0.0");
+		this.checkClientLibVersion("@platformatic/kafka", "^1.34.0 || ^2.0.0");
 
 		this.opts.kafka.clientId = this.opts.consumerName;
 	}
@@ -205,7 +205,7 @@ class KafkaAdapter extends BaseAdapter {
 		await Promise.all([this.admin.connectToBrokers(), this.producer.connectToBrokers()]);
 
 		const topics = await this.admin.listTopics();
-		this.logger.debug("Kafka topics:", topics);
+		this.logger.debug("Kafka existing topics:", topics);
 		topics.forEach(topic => this.existingTopics.add(topic));
 
 		this.logger.info("Kafka adapter is connected.");
@@ -329,10 +329,7 @@ class KafkaAdapter extends BaseAdapter {
 
 			this.initChannelActiveMessages(chan.id);
 
-			// check if topic exists
 			if (!this.existingTopics.has(chan.name)) {
-				// Create topic if not exists
-
 				/** @type {import('@platformatic/kafka').CreateTopicsOptions} */
 				const topicConfig = {
 					topics: [chan.name],
@@ -349,6 +346,7 @@ class KafkaAdapter extends BaseAdapter {
 					await this.admin.createTopics(topicConfig);
 					this.existingTopics.add(chan.name);
 				} catch (err) {
+					this.logger.error(`Failed to create topic '${chan.name}' automatically.`, err);
 					this.existingTopics.delete(chan.name);
 					throw err;
 				}
@@ -674,7 +672,6 @@ class KafkaAdapter extends BaseAdapter {
 		const res = await this.producer.send({
 			messages: [
 				{
-					// generate random message value
 					value: data,
 					key: opts.key,
 					partition: opts.partition,
