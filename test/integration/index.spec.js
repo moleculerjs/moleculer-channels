@@ -1001,6 +1001,11 @@ describe("Integration tests", () => {
 									queueName: "DEAD_LETTER",
 									exchangeName: "DEAD_LETTER"
 								},
+								params: {
+									id: "number",
+									name: "string",
+									age: "number"
+								},
 								handler: subWrongHandler
 							}
 						}
@@ -1024,7 +1029,7 @@ describe("Integration tests", () => {
 						subWrongHandler.mockClear();
 					});
 
-					it("should transfer to FAILED_MESSAGES", async () => {
+					it("should transfer to FAILED_MESSAGES - handler error", async () => {
 						const msg = {
 							id: 1,
 							name: "John",
@@ -1147,6 +1152,143 @@ describe("Integration tests", () => {
 
 						await broker.Promise.delay(500);
 					});
+
+					it("should transfer to DEAD_LETTER - validation error", async () => {
+						const msg = {
+							id: "not-a-number",
+							name: "John",
+							age: 2565
+						};
+						// ---- ^ SETUP ^ ---
+						// ---- ^ SETUP ^ ---
+
+						await broker.Promise.delay(500);
+
+						broker.sendToChannel("test.failed_messages.topic", msg);
+						await broker.Promise.delay(500);
+
+						// ---- ˇ ASSERTS ˇ ---
+						expect(subWrongHandler).toHaveBeenCalledTimes(0); // Validation error, handler is not called
+
+						expect(deadLetterHandler).toHaveBeenCalledTimes(1);
+
+						const [arg1Ctx, arg2Raw] = deadLetterHandler.mock.calls[0];
+						if (adapter.type === "Redis") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Redis headers are a plain object. Entries are base64 encoded
+							expect(arg2Raw.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg2Raw.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg2Raw.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg2Raw.headers["x-error-stack"]).toEqual(expect.any(String));
+						}
+						if (adapter.type === "NATS") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In NATS headers are a Map. Stack is base64 encoded.
+							expect(arg2Raw.headers.get("x-error-message")).toBe(
+								"Message validation failed!"
+							);
+							expect(arg2Raw.headers.get("x-error-name")).toBe("ValidationError");
+							expect(arg2Raw.headers.get("x-error-timestamp")).toEqual(
+								expect.any(String)
+							);
+							expect(parseBase64(arg2Raw.headers.get("x-error-stack"))).toEqual(
+								expect.any(String)
+							);
+						}
+						if (adapter.type === "AMQP") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.properties).toBeDefined();
+							expect(arg2Raw.properties.headers).toBeDefined();
+							// In AMQP headers are a plain object. Stack is base64 encoded
+							expect(arg2Raw.properties.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg2Raw.properties.headers["x-error-name"]).toBe(
+								"ValidationError"
+							);
+							expect(arg2Raw.properties.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(
+								parseBase64(arg2Raw.properties.headers["x-error-stack"])
+							).toEqual(expect.any(String));
+						}
+						if (adapter.type === "Kafka") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
+							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
+								"Message validation failed!"
+							);
+							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
+								"ValidationError"
+							);
+							expect(
+								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
+							).toEqual(expect.any(String));
+							expect(
+								parseBase64(
+									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+								)
+							).toEqual(expect.any(String));
+						}
+
+						await broker.Promise.delay(500);
+					});
 				});
 
 				describe("Test Dead Letter logic with retries", () => {
@@ -1172,6 +1314,11 @@ describe("Integration tests", () => {
 									queueName: "DEAD_LETTER",
 									exchangeName: "DEAD_LETTER"
 								},
+								params: {
+									id: "number",
+									name: "string",
+									age: "number"
+								},
 								handler: subWrongHandler
 							}
 						}
@@ -1195,7 +1342,7 @@ describe("Integration tests", () => {
 						subWrongHandler.mockClear();
 					});
 
-					it("should transfer to DEAD_LETTER", async () => {
+					it("should transfer to DEAD_LETTER - handler error", async () => {
 						const msg = {
 							id: 1,
 							name: "John",
@@ -1303,6 +1450,140 @@ describe("Integration tests", () => {
 							);
 							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
 								"Error"
+							);
+							expect(
+								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
+							).toEqual(expect.any(String));
+							expect(
+								parseBase64(
+									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+								)
+							).toEqual(expect.any(String));
+						}
+
+						await broker.Promise.delay(500);
+					});
+
+					it("should transfer to DEAD_LETTER - validation error", async () => {
+						const msg = {
+							id: "not-a-number",
+							name: "John",
+							age: 2565
+						};
+						// ---- ^ SETUP ^ ---
+
+						await broker.Promise.delay(500);
+
+						broker.sendToChannel("test.failed_messages.topic", msg);
+						await broker.Promise.delay(1000);
+
+						// ---- ˇ ASSERTS ˇ ---
+						expect(subWrongHandler).toHaveBeenCalledTimes(0); // Validation error, handler is not called
+
+						expect(deadLetterHandler).toHaveBeenCalledTimes(1);
+						const [arg1Ctx, arg2Raw] = deadLetterHandler.mock.calls[0];
+						if (adapter.type === "Redis") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Redis headers are a plain object. Entries are base64 encoded
+							expect(arg2Raw.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg2Raw.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg2Raw.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(arg2Raw.headers["x-error-stack"]).toEqual(expect.any(String));
+						}
+						if (adapter.type === "NATS") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In NATS headers are a Map. Stack is base64 encoded.
+							expect(arg2Raw.headers.get("x-error-message")).toBe(
+								"Message validation failed!"
+							);
+							expect(arg2Raw.headers.get("x-error-name")).toBe("ValidationError");
+							expect(arg2Raw.headers.get("x-error-timestamp")).toEqual(
+								expect.any(String)
+							);
+							expect(parseBase64(arg2Raw.headers.get("x-error-stack"))).toEqual(
+								expect.any(String)
+							);
+						}
+						if (adapter.type === "AMQP") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw.properties).toBeDefined();
+							expect(arg2Raw.properties.headers).toBeDefined();
+							// In AMQP headers are a plain object. Stack is base64 encoded
+							expect(arg2Raw.properties.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg2Raw.properties.headers["x-error-name"]).toBe(
+								"ValidationError"
+							);
+							expect(arg2Raw.properties.headers["x-error-timestamp"]).toEqual(
+								expect.any(String)
+							);
+							expect(
+								parseBase64(arg2Raw.properties.headers["x-error-stack"])
+							).toEqual(expect.any(String));
+						}
+						if (adapter.type === "Kafka") {
+							expect(arg1Ctx.params).toEqual(msg);
+							expect(arg1Ctx.headers).toBeDefined();
+							expect(arg1Ctx.headers["x-error-message"]).toBe(
+								"Message validation failed!"
+							);
+							expect(arg1Ctx.headers["x-error-name"]).toBe("ValidationError");
+							expect(arg1Ctx.headers["x-error-timestamp"]).toEqual(
+								expect.any(Number)
+							);
+							expect(arg1Ctx.headers["x-error-stack"]).toEqual(expect.any(String));
+
+							// Confirm raw message headers
+							expect(arg2Raw).toBeDefined();
+							expect(arg2Raw.headers).toBeDefined();
+							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
+							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
+								"Message validation failed!"
+							);
+							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
+								"ValidationError"
 							);
 							expect(
 								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()

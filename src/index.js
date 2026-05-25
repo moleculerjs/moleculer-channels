@@ -8,7 +8,8 @@
 
 const _ = require("lodash");
 const { Context, METRIC } = require("moleculer");
-const { BrokerOptionsError, ServiceSchemaError, MoleculerError } = require("moleculer").Errors;
+const { BrokerOptionsError, ServiceSchemaError, MoleculerError, ValidationError } =
+	require("moleculer").Errors;
 const Adapters = require("./adapters");
 const C = require("./constants");
 
@@ -43,6 +44,7 @@ const C = require("./constants");
  * @property {Number} maxRetries Maximum number of retries before sending the message to dead-letter-queue
  * @property {DeadLetteringOptions?} deadLettering Dead-letter-queue options
  * @property {Function} handler User defined handler
+ * @property {Record<string, unknown>} params Validation schema for the message payload
  */
 
 /**
@@ -349,6 +351,30 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 								ctx.service = svc;
 
 								return handler2(ctx, raw);
+							};
+						}
+
+						if (
+							chan.params &&
+							broker.validator &&
+							typeof broker.validator.compile === "function"
+						) {
+							const validate = broker.validator.compile(chan.params);
+
+							const prevHandler = wrappedHandler;
+							wrappedHandler = (msg, raw) => {
+								const result = validate(msg);
+								if (result === true) {
+									return prevHandler(msg, raw);
+								} else {
+									return Promise.reject(
+										new ValidationError(
+											"Message validation failed!",
+											null,
+											result
+										)
+									);
+								}
 							};
 						}
 
