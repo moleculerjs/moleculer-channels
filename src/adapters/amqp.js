@@ -191,10 +191,33 @@ class AmqpAdapter extends BaseAdapter {
 		this.channel
 			.on("close", () => {
 				if (!this.stopping) {
-					this.logger.error("AMQP channel closed.");
+					// The broker can close the channel without closing the connection
+					// (e.g. assertExchange failure, publish to a non-existent exchange,
+					// server-side preconditions, or a broker shutdown that closes
+					// channels before connections). Without intervention the adapter
+					// would be left with a dead `this.channel` while `this.connected`
+					// remains `true`, so subsequent publishes throw
+					// `IllegalOperationError` and the plugin never recovers.
+					//
+					// Close the connection to trigger the connection-level `close`
+					// handler above, which already performs the full reconnect path
+					// (recreates the channel and re-subscribes all channels).
+					this.logger.error(
+						"AMQP channel closed unexpectedly — closing connection to trigger full reconnect."
+					);
+					if (this.connection) {
+						this.connection.close().catch(err => {
+							this.logger.debug(
+								"Error while closing connection after channel close.",
+								err
+							);
+						});
+					}
 				}
 			})
 			.on("error", err => {
+				// Channel errors are typically followed by a `close` event, which
+				// is where recovery is triggered. No need to act here.
 				this.logger.error("AMQP channel error", err);
 			})
 			.on("drain", () => {
