@@ -197,10 +197,7 @@ class NatsAdapter extends BaseAdapter {
 		}
 
 		// 1. Create stream
-		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
-		// More info: https://docs.nats.io/jetstream/administration/naming
-		const streamName = chan.name.split(".").join("_");
-		await this.createStream(streamName, [chan.name], chan.nats ? chan.nats.streamConfig : {});
+		const streamName = await this.getStreamName(chan);
 
 		if (chan.deadLettering && chan.deadLettering.enabled) {
 			const deadLetteringStreamName = chan.deadLettering.queueName.split(".").join("_");
@@ -379,6 +376,33 @@ class NatsAdapter extends BaseAdapter {
 	}
 
 	/**
+	 * Resolves the stream name for a channel and creates the stream if needed.
+	 *
+	 * NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
+	 * More info: https://docs.nats.io/jetstream/administration/naming
+	 *
+	 * @param {Channel & NatsDefaultOptions} chan
+	 * @returns {Promise<String>} Resolved stream name (may differ from the derived name when overridden by stream config)
+	 */
+	async getStreamName(chan) {
+		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
+		// More info: https://docs.nats.io/jetstream/administration/naming
+		const derivedStreamName = chan.name.split(".").join("_");
+
+		const streamName = await this.createStream(
+			derivedStreamName,
+			[chan.name],
+			chan.nats ? chan.nats.streamConfig : {}
+		);
+
+		this.logger.debug(
+			`Resolved stream name for channel '${chan.name}': '${streamName || derivedStreamName}'`
+		);
+
+		return streamName || derivedStreamName;
+	}
+
+	/**
 	 * Create a NATS Stream
 	 *
 	 * More info: https://docs.nats.io/jetstream/concepts/streams
@@ -386,6 +410,7 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {String} streamName Name of the Stream
 	 * @param {Array<String>} subjects A list of subjects/topics to store in a stream
 	 * @param {Partial<StreamConfig>} streamOpts JetStream stream configs
+	 * @returns {Promise<String>} Resolved stream name (may differ from `streamName` when overridden by config)
 	 */
 	async createStream(streamName, subjects, streamOpts) {
 		const streamConfig = _.defaultsDeep(
@@ -417,11 +442,12 @@ class NatsAdapter extends BaseAdapter {
 		try {
 			const streamInfo = await this.manager.streams.add(streamConfig);
 			this.logger.debug("streamInfo:", streamInfo);
-			return streamInfo;
+			return streamInfo.config.name;
 		} catch (error) {
 			if (error.message.includes("stream name already in use")) {
 				// Silently ignore the error. Channel or Consumer Group already exists
 				this.logger.debug(`NATS Stream with name: '${streamName}' already exists.`);
+				return streamConfig.name;
 			} else {
 				this.logger.error("An error ocurred while create NATS Stream", error);
 			}
