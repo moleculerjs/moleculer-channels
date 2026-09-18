@@ -35,6 +35,8 @@
     "moleculer": "^0.14.12 || ^0.15.0"
   },
   "devDependencies": {
+    "@nats-io/jetstream": "^3.4.0",
+    "@nats-io/transport-node": "^3.4.0",
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^3.2.4",
     "amqplib": "^0.10.9",
@@ -50,7 +52,6 @@
     "moleculer": "^0.15.0",
     "moleculer-repl": "^0.8.0",
     "msgpack5": "^6.0.2",
-    "nats": "^2.29.3",
     "nodemon": "^3.1.14",
     "npm-check-updates": "^19.6.6",
     "prettier": "^3.8.1",

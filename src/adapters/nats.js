@@ -235,7 +235,22 @@ class NatsAdapter extends BaseAdapter {
 			await this.manager.consumers.add(streamName, consumerConfig);
 		} catch (err) {
 			if (err.message === "consumer already exists") {
-				await this.manager.consumers.update(streamName, durableName, consumerConfig);
+				const info = await this.manager.consumers.info(streamName, durableName);
+				if (info.config.deliver_subject) {
+					// A push consumer created by the previous (v2) version of this adapter
+					// shares the durable name. JetStream forbids changing the delivery
+					// mode in place, so it must be deleted and recreated as a pull
+					// consumer. Pending messages of the old consumer are lost (the
+					// stream itself is not), but with the default 'deliver_policy: "new"'
+					// the recreated consumer only receives newly published messages anyway.
+					this.logger.warn(
+						`Consumer '${durableName}' on stream '${streamName}' is a legacy push consumer created by a previous version of the NATS adapter. Recreating it as a pull consumer. Messages pending on the old consumer will be lost.`
+					);
+					await this.manager.consumers.delete(streamName, durableName);
+					await this.manager.consumers.add(streamName, consumerConfig);
+				} else {
+					await this.manager.consumers.update(streamName, durableName, consumerConfig);
+				}
 			} else {
 				this.logger.error(
 					`Error while creating consumer '${durableName}' for '${chan.name}' chan with '${chan.group}' group`,

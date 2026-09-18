@@ -343,14 +343,14 @@ declare module "@moleculer/channels" {
 			connectionOptions?: Record<string, any>;
 			/** Stream configuration */
 			streamConfig?: Record<string, any>;
-			/** Consumer options */
+			/** Consumer options (flat NATS JetStream ConsumerConfig, v3 client) */
 			consumerOptions?: {
-				mack?: boolean;
-				config?: {
-					deliver_policy?: string;
-					ack_policy?: string;
-					max_ack_pending?: number;
-				};
+				deliver_policy?: string;
+				ack_policy?: string;
+				max_ack_pending?: number;
+				durable_name?: string;
+				filter_subject?: string;
+				[key: string]: any;
 			};
 		};
 	}
