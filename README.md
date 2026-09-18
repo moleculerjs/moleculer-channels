@@ -227,7 +227,7 @@ module.exports = {
 | `deadLettering.transformErrorToHeaders`     | `Function`                                | \*                 | Function to parse error instance to a plain object which will be stored in message headers.                                                                                                                       |
 | `deadLettering.transformHeadersToErrorData` | `Function`                                | \*                 | Function to parse plain error info object back to original data types                                                                                                                                             | headers. |
 | `context`                                   | `boolean`                                 | \*                 | Using Moleculer context in channel handlers.                                                                                                                                                                      |
-| `tracing`                                   | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/0.14/tracing.html#Customizing). It works only with `context: true`.                                                              |
+| `tracing`                                   | `Object`                                  | \*                 | Tracing options same as [action tracing options](https://moleculer.services/docs/tracing.html#Customizing). It works only with `context: true`.                                                              |
 | `handler`                                   | `Function(payload: any, rawMessage: any)` | \*                 | Channel handler function. It receives the payload at first parameter. The second parameter is a raw message which depends on the adapter.                                                                         |
 | `redis.startID`                             | `String`                                  | Redis              | Starting point when consumers fetch data from the consumer group. By default equals to `$`, i.e., consumers will only see new elements arriving in the stream. More info [here](https://redis.io/commands/XGROUP) |
 | `redis.minIdleTime`                         | `Number`                                  | Redis              | Time (in milliseconds) after which pending messages are considered NACKed and should be claimed. Defaults to 1 hour.                                                                                              |
@@ -351,7 +351,7 @@ Use the `broker.sendToChannel(channelName, payload, opts)` method to send a mess
 
 ## Middleware hooks
 
-It is possible to wrap the handlers and the send method in Moleculer middleware. The module defines two hooks to cover it. The `localChannel` hook is similar to [`localAction`](https://moleculer.services/docs/0.14/middlewares.html#localAction-next-action) but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to [`emit`](https://moleculer.services/docs/0.14/middlewares.html#emit-next) or [`broadcast`](https://moleculer.services/docs/0.14/middlewares.html#broadcast-next) but it wraps the `broker.sendToChannel` publisher method.
+It is possible to wrap the handlers and the send method in Moleculer middleware. The module defines two hooks to cover it. The `localChannel` hook is similar to [`localAction`](https://moleculer.services/docs/middlewares.html#localAction-next-action) but it wraps the channel handlers in service schema. The `sendToChannel` hook is similar to [`emit`](https://moleculer.services/docs/middlewares.html#emit-next) or [`broadcast`](https://moleculer.services/docs/middlewares.html#broadcast-next) but it wraps the `broker.sendToChannel` publisher method.
 
 **Example**
 
@@ -497,7 +497,7 @@ module.exports = {
 };
 ```
 
-You can fine-tuning tracing tags and span name in `tracing` channel property similar to [actions](https://moleculer.services/docs/0.14/tracing.html#Customizing).
+You can fine-tuning tracing tags and span name in `tracing` channel property similar to [actions](https://moleculer.services/docs/tracing.html#Customizing).
 
 **Customize tags and span name**
 
@@ -532,7 +532,7 @@ broker.createService({
 | ----------------------------------------------------- | -------------------------------- | ----------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `consumerName`                                        | `String`                         | ServiceBroker nodeID    | \*                 | Consumer name used by adapters. By default it's the nodeID of ServiceBroker.                                                                                                                                                                 |
 | `prefix`                                              | `String`                         | ServiceBroker namespace | \*                 | Prefix is used to separate topics between environments. By default, the prefix value is the namespace of the ServiceBroker.                                                                                                                  |
-| `serializer`                                          | `String`, `Object`, `Serializer` | `JSON`                  | \*                 | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/0.14/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/0.14/networking.html#Custom-serializer). |
+| `serializer`                                          | `String`, `Object`, `Serializer` | `JSON`                  | \*                 | Message serializer. You can use any [built-in serializer of Moleculer](https://moleculer.services/docs/networking.html#Serialization) or create a [custom one](https://moleculer.services/docs/networking.html#Custom-serializer). |
 | `maxRetries`                                          | `Number`                         | `3`                     | \*                 | Maximum number of retries before sending the message to dead-letter-queue or drop.                                                                                                                                                           |
 | `maxInFlight`                                         | `Number`                         | `1`                     | \*                 | Max number of messages under processing at the same time.                                                                                                                                                                                    |
 | `deadLettering.enabled`                               | `Boolean`                        | `false`                 | \*                 | Enable "Dead-lettering" feature.                                                                                                                                                                                                             |
@@ -1071,6 +1071,6 @@ The project is available under the [MIT license](https://tldrlegal.com/license/m
 
 ## Contact
 
-Copyright (c) 2025 MoleculerJS
+Copyright (c) 2026 MoleculerJS
 
 [![@MoleculerJS](https://img.shields.io/badge/github-moleculerjs-green.svg)](https://github.com/moleculerjs) [![@MoleculerJS](https://img.shields.io/badge/twitter-MoleculerJS-blue.svg)](https://twitter.com/MoleculerJS)

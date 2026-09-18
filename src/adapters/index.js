@@ -7,7 +7,7 @@
 "use strict";
 
 /**
- * @typedef {import("./base")} BaseAdapter
+ * @typedef {import("@moleculer/channels").BaseAdapter} BaseAdapter
  */
 const { isObject, isString } = require("lodash");
 const { ServiceSchemaError } = require("moleculer").Errors;
