@@ -1,4 +1,4 @@
-"use strict";
+import { describe, expect, it } from "vitest";
 
 const RedisAdapter = require("../../src/adapters/redis");
 const AmqpAdapter = require("../../src/adapters/amqp");

@@ -79,8 +79,8 @@ class NatsAdapter extends BaseAdapter {
 		});
 
 		// Adapted from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
-		if (this.opts.url)
-			this.opts.nats.connectionOptions.servers = this.opts.url
+		if (this.opts.nats.url)
+			this.opts.nats.connectionOptions.servers = this.opts.nats.url
 				.split(",")
 				.map(server => new URL(server).host);
 
