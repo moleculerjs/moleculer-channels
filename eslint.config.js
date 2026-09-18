@@ -60,7 +60,7 @@ module.exports = [
 		}
 	},
 	{
-		// Vitest test files use ESM imports alongside CommonJS requires
+		// Vitest test files use ESM imports
 		files: ["test/**/*.js"],
 		languageOptions: {
 			sourceType: "module"
