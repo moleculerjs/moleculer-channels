@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-const RedisAdapter = require("../../src/adapters/redis");
-const AmqpAdapter = require("../../src/adapters/amqp");
-const NatsAdapter = require("../../src/adapters/nats");
-const KafkaAdapter = require("../../src/adapters/kafka");
-const FakeAdapter = require("../../src/adapters/fake");
+import RedisAdapter from "../../src/adapters/redis";
+import AmqpAdapter from "../../src/adapters/amqp";
+import NatsAdapter from "../../src/adapters/nats";
+import KafkaAdapter from "../../src/adapters/kafka";
+import FakeAdapter from "../../src/adapters/fake";
 
 describe("Adapter constructor string URL handling", () => {
 	describe("Redis adapter", () => {
