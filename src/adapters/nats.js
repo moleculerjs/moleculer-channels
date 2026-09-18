@@ -14,20 +14,20 @@ const { transformErrorToHeaders } = require("../utils");
 const { MoleculerRetryableError, MoleculerError } = require("moleculer").Errors;
 
 let NATS;
+let JS;
 
 /**
- * @typedef {import("nats").NatsConnection} NatsConnection NATS Connection
- * @typedef {import("nats").ConnectionOptions} ConnectionOptions NATS Connection Opts
- * @typedef {import("nats").StreamConfig} StreamConfig NATS Configuration Options
- * @typedef {import("nats").JetStreamManager} JetStreamManager NATS Jet Stream Manager
- * @typedef {import("nats").JetStreamClient} JetStreamClient NATS JetStream Client
- * @typedef {import("nats").JetStreamPublishOptions} JetStreamPublishOptions JetStream Publish Options
- * @typedef {import("nats").ConsumerOptsBuilder} ConsumerOptsBuilder NATS JetStream ConsumerOptsBuilder
- * @typedef {import("nats").ConsumerOpts} ConsumerOpts Jet Stream Consumer Opts
- * @typedef {import("nats").JetStreamOptions} JetStreamOptions Jet Stream Options
- * @typedef {import("nats").JsMsg} JsMsg Jet Stream Message
- * @typedef {import("nats").JetStreamSubscription} JetStreamSubscription Jet Stream Subscription
- * @typedef {import("nats").MsgHdrs} MsgHdrs Jet Stream Headers
+ * @typedef {import("@nats-io/nats-core").NatsConnection} NatsConnection NATS Connection
+ * @typedef {import("@nats-io/nats-core").ConnectionOptions} ConnectionOptions NATS Connection Opts
+ * @typedef {import("@nats-io/jetstream").StreamConfig} StreamConfig NATS Configuration Options
+ * @typedef {import("@nats-io/jetstream").JetStreamManager} JetStreamManager NATS Jet Stream Manager
+ * @typedef {import("@nats-io/jetstream").JetStreamClient} JetStreamClient NATS JetStream Client
+ * @typedef {import("@nats-io/jetstream").JetStreamPublishOptions} JetStreamPublishOptions JetStream Publish Options
+ * @typedef {import("@nats-io/jetstream").ConsumerConfig} ConsumerConfig NATS JetStream Consumer Config
+ * @typedef {import("@nats-io/jetstream").JetStreamOptions} JetStreamOptions Jet Stream Options
+ * @typedef {import("@nats-io/jetstream").JsMsg} JsMsg Jet Stream Message
+ * @typedef {import("@nats-io/jetstream").ConsumerMessages} ConsumerMessages Jet Stream Consumer Messages
+ * @typedef {import("@nats-io/nats-core").MsgHdrs} MsgHdrs Jet Stream Headers
  * @typedef {import("moleculer").ServiceBroker} ServiceBroker Moleculer Service Broker instance
  * @typedef {import("moleculer").Logger} Logger Logger instance
  * @typedef {import("../index").Channel} Channel Base channel definition
@@ -36,11 +36,11 @@ let NATS;
 
 /**
  * @typedef {Object} NatsDefaultOptions
- * @property {Object} nats NATS lib configuration
  * @property {String} url String containing the URL to NATS server
+ * @property {Object} nats NATS lib configuration
  * @property {ConnectionOptions} nats.connectionOptions
  * @property {StreamConfig} nats.streamConfig More info: https://docs.nats.io/jetstream/concepts/streams
- * @property {ConsumerOpts} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
+ * @property {ConsumerConfig} nats.consumerOptions More info: https://docs.nats.io/jetstream/concepts/consumers
  */
 
 /**
@@ -66,25 +66,21 @@ class NatsAdapter extends BaseAdapter {
 				connectionOptions: {},
 				/** @type {Partial<StreamConfig>} More info: https://docs.nats.io/jetstream/concepts/streams */
 				streamConfig: {},
-				/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+				/** @type {Partial<ConsumerConfig>} More info: https://docs.nats.io/jetstream/concepts/consumers */
 				consumerOptions: {
-					// Manual ACK
-					mack: true,
-					config: {
-						// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
-						deliver_policy: "new",
-						// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
-						ack_policy: "explicit",
-						// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
-						max_ack_pending: this.opts.maxInFlight
-					}
+					// More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+					deliver_policy: "new",
+					// More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+					ack_policy: "explicit",
+					// More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+					max_ack_pending: this.opts.maxInFlight
 				}
 			}
 		});
 
 		// Adapted from: https://github.com/moleculerjs/moleculer/blob/3f7e712a8ce31087c7d333ad9dbaf63617c8497b/src/transporters/nats.js#L141-L143
-		if (this.opts.nats.url)
-			this.opts.nats.connectionOptions.servers = this.opts.nats.url
+		if (this.opts.url)
+			this.opts.nats.connectionOptions.servers = this.opts.url
 				.split(",")
 				.map(server => new URL(server).host);
 
@@ -97,7 +93,7 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {JetStreamClient} */
 		this.client = null;
 
-		/** @type {Map<string,JetStreamSubscription>} */
+		/** @type {Map<string,ConsumerMessages>} */
 		this.subscriptions = new Map();
 	}
 
@@ -111,17 +107,24 @@ class NatsAdapter extends BaseAdapter {
 		super.init(broker, logger);
 
 		try {
-			NATS = require("nats");
+			NATS = require("@nats-io/transport-node");
+			JS = require("@nats-io/jetstream");
 		} catch (err) {
 			/* istanbul ignore next */
 			this.broker.fatal(
-				"The 'nats' package is missing! Please install it with 'npm install nats --save' command.",
+				"The '@nats-io/transport-node' or '@nats-io/jetstream' package is missing! Please install them with 'npm install @nats-io/transport-node @nats-io/jetstream --save' command.",
 				err,
 				true
 			);
 		}
 
-		this.checkClientLibVersion("nats", "^2.2.0");
+		// The v3 NATS packages don't export their package.json, so fall back to a warning
+		try {
+			this.checkClientLibVersion("@nats-io/transport-node", "^3.0.0");
+			this.checkClientLibVersion("@nats-io/jetstream", "^3.0.0");
+		} catch (err) {
+			this.logger.warn("Unable to check the NATS client library version.", err.message);
+		}
 	}
 
 	/**
@@ -133,9 +136,9 @@ class NatsAdapter extends BaseAdapter {
 				try {
 					this.connection = await NATS.connect(this.opts.nats.connectionOptions);
 
-					this.manager = await this.connection.jetstreamManager();
+					this.manager = await JS.jetstreamManager(this.connection);
 
-					this.client = this.connection.jetstream(); // JetStreamOptions
+					this.client = JS.jetstream(this.connection); // JetStreamOptions
 
 					this.connected = true;
 					resolve();
@@ -211,25 +214,46 @@ class NatsAdapter extends BaseAdapter {
 		// 2. Configure NATS consumer
 		this.initChannelActiveMessages(chan.id);
 
-		/** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
-		const consumerOpts = _.defaultsDeep(
+		/** @type {ConsumerConfig} More info: https://docs.nats.io/jetstream/concepts/consumers */
+		const consumerConfig = _.defaultsDeep(
 			{},
 			chan.nats ? chan.nats.consumerOptions : {},
 			this.opts.nats.consumerOptions
 		);
 
-		consumerOpts.queue = streamName;
-		consumerOpts.config.deliver_group = streamName;
 		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
 		// More info: https://docs.nats.io/jetstream/administration/naming
-		consumerOpts.config.durable_name = chan.group.split(".").join("_");
-		consumerOpts.config.deliver_subject = chan.id.replace(/[*|>]/g, "_");
-		consumerOpts.config.max_ack_pending = chan.maxInFlight;
-		consumerOpts.callbackFn = this.createConsumerHandler(chan);
+		consumerConfig.durable_name = chan.group.split(".").join("_");
+		consumerConfig.filter_subject = chan.name;
+		consumerConfig.max_ack_pending = chan.maxInFlight;
 
-		// 3. Create a subscription
+		// 3. Create or update a durable consumer.
+		// All service replicas share the same durable consumer, JetStream load-balances
+		// the messages between the connected pull consumers.
+		const durableName = consumerConfig.durable_name;
 		try {
-			const sub = await this.client.subscribe(chan.name, consumerOpts);
+			await this.manager.consumers.add(streamName, consumerConfig);
+		} catch (err) {
+			if (err.message === "consumer already exists") {
+				await this.manager.consumers.update(streamName, durableName, consumerConfig);
+			} else {
+				this.logger.error(
+					`Error while creating consumer '${durableName}' for '${chan.name}' chan with '${chan.group}' group`,
+					err
+				);
+				throw err;
+			}
+		}
+
+		// 4. Start consuming messages
+		try {
+			const consumer = await this.client.consumers.get(streamName, durableName);
+			// The v3 ConsumerCallbackFn type does not allow async callbacks, but
+			// awaiting inside the handler works the same way as it did with the v2 client.
+			const sub = await consumer.consume({
+				/** @type {any} */
+				callback: this.createConsumerHandler(chan)
+			});
 			this.subscriptions.set(chan.id, sub);
 		} catch (err) {
 			this.logger.error(
@@ -244,26 +268,15 @@ class NatsAdapter extends BaseAdapter {
 	 * Creates the callback handler
 	 *
 	 * @param {Channel} chan
-	 * @returns
+	 * @returns {Function} Consumer callback
 	 */
 	createConsumerHandler(chan) {
 		/**
-		 * @param {import("nats").NatsError} err
 		 * @param {JsMsg} message
 		 */
-		return async (err, message) => {
+		return async message => {
 			// Service is stopping. Skip processing...
 			if (chan.unsubscribing) return;
-
-			// NATS "regular" message with stats. Not a JetStream message
-			// Both err and message are "null"
-			// More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md#callbacks
-			if (err === null && message === null) return;
-
-			if (err) {
-				this.logger.error(err);
-				return;
-			}
 
 			if (message) {
 				this.addChannelActiveMessages(chan.id, [message.seq]);
@@ -312,13 +325,13 @@ class NatsAdapter extends BaseAdapter {
 						message.ack();
 					} else if (
 						chan.maxRetries > 0 &&
-						message.info.redeliveryCount >= chan.maxRetries
+						message.info.deliveryCount >= chan.maxRetries
 					) {
 						// Retries enabled and limit reached
 
 						if (chan.deadLettering.enabled) {
 							this.logger.debug(
-								`Message redelivered too many times (${message.info.redeliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
+								`Message redelivered too many times (${message.info.deliveryCount}). Moving message to '${chan.deadLettering.queueName}' queue...`
 							);
 							await this.moveToDeadLetter(
 								chan,
@@ -328,7 +341,7 @@ class NatsAdapter extends BaseAdapter {
 						} else {
 							// Drop message
 							this.logger.error(
-								`Message redelivered too many times (${message.info.redeliveryCount}). Drop message...`,
+								`Message redelivered too many times (${message.info.deliveryCount}). Drop message...`,
 								message.seq
 							);
 							// this.logger.error(`Drop message...`, message.seq);
@@ -357,7 +370,7 @@ class NatsAdapter extends BaseAdapter {
 	 *
 	 * @param {String} streamName Name of the Stream
 	 * @param {Array<String>} subjects A list of subjects/topics to store in a stream
-	 * @param {StreamConfig} streamOpts JetStream stream configs
+	 * @param {Partial<StreamConfig>} streamOpts JetStream stream configs
 	 */
 	async createStream(streamName, subjects, streamOpts) {
 		const streamConfig = _.defaultsDeep(
@@ -391,7 +404,7 @@ class NatsAdapter extends BaseAdapter {
 			this.logger.debug("streamInfo:", streamInfo);
 			return streamInfo;
 		} catch (error) {
-			if (error.message === "stream name already in use") {
+			if (error.message.includes("stream name already in use")) {
 				// Silently ignore the error. Channel or Consumer Group already exists
 				this.logger.debug(`NATS Stream with name: '${streamName}' already exists.`);
 			} else {
@@ -450,10 +463,9 @@ class NatsAdapter extends BaseAdapter {
 			const checkPendingMessages = () => {
 				try {
 					if (this.getNumberOfChannelActiveMessages(chan.id) === 0) {
-						// More info: https://github.com/nats-io/nats.deno/blob/main/jetstream.md#push-subscriptions
+						// More info: https://nats-io.github.io/nats.js/jetstream/index.html
 						return sub
-							.drain()
-							.then(() => sub.unsubscribe())
+							.close()
 							.then(() => {
 								this.logger.debug(
 									`Unsubscribing from '${chan.name}' chan with '${chan.group}' group...'`

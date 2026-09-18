@@ -4,8 +4,7 @@
 
 const { ServiceBroker } = require("moleculer");
 const ChannelsMiddleware = require("../..").Middleware;
-const { jetstream } = require("nats");
-const { connect } = require("nats");
+const { connect } = require("@nats-io/transport-node");
 
 let counter = 1;
 
