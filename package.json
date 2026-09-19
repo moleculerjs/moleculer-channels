@@ -7,8 +7,8 @@
   "scripts": {
     "dev": "nodemon examples/index.js",
     "typecheck": "tsc --project tsconfig.json",
-    "ci": "jest --watch",
-    "test": "jest --coverage --verbose",
+    "ci": "vitest --watch",
+    "test": "vitest --coverage --run",
     "lint": "eslint src examples test",
     "bench": "node benchmark/index.js",
     "bench:watch": "nodemon benchmark/index.js",
@@ -35,8 +35,8 @@
     "moleculer": "^0.14.12 || ^0.15.0"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
     "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "amqplib": "^0.10.9",
     "benchmarkify": "^4.0.0",
     "coveralls-next": "^6.0.1",
@@ -45,8 +45,6 @@
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-security": "^4.0.0",
     "ioredis": "^5.10.1",
-    "jest": "^29.7.0",
-    "jest-cli": "^29.7.0",
     "kafkajs": "^2.2.4",
     "kleur": "^4.1.5",
     "moleculer": "^0.15.0",
@@ -56,18 +54,8 @@
     "nodemon": "^3.1.14",
     "npm-check-updates": "^19.6.6",
     "prettier": "^3.8.1",
-    "typescript": "^6.0.2"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "rootDir": "./src",
-    "roots": [
-      "../test"
-    ],
-    "coverageDirectory": "../coverage",
-    "coveragePathIgnorePatterns": [
-      "/node_modules/"
-    ]
+    "typescript": "^6.0.2",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">= 22.x.x"

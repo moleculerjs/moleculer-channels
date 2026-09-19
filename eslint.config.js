@@ -58,5 +58,12 @@ module.exports = [
 			"require-atomic-updates": "off",
 			"object-curly-spacing": ["warn", "always"]
 		}
+	},
+	{
+		// Vitest test files use ESM imports
+		files: ["test/**/*.js"],
+		languageOptions: {
+			sourceType: "module"
+		}
 	}
 ];
