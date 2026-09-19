@@ -5,14 +5,7 @@
  */
 
 declare module "@moleculer/channels" {
-	import {
-		ServiceBroker,
-		Context,
-		Service,
-		Middleware,
-		Logger,
-		Serializers
-	} from "moleculer";
+	import { ServiceBroker, Context, Service, Middleware, Logger, Serializers } from "moleculer";
 
 	// === Core Interfaces ===
 
@@ -172,7 +165,9 @@ declare module "@moleculer/channels" {
 		/** Function to convert Error to header entries for dead-lettering */
 		transformErrorToHeaders: (error: Error) => Record<string, string> | null;
 		/** Function to parse error info from headers */
-		transformHeadersToErrorData: (headers: Record<string, string>) => Record<string, any> | null;
+		transformHeadersToErrorData: (
+			headers: Record<string, string>
+		) => Record<string, any> | null;
 
 		constructor(opts?: BaseDefaultOptions);
 
@@ -320,9 +315,7 @@ declare module "@moleculer/channels" {
 	export interface KafkaDefaultOptions extends BaseDefaultOptions {
 		kafka?: {
 			/** Kafka brokers */
-			brokers?: string[];
-			/** Log creator function */
-			logCreator?: () => (logEntry: any) => void;
+			bootstrapBrokers?: string[];
 			/** Producer options */
 			producerOptions?: Record<string, any>;
 			/** Consumer options */
@@ -483,10 +476,12 @@ declare module "@moleculer/channels" {
 			sendToChannel(channelName: string, payload: any, opts?: SendOptions): Promise<void>;
 		}
 
-		export interface ServiceSchema<TSettings = ServiceSettingSchema,
-		TMethods = Record<string, any>,
-		TVars = Record<string, any>,
-		TThis = Service<TSettings> & TVars & TMethods> {
+		export interface ServiceSchema<
+			TSettings = ServiceSettingSchema,
+			TMethods = Record<string, any>,
+			TVars = Record<string, any>,
+			TThis = Service<TSettings> & TVars & TMethods
+		> {
 			/**
 			 * Channel definitions for the service
 			 */
@@ -521,5 +516,5 @@ declare module "@moleculer/channels" {
 		ChannelsMiddleware as Middleware,
 		TracingMiddleware as Tracing,
 		AdaptersRegistry as Adapters
-	}
+	};
 }

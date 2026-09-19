@@ -1,10 +1,10 @@
-"use strict";
+import { describe, expect, it } from "vitest";
 
-const RedisAdapter = require("../../src/adapters/redis");
-const AmqpAdapter = require("../../src/adapters/amqp");
-const NatsAdapter = require("../../src/adapters/nats");
-const KafkaAdapter = require("../../src/adapters/kafka");
-const FakeAdapter = require("../../src/adapters/fake");
+import RedisAdapter from "../../src/adapters/redis";
+import AmqpAdapter from "../../src/adapters/amqp";
+import NatsAdapter from "../../src/adapters/nats";
+import KafkaAdapter from "../../src/adapters/kafka";
+import FakeAdapter from "../../src/adapters/fake";
 
 describe("Adapter constructor string URL handling", () => {
 	describe("Redis adapter", () => {
@@ -61,16 +61,16 @@ describe("Adapter constructor string URL handling", () => {
 	});
 
 	describe("Kafka adapter", () => {
-		it("should parse string URL into opts.kafka.brokers", () => {
+		it("should parse string URL into opts.kafka.bootstrapBrokers", () => {
 			const adapter = new KafkaAdapter("kafka://myhost:9092");
-			expect(adapter.opts.kafka.brokers).toEqual(["myhost:9092"]);
+			expect(adapter.opts.kafka.bootstrapBrokers).toEqual(["myhost:9092"]);
 		});
 
 		it("should work with object form", () => {
 			const adapter = new KafkaAdapter({
-				kafka: { brokers: ["myhost:9092"] }
+				kafka: { bootstrapBrokers: ["myhost:9092"] }
 			});
-			expect(adapter.opts.kafka.brokers).toEqual(["myhost:9092"]);
+			expect(adapter.opts.kafka.bootstrapBrokers).toEqual(["myhost:9092"]);
 		});
 	});
 
