@@ -1,7 +1,6 @@
-"use strict";
-
-const { ServiceBroker } = require("moleculer");
-const ChannelMiddleware = require("./../../").Middleware;
+import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
+import { ServiceBroker } from "moleculer";
+import { Middleware as ChannelMiddleware } from "./../../";
 
 describe("Test service 'channelHandlerTrigger' method", () => {
 	const serviceSchema = {
@@ -48,7 +47,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 
 		it("should register default 'emitLocalChannelHandler' function declaration", async () => {
 			// Mock the "sum" method
-			service.sum = jest.fn();
+			service.sum = vi.fn();
 
 			// Call the "helper.sum" handler
 			await service.emitLocalChannelHandler("helper.sum", { a: 5, b: 5 });
@@ -62,7 +61,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 
 		it("should register default 'emitLocalChannelHandler' object declaration", async () => {
 			// Mock the "sum" method
-			service.subtract = jest.fn();
+			service.subtract = vi.fn();
 
 			// Call the "helper.sum" handler
 			await service.emitLocalChannelHandler("helper.subtract", { a: 5, b: 5 });
@@ -93,7 +92,7 @@ describe("Test service 'channelHandlerTrigger' method", () => {
 
 		it("should register with 'myTrigger'", async () => {
 			// Mock the "sum" method
-			service.sum = jest.fn();
+			service.sum = vi.fn();
 
 			// Call the "helper.sum" handler
 			await service.myTrigger("helper.sum", { a: 5, b: 5 });

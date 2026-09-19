@@ -27,11 +27,9 @@ async function main() {
 								subjects: ["streamOneTopic.*"]
 							},
 							consumerOptions: {
-								config: {
-									deliver_policy: "new",
-									ack_policy: "explicit",
-									max_ack_pending: 1
-								}
+								deliver_policy: "new",
+								ack_policy: "explicit",
+								max_ack_pending: 1
 							}
 						},
 						maxInFlight: 10,
@@ -53,9 +51,7 @@ async function main() {
 				group: "other",
 				nats: {
 					consumerOptions: {
-						config: {
-							deliver_policy: "new"
-						}
+						deliver_policy: "new"
 					},
 					streamConfig: {
 						// Create a single stream for all topics that match `streamOneTopic.>`
