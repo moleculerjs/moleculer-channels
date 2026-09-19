@@ -1,5 +1,3 @@
-"use strict";
-
 import * as _ from "lodash";
 import { ServiceBroker, Context } from "moleculer";
 import { Middleware as ChannelMiddleware } from "./../../";

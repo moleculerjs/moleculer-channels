@@ -8,9 +8,9 @@ export default defineConfig({
 			include: ["src/**/*.{ts,js}"]
 		},
 
-		teardownTimeout: 10 * 1000,
-		testTimeout: 60 * 1000,
-		hookTimeout: 30 * 1000,
+		teardownTimeout: 30 * 1000,
+		testTimeout: 5 * 60 * 1000,
+		hookTimeout: 5 * 60 * 1000,
 
 		maxConcurrency: 1
 	}

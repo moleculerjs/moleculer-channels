@@ -1,5 +1,3 @@
-"use strict";
-
 import { describe, expect, it, beforeAll, afterAll, vi } from "vitest";
 import { ServiceBroker } from "moleculer";
 import { Middleware as ChannelMiddleware } from "./../../";
