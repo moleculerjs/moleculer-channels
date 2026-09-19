@@ -237,14 +237,28 @@ class NatsAdapter extends BaseAdapter {
 					// A push consumer created by the previous (v2) version of this adapter
 					// shares the durable name. JetStream forbids changing the delivery
 					// mode in place, so it must be deleted and recreated as a pull
-					// consumer. Pending messages of the old consumer are lost (the
-					// stream itself is not), but with the default 'deliver_policy: "new"'
-					// the recreated consumer only receives newly published messages anyway.
+					// consumer. Deleting the old consumer discards its cursor, so the
+					// recreated consumer resumes from the old consumer's ack floor.
+					// Unacked messages are redelivered (at-least-once semantics);
+					// some already-acked messages near the ack floor may be
+					// redelivered as duplicates.
 					this.logger.warn(
-						`Consumer '${durableName}' on stream '${streamName}' is a legacy push consumer created by a previous version of the NATS adapter. Recreating it as a pull consumer. Messages pending on the old consumer will be lost.`
+						`Consumer '${durableName}' on stream '${streamName}' is a legacy push consumer created by a previous version of the NATS adapter. Recreating it as a pull consumer, resuming from the old consumer's last acknowledged message. Unacknowledged messages will be redelivered.`
 					);
+
+					// Messages below the ack floor are already acknowledged; resume
+					// after them instead of dropping everything pending on the old
+					// consumer.
+					const migrateConfig = { ...consumerConfig };
+					if (info.ack_floor.stream_seq > 0) {
+						migrateConfig.deliver_policy = "by_start_sequence";
+						migrateConfig.opt_start_seq = info.ack_floor.stream_seq + 1;
+					} else {
+						migrateConfig.deliver_policy = "all";
+					}
+
 					await this.manager.consumers.delete(streamName, durableName);
-					await this.manager.consumers.add(streamName, consumerConfig);
+					await this.manager.consumers.add(streamName, migrateConfig);
 				} else {
 					await this.manager.consumers.update(streamName, durableName, consumerConfig);
 				}
