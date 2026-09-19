@@ -118,13 +118,8 @@ class NatsAdapter extends BaseAdapter {
 			);
 		}
 
-		// The v3 NATS packages don't export their package.json, so fall back to a warning
-		try {
-			this.checkClientLibVersion("@nats-io/transport-node", "^3.0.0");
-			this.checkClientLibVersion("@nats-io/jetstream", "^3.0.0");
-		} catch (err) {
-			this.logger.warn("Unable to check the NATS client library version.", err.message);
-		}
+		this.checkClientLibVersion("@nats-io/transport-node", "^3.0.0");
+		this.checkClientLibVersion("@nats-io/jetstream", "^3.0.0");
 	}
 
 	/**
