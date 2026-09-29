@@ -3,8 +3,7 @@ import { ServiceBroker, Context } from "moleculer";
 import { Middleware as ChannelMiddleware } from "./../../";
 import { parseBase64 } from "../../src/utils";
 import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
-
-const Kafka = require("kafkajs").Kafka;
+import * as Kafka from "@platformatic/kafka";
 
 let Adapters;
 
@@ -29,7 +28,7 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},
 		{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },
-		{ type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } },
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } },
 		{ type: "Fake", name: "Multi", options: {} }
 	].filter(a => (a.name || a.type) == process.env.ADAPTER);
 } else {
@@ -54,8 +53,8 @@ if (process.env.GITHUB_ACTIONS_CI) {
 		},*/
 		/*{ type: "AMQP", options: {} },
 		{ type: "NATS", options: {} },*/
-		// { type: "Kafka", options: { kafka: { brokers: ["localhost:9093"] } } }
-		{ type: "Redis", options: {} }
+		{ type: "Kafka", options: { kafka: { bootstrapBrokers: ["localhost:9093"] } } }
+		// { type: "Redis", options: {} }
 	];
 }
 
@@ -462,7 +461,10 @@ describe("Integration tests", () => {
 					}
 				});
 
-				beforeAll(() => broker.start().delay(DELAY_AFTER_BROKER_START));
+				beforeAll(async () => {
+					await broker.start();
+					await broker.Promise.delay(6 * 1000); // add more delay for rebalancing in Kafka
+				});
 				afterAll(() => broker.stop());
 
 				beforeEach(() => {
@@ -507,7 +509,7 @@ describe("Integration tests", () => {
 
 			if (adapter.type != "Fake") {
 				describe("Test retried messages logic", () => {
-					const broker = createBroker(adapter);
+					const broker = createBroker(adapter, { logger: false });
 
 					const error = new Error("Something happened");
 					const subWrongHandler = vi.fn(() => Promise.reject(error));
@@ -750,6 +752,7 @@ describe("Integration tests", () => {
 					channels: {
 						"test.mif.topic": {
 							maxInFlight: 1,
+							kafka: { partitions: 1 },
 							async handler(payload) {
 								FLOW.push(`BEGIN: ${payload.id}`);
 								await this.Promise.delay(300);
@@ -840,15 +843,15 @@ describe("Integration tests", () => {
 						channels: { "test.ns.topic": { handler: subHandler5 } }
 					});
 
-					beforeAll(() =>
-						broker1.Promise.mapSeries(
+					beforeAll(async () => {
+						await broker1.Promise.mapSeries(
 							[broker1, broker2, broker3, broker4, broker5],
 							async broker => {
 								await broker.start();
-								await broker.Promise.delay(DELAY_AFTER_BROKER_START);
 							}
-						)
-					);
+						);
+						await broker1.Promise.delay(DELAY_AFTER_BROKER_START);
+					});
 
 					afterAll(() =>
 						Promise.all([
@@ -1125,19 +1128,24 @@ describe("Integration tests", () => {
 							// Confirm raw message headers
 							expect(arg2Raw).toBeDefined();
 							expect(arg2Raw.headers).toBeDefined();
-							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
-							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
-								"Something happened"
-							);
-							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
-								"Error"
-							);
+							// In Kafka headers are a map of Buffers
 							expect(
-								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
+								Buffer.from(arg2Raw.headers.get("x-error-message")).toString()
+							).toBe("Something happened");
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-name")).toString()
+							).toBe("Error");
+							expect(
+								parseBase64(
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
+								)
+							).toEqual(expect.any(String));
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-timestamp")).toString()
 							).toEqual(expect.any(String));
 							expect(
 								parseBase64(
-									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
 							).toEqual(expect.any(String));
 						}
@@ -1294,19 +1302,24 @@ describe("Integration tests", () => {
 							// Confirm raw message headers
 							expect(arg2Raw).toBeDefined();
 							expect(arg2Raw.headers).toBeDefined();
-							// In Kafka headers are a plain object but values are Buffers. Stack is base64 encoded
-							expect(Buffer.from(arg2Raw.headers["x-error-message"]).toString()).toBe(
-								"Something happened"
-							);
-							expect(Buffer.from(arg2Raw.headers["x-error-name"]).toString()).toBe(
-								"Error"
-							);
+							// In Kafka headers are a map of Buffers
 							expect(
-								Buffer.from(arg2Raw.headers["x-error-timestamp"]).toString()
+								Buffer.from(arg2Raw.headers.get("x-error-message")).toString()
+							).toBe("Something happened");
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-name")).toString()
+							).toBe("Error");
+							expect(
+								parseBase64(
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
+								)
+							).toEqual(expect.any(String));
+							expect(
+								Buffer.from(arg2Raw.headers.get("x-error-timestamp")).toString()
 							).toEqual(expect.any(String));
 							expect(
 								parseBase64(
-									Buffer.from(arg2Raw.headers["x-error-stack"]).toString()
+									Buffer.from(arg2Raw.headers.get("x-error-stack")).toString()
 								)
 							).toEqual(expect.any(String));
 						}
@@ -1404,18 +1417,33 @@ if (process.env.GITHUB_ACTIONS_CI && process.env.ADAPTER == "Multi") {
 	});
 }
 
+/**
+ *
+ * @param {any} adapter
+ * @param {{ topic: string, numPartitions?: number }[]} defs
+ * @returns
+ */
 async function createKafkaTopics(adapter, defs) {
-	const kafka = new Kafka({
-		clientId: "moleculer-channel-test",
-		brokers: adapter.options.kafka.brokers
-	});
-	const admin = kafka.admin();
+	if (!defs || defs.length === 0) return;
 
-	await admin.connect();
+	const admin = new Kafka.Admin({
+		clientId: "moleculer-channel-test",
+		bootstrapBrokers: adapter.options.kafka.bootstrapBrokers
+	});
+
+	await admin.connectToBrokers();
 	const topics = await admin.listTopics();
 	defs = defs.filter(def => !topics.includes(def.topic));
-	await admin.createTopics({
-		topics: defs
-	});
-	await admin.disconnect();
+	if (defs.length === 0) {
+		await admin.close();
+		return;
+	}
+
+	for (const def of defs) {
+		await admin.createTopics({
+			topics: [def.topic],
+			partitions: typeof def.numPartitions === "number" ? def.numPartitions : undefined
+		});
+	}
+	await admin.close();
 }

@@ -6,9 +6,9 @@
   "typings": "index.d.ts",
   "scripts": {
     "dev": "nodemon examples/index.js",
-    "typecheck": "tsc --project tsconfig.json",
     "ci": "vitest --watch",
     "test": "vitest --coverage --run",
+    "typecheck": "tsc --project tsconfig.json",
     "lint": "eslint src examples test",
     "bench": "node benchmark/index.js",
     "bench:watch": "nodemon benchmark/index.js",
@@ -35,6 +35,7 @@
     "moleculer": "^0.14.12 || ^0.15.0"
   },
   "devDependencies": {
+    "@platformatic/kafka": "^1.34.0",
     "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^5.0.2",
     "amqplib": "^0.10.9",
@@ -44,8 +45,8 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-security": "^4.0.0",
+    "hwp": "^0.4.1",
     "ioredis": "^5.10.1",
-    "kafkajs": "^2.2.4",
     "kleur": "^4.1.5",
     "moleculer": "^0.15.0",
     "moleculer-repl": "^0.8.0",
@@ -62,7 +63,7 @@
     "node": ">= 22.x.x"
   },
   "dependencies": {
-    "lodash": "^4.17.23",
+    "lodash": "^4.18.1",
     "semver": "^7.7.4"
   }
 }

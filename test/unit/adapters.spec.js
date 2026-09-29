@@ -61,16 +61,16 @@ describe("Adapter constructor string URL handling", () => {
 	});
 
 	describe("Kafka adapter", () => {
-		it("should parse string URL into opts.kafka.brokers", () => {
+		it("should parse string URL into opts.kafka.bootstrapBrokers", () => {
 			const adapter = new KafkaAdapter("kafka://myhost:9092");
-			expect(adapter.opts.kafka.brokers).toEqual(["myhost:9092"]);
+			expect(adapter.opts.kafka.bootstrapBrokers).toEqual(["myhost:9092"]);
 		});
 
 		it("should work with object form", () => {
 			const adapter = new KafkaAdapter({
-				kafka: { brokers: ["myhost:9092"] }
+				kafka: { bootstrapBrokers: ["myhost:9092"] }
 			});
-			expect(adapter.opts.kafka.brokers).toEqual(["myhost:9092"]);
+			expect(adapter.opts.kafka.bootstrapBrokers).toEqual(["myhost:9092"]);
 		});
 	});
 
