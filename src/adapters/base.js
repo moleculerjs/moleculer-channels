@@ -157,8 +157,31 @@ class BaseAdapter {
 	 * @returns {Boolean}
 	 */
 	checkClientLibVersion(library, requiredVersions) {
-		const pkg = require(`${library}/package.json`);
-		const installedVersion = pkg.version;
+		const getInstalledVersionStr = () => {
+			try {
+				// this might fail if the lib doesn't export its package.json (example TS project)
+				const pkg = require(`${library}/package.json`);
+				return pkg.version;
+			} catch (err) {
+				const pathToResolvedLib = require.resolve(library);
+				// Get the path to the library's root directory by removing whatever comes after the library name in the resolved path
+				const indexOfLibName = pathToResolvedLib.lastIndexOf(`/${library}/`);
+				if (indexOfLibName === -1) {
+					throw new Error(
+						`Could not determine the path to the root of the ${library} library.`
+					);
+				}
+				const pathToLibRoot = pathToResolvedLib.substring(
+					0,
+					indexOfLibName + library.length + 1
+				);
+
+				const pkg = require(`${pathToLibRoot}/package.json`);
+				return pkg.version;
+			}
+		};
+
+		const installedVersion = getInstalledVersionStr();
 
 		if (semver.satisfies(installedVersion, requiredVersions)) {
 			return true;

@@ -1,8 +1,29 @@
+<a name="v0.4.0 [UNRELEASED]"></a>
+
+# [0.4.0](https://github.com/moleculerjs/moleculer-channels/compare/v0.3.1...v0.4.0)
+
+## Breaking changes
+
+- NATS adapter migrated from the `nats` (v2) client to the new `@nats-io/transport-node` & `@nats-io/jetstream` (v3) client. Install the new packages with `npm install @nats-io/transport-node @nats-io/jetstream`, the `nats` module is no longer used.
+- NATS `consumerOptions` use the flat `ConsumerConfig` shape. The legacy nested `consumerOptions.config` shape is deprecated: its fields are flattened automatically with a deprecation warning, other legacy fields (`mack`, `queue`, `deliver_subject`, `callbackFn`) are dropped. Previously the nested settings were silently ignored (and newer JetStream servers reject them with `invalid JSON: json: unknown field "config"`).
+- NATS consumers are created as JetStream **pull** consumers instead of push consumers. On the first start, existing consumers created by the previous version are migrated automatically: they are recreated as pull consumers and resume from the old consumer's last acknowledged message. Unacknowledged messages are redelivered (at-least-once semantics) and some already-acked messages near the ack floor may be redelivered as duplicates.
+- NATS durable consumer names contain the channel name (`<group>_<channel>` instead of `<group>`), so multiple channels sharing a stream and a consumer group get their own consumers instead of overwriting each other's consumer config.
+- Rolling back to a previous (v2-based) version is **not supported** after the migration: the previous version fails with `durable requires no queue group` on the pull consumers created by this version. Do not mix replicas of the previous version with replicas of this version during an upgrade.
+
+## Fixes
+
+- NATS: restarting a service no longer fails with `consumer delivery policy is deliver new, but optional start sequence is also set` (10094) or `deliver policy can not be updated` (10012). Existing consumers are updated with mutable fields only (`max_ack_pending`, `ack_wait`, `max_deliver`, `filter_subject`, ...), immutable fields (`deliver_policy`, `ack_policy`, `opt_start_*`) are never sent.
+- NATS: stream resolution falls back to looking the stream up by subject when the stream creation fails, so streams that already exist under a custom name (created by an operator or another service) work again.
+- NATS: starting multiple replicas concurrently during the legacy-consumer migration no longer fails with `consumer not found` (10014). JetStream errors are matched by their API error codes instead of error messages.
+
+---
+
 <a name="v0.3.1"></a>
 
 # [0.3.1](https://github.com/moleculerjs/moleculer-channels/compare/v0.3.0...v0.3.1)
 
 ## Fixes
+
 - Fix NATS adapter ignoring connection URL when passed as string (e.g. `"nats://host:4222"`) [#95](https://github.com/moleculerjs/moleculer-channels/issues/95)
 - Add unit tests for string URL constructor handling across all adapters
 
@@ -13,11 +34,13 @@
 # [0.3.0](https://github.com/moleculerjs/moleculer-channels/compare/v0.2.0...v0.3.0)
 
 ## Breaking changes
+
 - Minimum Node.js version is **22.x** (matching Moleculer 0.15)
 - Middleware lifecycle hook changed from `started()` to `starting()` (Moleculer 0.15 compatibility)
 - ESLint migrated from v8 to v10 (flat config)
 
 ## New features
+
 - Add `ctx.channelName` and `ctx.parentChannelName` to context-based handlers for channel chain tracking [#92](https://github.com/moleculerjs/moleculer-channels/pull/92)
 - Attach `ctx.service` to context in channel handlers
 - Store error info in dead-letter queue headers (`x-error-message`, `x-error-code`, `x-error-stack`, `x-error-data`, etc.) [#91](https://github.com/moleculerjs/moleculer-channels/pull/91)
@@ -28,9 +51,11 @@
 - Log errors for message parsing failures in AMQP and NATS adapters
 
 ## Fixes
+
 - Support `amqplib` v0.10.x
 
 ## TypeScript
+
 - Rewrite type definitions: replace generated `types/` directory with hand-crafted root `index.d.ts`
 - Fix `Serializer` import for Moleculer 0.15 (`Serializers.Base`)
 - Add error header constants and error transform function types
@@ -39,6 +64,7 @@
 - Add TypeCheck GitHub Actions workflow
 
 ## Dependencies
+
 - Moleculer peer dependency: `^0.14.12 || ^0.15.0-0`
 - ESLint 8 → 10 (flat config migration), remove `eslint-plugin-node` and `eslint-plugin-promise`
 - TypeScript 5 → 6
@@ -105,9 +131,9 @@
 
 # [0.1.1](https://github.com/moleculerjs/moleculer-channels/compare/v0.1.0...v0.1.1) (2021-12-28)
 
--   Added Typescript support.
--   Added `connection` flag that prevents publishing events before the adapter is connected.
--   Added metrics.
+- Added Typescript support.
+- Added `connection` flag that prevents publishing events before the adapter is connected.
+- Added metrics.
 
 <a name="v0.1.0"></a>
 

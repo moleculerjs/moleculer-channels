@@ -927,7 +927,7 @@ module.exports = {
 
 ### NATS JetStream
 
-> To use this adapter, install the `nats` module with npm install `nats` command.
+> To use this adapter, install the `@nats-io/transport-node` and `@nats-io/jetstream` modules with `npm install @nats-io/transport-node @nats-io/jetstream` command.
 
 ```js
 // moleculer.config.js
@@ -960,16 +960,14 @@ module.exports = {
                         connectionOptions: {},
                         /** @type {StreamConfig} More info: https://docs.nats.io/jetstream/concepts/streams */
                         streamConfig: {},
-                        /** @type {ConsumerOpts} More info: https://docs.nats.io/jetstream/concepts/consumers */
+                        /** @type {ConsumerConfig} More info: https://docs.nats.io/jetstream/concepts/consumers */
                         consumerOptions: {
-                            config: {
-                                // More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
-                                deliver_policy: "new",
-                                // More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
-                                ack_policy: "explicit",
-                                // More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
-                                max_ack_pending: 1
-                            }
+                            // More info: https://docs.nats.io/jetstream/concepts/consumers#deliverpolicy-optstartseq-optstarttime
+                            deliver_policy: "new",
+                            // More info: https://docs.nats.io/jetstream/concepts/consumers#ackpolicy
+                            ack_policy: "explicit",
+                            // More info: https://docs.nats.io/jetstream/concepts/consumers#maxackpending
+                            max_ack_pending: 1
                         }
                     },
                     maxInFlight: 10,
@@ -984,6 +982,16 @@ module.exports = {
     ]
 };
 ```
+
+#### Upgrading from the previous (NATS client v2) version
+
+The adapter was migrated from the `nats` (v2) client to the new [`@nats-io/*` (v3)](https://github.com/nats-io/nats.js/blob/main/migration.md) client. Breaking changes:
+
+- Install the new packages (`@nats-io/transport-node` & `@nats-io/jetstream`), the `nats` module is no longer used.
+- `consumerOptions` use the flat `ConsumerConfig` shape. The legacy nested `consumerOptions.config` shape is deprecated: its fields are flattened with a deprecation warning, other legacy fields (`mack`, `queue`, ...) are dropped.
+- Consumers are created as JetStream **pull** consumers instead of push consumers. On the first start, existing consumers of the previous version are migrated automatically: they are recreated as pull consumers and resume from the old consumer's last acknowledged message. Unacknowledged messages are redelivered and some already-acked messages near the ack floor may be redelivered as duplicates.
+- The durable consumer name contains the channel name (`<group>_<channel>`), so multiple channels sharing a stream and a consumer group get their own consumers.
+- Rolling back to a previous (v2-based) version is not supported after the migration: the previous version fails with `durable requires no queue group` on the migrated consumers. Do not mix replicas of the previous version with replicas of this version.
 
 #### Jetstream - Single stream with multiple topics
 

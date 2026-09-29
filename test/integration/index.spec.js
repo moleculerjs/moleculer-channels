@@ -4,7 +4,7 @@ import { Middleware as ChannelMiddleware } from "./../../";
 import { parseBase64 } from "../../src/utils";
 import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
 
-const Kafka = require("kafkajs").Kafka;
+import { Kafka } from "kafkajs";
 
 let Adapters;
 
