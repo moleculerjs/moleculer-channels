@@ -17,6 +17,110 @@ let NATS;
 let JS;
 
 /**
+ * JetStream API error codes. Error messages vary between server versions and client
+ * libraries, so they are matched by the stable API error code.
+ * More info: https://docs.nats.io/reference/errcodes#jetstream-error-codes
+ */
+const JETSTREAM_ERROR_CODES = {
+	CONSUMER_NOT_FOUND: 10014,
+	CONSUMER_ALREADY_EXISTS: 10148
+};
+
+/**
+ * Consumer config fields that JetStream does not allow to change on an existing
+ * consumer. They must never be sent to `consumers.update`, because the server
+ * rejects the request (e.g. "deliver policy can not be updated") and because the
+ * v3 client merges the update request into the stored config, so a changed
+ * `deliver_policy` can also end up conflicting with a leftover `opt_start_seq`
+ * ("consumer delivery policy is deliver new, but optional start sequence is also set").
+ */
+const IMMUTABLE_CONSUMER_FIELDS = [
+	"name",
+	"durable_name",
+	"deliver_subject",
+	"deliver_policy",
+	"opt_start_seq",
+	"opt_start_time",
+	"ack_policy"
+];
+
+/**
+ * Fields of the legacy (NATS client v2) `ConsumerOpts` shape that have no meaning
+ * for the v3 client. The adapter manages them itself or they are not supported.
+ */
+const LEGACY_CONSUMER_OPTS_FIELDS = ["callbackFn", "config", "deliver_subject", "mack", "queue"];
+
+/**
+ * Returns the JetStream API error code of an error (e.g. `10014` consumer not found).
+ *
+ * @param {Error} err
+ * @returns {Number?}
+ */
+function getJetStreamErrorCode(err) {
+	// `JetStreamApiError.code` is the server's `err_code`. The raw `api_error` property
+	// is also checked to stay compatible with plain API error objects.
+	if (err && typeof err.code === "number") return err.code;
+	if (err && typeof err.apiError === "function") {
+		const apiError = err.apiError();
+		if (apiError && typeof apiError.err_code === "number") return apiError.err_code;
+	}
+	if (err && err.api_error && typeof err.api_error.err_code === "number") {
+		return err.api_error.err_code;
+	}
+	return null;
+}
+
+/**
+ * @param {Error} err
+ * @returns {Boolean}
+ */
+function isConsumerNotFoundError(err) {
+	return getJetStreamErrorCode(err) === JETSTREAM_ERROR_CODES.CONSUMER_NOT_FOUND;
+}
+
+/**
+ * @param {Error} err
+ * @returns {Boolean}
+ */
+function isConsumerAlreadyExistsError(err) {
+	return getJetStreamErrorCode(err) === JETSTREAM_ERROR_CODES.CONSUMER_ALREADY_EXISTS;
+}
+
+/**
+ * Normalizes consumer options of the legacy (NATS client v2) nested shape
+ * `consumerOptions: { config: {...}, mack: true, ... }`. The `config` fields are
+ * flattened into the new flat `ConsumerConfig` shape (top-level fields win), the
+ * unsupported legacy fields are dropped with a deprecation warning. Passing the
+ * legacy shape unnormalized makes the JetStream server reject the consumer
+ * creation with `invalid JSON: json: unknown field "config"`.
+ *
+ * @param {Object} consumerOptions
+ * @param {Logger} logger
+ * @param {String?} [chanName] Optional channel name for a more precise warning
+ * @returns {Object} Normalized (flat) consumer options
+ */
+function normalizeLegacyConsumerOptions(consumerOptions, logger, chanName) {
+	if (!_.isPlainObject(consumerOptions)) return consumerOptions;
+
+	const legacyKeys = LEGACY_CONSUMER_OPTS_FIELDS.filter(key => key in consumerOptions);
+	if (legacyKeys.length === 0) return consumerOptions;
+
+	logger.warn(
+		`Deprecated NATS consumer options detected${chanName ? ` on '${chanName}' channel` : ""}: ${legacyKeys
+			.map(key => `'${key}'`)
+			.join(
+				", "
+			)}. These options belong to the previous (NATS client v2) adapter and are no longer supported. The nested 'config' object is flattened into 'consumerOptions', the other fields are dropped. Please switch to the new flat 'consumerOptions' shape.`
+	);
+
+	const { config, ...flat } = consumerOptions;
+	const normalized = _.defaultsDeep({}, _.isPlainObject(config) ? config : {}, flat);
+	LEGACY_CONSUMER_OPTS_FIELDS.forEach(key => delete normalized[key]);
+
+	return normalized;
+}
+
+/**
  * @typedef {import("@nats-io/nats-core").NatsConnection} NatsConnection NATS Connection
  * @typedef {import("@nats-io/nats-core").ConnectionOptions} ConnectionOptions NATS Connection Opts
  * @typedef {import("@nats-io/jetstream").StreamConfig} StreamConfig NATS Configuration Options
@@ -120,6 +224,12 @@ class NatsAdapter extends BaseAdapter {
 
 		this.checkClientLibVersion("@nats-io/transport-node", "^3.0.0");
 		this.checkClientLibVersion("@nats-io/jetstream", "^3.0.0");
+
+		// Normalize the legacy (v2) nested `consumerOptions.config` shape if present
+		this.opts.nats.consumerOptions = normalizeLegacyConsumerOptions(
+			this.opts.nats.consumerOptions,
+			this.logger
+		);
 	}
 
 	/**
@@ -209,61 +319,39 @@ class NatsAdapter extends BaseAdapter {
 		/** @type {ConsumerConfig} More info: https://docs.nats.io/jetstream/concepts/consumers */
 		const consumerConfig = _.defaultsDeep(
 			{},
-			chan.nats ? chan.nats.consumerOptions : {},
+			normalizeLegacyConsumerOptions(
+				chan.nats ? chan.nats.consumerOptions : {},
+				this.logger,
+				chan.name
+			),
 			this.opts.nats.consumerOptions
 		);
 
-		// NATS Stream name does not support: spaces, tabs, period (.), greater than (>) or asterisk (*) are prohibited.
+		// JetStream consumer (durable) names do not support: spaces, tabs, period (.), asterisk (*), greater than (>) characters.
 		// More info: https://docs.nats.io/jetstream/administration/naming
-		consumerConfig.durable_name = chan.group.split(".").join("_");
+		// The durable name embeds both the group and the channel name, so channels sharing a
+		// stream (and even a consumer group) never overwrite each other's consumer config.
+		consumerConfig.durable_name = this.getDurableName(chan);
 		consumerConfig.filter_subject = chan.name;
 		consumerConfig.max_ack_pending = chan.maxInFlight;
 
-		// 3. Create or update a durable consumer.
+		// 3. Create or update a durable pull consumer.
 		// All service replicas share the same durable consumer, JetStream load-balances
 		// the messages between the connected pull consumers.
 		const durableName = consumerConfig.durable_name;
+
+		// Consumers created by the previous (v2) adapter version are push consumers named
+		// after the group only. They must be recreated as pull consumers.
+		const resumeConfig = await this.migrateLegacyConsumer(streamName, chan, durableName);
+
 		try {
-			await this.manager.consumers.add(streamName, consumerConfig);
+			await this.ensureConsumer(streamName, durableName, consumerConfig, resumeConfig);
 		} catch (err) {
-			if (err.message === "consumer already exists") {
-				const info = await this.manager.consumers.info(streamName, durableName);
-				if (info.config.deliver_subject) {
-					// A push consumer created by the previous (v2) version of this adapter
-					// shares the durable name. JetStream forbids changing the delivery
-					// mode in place, so it must be deleted and recreated as a pull
-					// consumer. Deleting the old consumer discards its cursor, so the
-					// recreated consumer resumes from the old consumer's ack floor.
-					// Unacked messages are redelivered (at-least-once semantics);
-					// some already-acked messages near the ack floor may be
-					// redelivered as duplicates.
-					this.logger.warn(
-						`Consumer '${durableName}' on stream '${streamName}' is a legacy push consumer created by a previous version of the NATS adapter. Recreating it as a pull consumer, resuming from the old consumer's last acknowledged message. Unacknowledged messages will be redelivered.`
-					);
-
-					// Messages below the ack floor are already acknowledged; resume
-					// after them instead of dropping everything pending on the old
-					// consumer.
-					const migrateConfig = { ...consumerConfig };
-					if (info.ack_floor.stream_seq > 0) {
-						migrateConfig.deliver_policy = "by_start_sequence";
-						migrateConfig.opt_start_seq = info.ack_floor.stream_seq + 1;
-					} else {
-						migrateConfig.deliver_policy = "all";
-					}
-
-					await this.manager.consumers.delete(streamName, durableName);
-					await this.manager.consumers.add(streamName, migrateConfig);
-				} else {
-					await this.manager.consumers.update(streamName, durableName, consumerConfig);
-				}
-			} else {
-				this.logger.error(
-					`Error while creating consumer '${durableName}' for '${chan.name}' chan with '${chan.group}' group`,
-					err
-				);
-				throw err;
-			}
+			this.logger.error(
+				`Error while creating consumer '${durableName}' for '${chan.name}' chan with '${chan.group}' group`,
+				err
+			);
+			throw err;
 		}
 
 		// 4. Start consuming messages
@@ -283,6 +371,183 @@ class NatsAdapter extends BaseAdapter {
 			);
 			throw err;
 		}
+	}
+
+	/**
+	 * Sanitizes a string so it can be used as a JetStream stream or consumer (durable) name.
+	 *
+	 * NATS names do not support: spaces, tabs, period (.), asterisk (*) or greater than (>).
+	 * More info: https://docs.nats.io/jetstream/administration/naming
+	 *
+	 * @param {String} name
+	 * @returns {String} Sanitized name
+	 */
+	sanitizeName(name) {
+		return name.replace(/[\s.*>]/g, "_");
+	}
+
+	/**
+	 * Resolves the JetStream consumer (durable) name for a channel. The name embeds both
+	 * the group and the channel name: two channels that share a stream and a consumer
+	 * group (e.g. a service listening on multiple topics of the same stream) get their
+	 * own consumers, instead of overwriting each other's consumer config.
+	 *
+	 * @param {Channel & NatsDefaultOptions} chan
+	 * @returns {String} Durable consumer name
+	 */
+	getDurableName(chan) {
+		return `${this.sanitizeName(chan.group)}_${this.sanitizeName(chan.name)}`;
+	}
+
+	/**
+	 * Removes a consumer, tolerating that it was already deleted (e.g. by a concurrent
+	 * replica migrating the same legacy consumer).
+	 *
+	 * @param {String} streamName Name of the stream
+	 * @param {String} durableName Name of the consumer
+	 */
+	async deleteConsumer(streamName, durableName) {
+		try {
+			await this.manager.consumers.delete(streamName, durableName);
+		} catch (err) {
+			if (!isConsumerNotFoundError(err)) throw err;
+
+			this.logger.debug(
+				`Consumer '${durableName}' on stream '${streamName}' was already deleted.`
+			);
+		}
+	}
+
+	/**
+	 * Builds the consumer config that resumes after the given ack floor. Messages below
+	 * the ack floor are already acknowledged; resuming after them instead of starting
+	 * from scratch keeps unprocessed messages. Note that already-acked messages near the
+	 * ack floor may still be redelivered as duplicates.
+	 *
+	 * @param {Object} ackFloor Ack floor of the old consumer (`info.ack_floor`)
+	 * @returns {Object} Partial consumer config with the resume `deliver_policy`
+	 */
+	buildResumeConfig(ackFloor) {
+		if (ackFloor.stream_seq > 0) {
+			return {
+				deliver_policy: "by_start_sequence",
+				opt_start_seq: ackFloor.stream_seq + 1
+			};
+		}
+
+		return { deliver_policy: "all" };
+	}
+
+	/**
+	 * Adopts (deletes) a legacy consumer created by the previous (v2) version of this
+	 * adapter, which created push consumers named after the consumer group only. Since
+	 * the durable names changed, the legacy consumer would otherwise linger on the
+	 * stream and keep consuming messages.
+	 *
+	 * @param {String} streamName Name of the stream
+	 * @param {Channel & NatsDefaultOptions} chan
+	 * @param {String} durableName Durable name of the new consumer
+	 * @returns {Promise<Object?>} Partial consumer config to resume from the legacy consumer's position, or `null` when there is nothing to resume
+	 */
+	async migrateLegacyConsumer(streamName, chan, durableName) {
+		const legacyName = this.sanitizeName(chan.group);
+		if (legacyName === durableName) return null;
+
+		let info;
+		try {
+			info = await this.manager.consumers.info(streamName, legacyName);
+		} catch (err) {
+			if (!isConsumerNotFoundError(err)) {
+				this.logger.error(
+					`Error while looking up the legacy consumer '${legacyName}' on stream '${streamName}'`,
+					err
+				);
+			}
+			return null;
+		}
+
+		if (info.config.filter_subject !== chan.name) {
+			// The legacy consumer belongs to another channel that shares the group.
+			// Its position must not be adopted for this channel.
+			this.logger.debug(
+				`Legacy consumer '${legacyName}' on stream '${streamName}' belongs to the '${info.config.filter_subject}' subject, leaving it untouched.`
+			);
+			return null;
+		}
+
+		this.logger.warn(
+			`Consumer '${legacyName}' on stream '${streamName}' is a legacy ${
+				info.config.deliver_subject ? "push" : "pull"
+			} consumer created by a previous version of the NATS adapter. Recreating it as the pull consumer '${durableName}', resuming from the old consumer's last acknowledged message. Unacknowledged messages will be redelivered; some already-acked messages near the ack floor may be redelivered as duplicates.`
+		);
+
+		await this.deleteConsumer(streamName, legacyName);
+
+		return this.buildResumeConfig(info.ack_floor);
+	}
+
+	/**
+	 * Creates the durable pull consumer or updates the existing one.
+	 *
+	 * @param {String} streamName Name of the stream
+	 * @param {String} durableName Durable name of the consumer
+	 * @param {ConsumerConfig} consumerConfig Desired consumer config
+	 * @param {Object?} [resumeConfig] Optional partial config to resume from a legacy consumer's position
+	 */
+	async ensureConsumer(streamName, durableName, consumerConfig, resumeConfig) {
+		try {
+			// An identical consumer config is accepted by the server, so this only
+			// throws when a consumer with the same name already exists with a
+			// different (or a legacy push) config.
+			await this.manager.consumers.add(
+				streamName,
+				resumeConfig ? { ...consumerConfig, ...resumeConfig } : consumerConfig
+			);
+			return;
+		} catch (err) {
+			if (!isConsumerAlreadyExistsError(err)) throw err;
+		}
+
+		let info;
+		try {
+			info = await this.manager.consumers.info(streamName, durableName);
+		} catch (err) {
+			if (!isConsumerNotFoundError(err)) throw err;
+
+			// The consumer was deleted concurrently (e.g. by a replica migrating the
+			// same legacy consumer). Retry the creation with the desired config.
+			return this.ensureConsumer(streamName, durableName, consumerConfig, resumeConfig);
+		}
+
+		if (info.config.deliver_subject) {
+			// A push consumer occupies this durable name. JetStream forbids changing the
+			// delivery mode in place, so it must be deleted and recreated as a pull
+			// consumer, resuming from the old consumer's ack floor.
+			this.logger.warn(
+				`Consumer '${durableName}' on stream '${streamName}' is a push consumer created by a previous version of the NATS adapter. Recreating it as a pull consumer, resuming from the old consumer's last acknowledged message. Unacknowledged messages will be redelivered; some already-acked messages near the ack floor may be redelivered as duplicates.`
+			);
+
+			await this.deleteConsumer(streamName, durableName);
+			await this.manager.consumers.add(streamName, {
+				...consumerConfig,
+				...this.buildResumeConfig(info.ack_floor)
+			});
+			return;
+		}
+
+		// Only mutable fields can be updated. JetStream rejects the request when
+		// immutable fields (e.g. `deliver_policy`) differ from the stored config, so
+		// they are never sent, and unchanged fields are omitted as well.
+		const updates = _.omitBy(_.omit(consumerConfig, IMMUTABLE_CONSUMER_FIELDS), (value, key) =>
+			_.isEqual(info.config[key], value)
+		);
+
+		if (_.isEmpty(updates)) {
+			this.logger.debug(`Consumer '${durableName}' on stream '${streamName}' is up to date.`);
+			return;
+		}
+
+		await this.manager.consumers.update(streamName, durableName, updates);
 	}
 
 	/**
@@ -404,11 +669,9 @@ class NatsAdapter extends BaseAdapter {
 			chan.nats ? chan.nats.streamConfig : {}
 		);
 
-		this.logger.debug(
-			`Resolved stream name for channel '${chan.name}': '${streamName || derivedStreamName}'`
-		);
+		this.logger.debug(`Resolved stream name for channel '${chan.name}': '${streamName}'`);
 
-		return streamName || derivedStreamName;
+		return streamName;
 	}
 
 	/**
@@ -419,7 +682,8 @@ class NatsAdapter extends BaseAdapter {
 	 * @param {String} streamName Name of the Stream
 	 * @param {Array<String>} subjects A list of subjects/topics to store in a stream
 	 * @param {Partial<StreamConfig>} streamOpts JetStream stream configs
-	 * @returns {Promise<String>} Resolved stream name (may differ from `streamName` when overridden by config)
+	 * @returns {Promise<String>} Resolved stream name (may differ from `streamName` when the stream already exists under another name)
+	 * @throws {Error} When the stream can neither be created nor found by its subjects
 	 */
 	async createStream(streamName, subjects, streamOpts) {
 		const streamConfig = _.defaultsDeep(
@@ -457,8 +721,24 @@ class NatsAdapter extends BaseAdapter {
 				// Silently ignore the error. Channel or Consumer Group already exists
 				this.logger.debug(`NATS Stream with name: '${streamName}' already exists.`);
 				return streamConfig.name;
-			} else {
-				this.logger.error("An error ocurred while create NATS Stream", error);
+			}
+
+			this.logger.error("An error ocurred while create NATS Stream", error);
+
+			// The stream may already exist under a custom name (e.g. created by another
+			// service or by an operator), which also explains subjects-related errors.
+			// Look the stream up by the channel's subject, as the previous adapter
+			// version did.
+			try {
+				const existingStreamName = await this.manager.streams.find(subjects[0]);
+				this.logger.info(
+					`NATS Stream for subject '${subjects[0]}' already exists with name: '${existingStreamName}'.`
+				);
+				return existingStreamName;
+			} catch (findError) {
+				this.logger.debug("Error while looking up the NATS Stream by subject:", findError);
+				// Surface the original creation error
+				throw error;
 			}
 		}
 	}
