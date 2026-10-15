@@ -58,6 +58,8 @@ declare module "@moleculer/channels" {
 		maxRetries?: number;
 		/** Dead-letter-queue options */
 		deadLettering?: DeadLetteringOptions;
+		/** Validation schema for the message payload, same as action params validation */
+		params?: Record<string, any>;
 		/** User defined handler */
 		handler?: (this: TThis, payload: any, raw?: any) => Promise<any> | any;
 		/** Tracing options */
