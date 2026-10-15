@@ -359,11 +359,24 @@ module.exports = function ChannelsMiddleware(mwOpts) {
 							broker.validator &&
 							typeof broker.validator.compile === "function"
 						) {
-							const validate = broker.validator.compile(chan.params);
+							const check = broker.validator.compile(chan.params);
 
 							const prevHandler = wrappedHandler;
 							wrappedHandler = (msg, raw) => {
-								const result = validate(msg);
+								const result = check(msg);
+								// The compiled checker can return a Promise (e.g. async custom checker functions)
+								if (check.async) {
+									return result.then(res => {
+										if (res === true) return prevHandler(msg, raw);
+
+										throw new ValidationError(
+											"Message validation failed!",
+											null,
+											res
+										);
+									});
+								}
+
 								if (result === true) {
 									return prevHandler(msg, raw);
 								} else {

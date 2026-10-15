@@ -1,5 +1,17 @@
 import { ServiceBroker, Context, ServiceSchema, ServiceSettingSchema } from "moleculer";
-import { Middleware as ChannelsMiddleware } from "@moleculer/channels";
+import { Channel, Middleware as ChannelsMiddleware } from "@moleculer/channels";
+
+// Typed channel definition to assert the `Channel` interface shape
+// (direct assignment, so excess/missing properties are checked)
+const validationChannel: Channel = {
+	name: "validation.topic",
+	params: {
+		id: "number",
+		name: "string"
+	},
+	handler: async payload => payload
+};
+console.log(validationChannel);
 
 const broker = new ServiceBroker({
 	middlewares: [
@@ -26,6 +38,10 @@ broker.createService({
 			deadLettering: {
 				enabled: true,
 				queueName: "dead-letter-queue"
+			},
+			params: {
+				id: "number",
+				name: "string"
 			},
 			async handler(ctx: Context) {
 				// Process the incoming message
